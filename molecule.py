@@ -1,0 +1,369 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from collections import Counter
+
+from spacechem.grid import Position, Direction
+from spacechem.elements_data import Element, elements, elements_dict
+
+# TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
+#       cut atom sizes significantly and parsing the game's level data (which only stores right and
+#       down) will be less kludgy.
+#       Investigate how hard it would be to handle the asymmetry at runtime.
+class Atom:
+    '''Represent an Atom, including its element and attached bonds.'''
+    def __init__(self, element):
+        self.element = element
+        # TODO 1: only store directions that are non-0, should save time/memory
+        #       Alternate TODO: switch to 4-long array and use dir.value to access instead
+        # TODO 2: Also only store RIGHT/DOWN to save on memory. When doing graph algorithms,
+        #       auto-magically check LEFT/UP too. Compare runtime/memory to above approach
+        # TODO final note: arrays are much smaller than dicts... just use direction.value and we'll
+        #      save a fair amount of memory.
+        self.bonds = {Direction.UP: 0, Direction.RIGHT: 0, Direction.DOWN: 0, Direction.LEFT: 0}
+
+    def __init__(self, element, bonds):
+        self.element = element
+        self.bonds = bonds
+
+    def __str__(self):
+        return self.element.symbol
+
+    def __repr__(self):
+        return f'Atom({self.element}, {self.bonds})'
+
+    def get_json_str(self):
+        '''Return a string representing this atom in the level json's format.'''
+        return f'{self.element.atomic_num}{self.bonds[RIGHT]}{self.bonds[DOWN]}'
+
+    def hashable_repr(self, relative_orientation):
+        '''Return a hashable object representing this molecule, for use in comparing run states.
+        Requires the parent molecule's relative orientation to the main grid to ensure bonds will
+        be hashed correctly.
+        '''
+        return (self.element.atomic_num,
+                frozenset((dir + relative_orientation, bond_count)
+                          for dir, bond_count in self.bonds.items()))
+
+# Performance requirements:
+# Molecule:
+# * moving/rotating molecule is fast
+# * lookup if pos in molecule is fast
+# * lookup if molecule in an output zone is fast
+# * (Nice-to-have) Isomorphism algorithm is easy to implement
+
+# Molecule internal struct candidates:
+# * direct grid pos-atom dict: O(1) lookup by pos
+# * internal positions, with one map from an internal atom's position/direction to a grid
+#   position/direction for reference
+# * Only need to update one position and direction on move/rotate
+
+# Reactor.molecules:
+# * Molecules are ordered by last creation/modification
+#   Used By: compliance with spacechem hidden priorities (output order)
+# * Molecules container has fast add/delete (dict? If so, ensure __hash__ is left
+#   as the default implementation which just checks object identity)
+#   Used By: input, output, bond+, bond-
+# * molecules can be quickly looked up by a single grid position
+#   Used By: grab, bond+, bond-, fuse, etc.
+
+# Molecules container candidates:
+# * dict +: ordered, O(1) add/delete, O(N) lookup by pos (assuming O(1) pos lookup on Molecule)
+# * list -: ordered, O(1) add, O(N) delete, O(N) lookup by pos
+
+class Molecule:
+    '''Class used for representing a molecule in a level's input/output zones and for evaluating
+    solutions during runtime.
+    All externally-exposed methods should accept external positions. However, to increase
+    performance when moving/rotating large molecules, internal positions will be relative.
+    '''
+    def __init__(self, name='', atom_map={},
+                 origin=Position(0, 0), origin_offset=Position(0, 0),
+                 relative_orientation=Direction.UP):
+        self.name = name
+        self.origin = origin
+        self.origin_offset = origin_offset
+        self.relative_orientation = relative_orientation
+        self.atom_map = atom_map
+
+    @classmethod
+    def from_json_string(cls, json_string):
+        parts = json_string.split(';')
+        name = parts[0]
+        atom_map = {}
+        # The second field is the atomic formula which we can ignore (TODO: do something with it)
+        for atom_str in parts[2:]:
+            # formatted as: {col}{row}{atomic_num}{right_bonds}{down_bonds}
+            # Note that atomic_num is from 1-3 characters long so we reference the values after it
+            # via negative indices
+            position = Position(int(atom_str[1]), int(atom_str[0]))
+            atom = Atom(elements_dict[int(atom_str[2:-2])],
+                        {Direction.UP: 0,
+                         Direction.RIGHT: int(atom_str[-2]),
+                         Direction.DOWN: int(atom_str[-1]),
+                         Direction.LEFT: 0})
+
+            # Update other existing atoms
+            for dir in Direction.RIGHT, Direction.DOWN:
+                # Check if any existing atoms above and to our left have right/down bonds for us
+                neighbor_posn = position + dir.opposite()
+                if neighbor_posn in atom_map:
+                    atom.bonds[dir.opposite()] = atom_map[neighbor_posn].bonds[dir]
+
+                # Check if any existing atoms need our right/down bonds
+                # This doubles information but makes working with atoms less complex/asymmetrical
+                neighbor_posn = position + dir
+                if neighbor_posn in atom_map:
+                    atom_map[neighbor_posn].bonds[dir.opposite()] = atom.bonds[dir]
+
+            atom_map[position] = atom
+
+        return cls(name=name, atom_map=atom_map)
+
+    def __repr__(self):
+        return f'Molecule({self.origin}, {self.origin_offset}, {self.relative_orientation}, {self.atom_map})'
+
+    def __str__(self):
+        return f'Molecule({list(self.items())})'
+
+    def get_external_posn(self, internal_posn):
+        if self.relative_orientation == Direction.UP:
+            return Position(self.origin_offset.row + internal_posn.row,
+                            self.origin_offset.col + internal_posn.col)
+        elif self.relative_orientation == Direction.RIGHT:
+            return Position(self.origin_offset.row + self.origin.row
+                            + (internal_posn.col - self.origin.col),
+                            self.origin_offset.col + self.origin.col
+                            - (internal_posn.row - self.origin.row))
+        elif self.relative_orientation == Direction.DOWN:
+            return Position(self.origin_offset.row + 2 * self.origin.row - internal_posn.row,
+                            self.origin_offset.col + 2 * self.origin.col - internal_posn.col)
+        elif self.relative_orientation == Direction.LEFT:
+            return Position(self.origin_offset.row + self.origin.row
+                            - (internal_posn.col - self.origin.col),
+                            self.origin_offset.col + self.origin.col
+                            + (internal_posn.row - self.origin.row))
+
+    def get_internal_posn(self, external_posn):
+        if self.relative_orientation == Direction.UP:
+            return Position(external_posn.row - self.origin_offset.row,
+                            external_posn.col - self.origin_offset.col)
+        elif self.relative_orientation == Direction.RIGHT:
+            return Position(self.origin_offset.col + self.origin.col
+                            - (external_posn.col - self.origin.row),
+                            external_posn.row + self.origin.col
+                            - (self.origin_offset.row + self.origin.row))
+        elif self.relative_orientation == Direction.DOWN:
+            return Position(self.origin_offset.row + 2 * self.origin.row - external_posn.row,
+                            self.origin_offset.col + 2 * self.origin.col - external_posn.col)
+        elif self.relative_orientation == Direction.LEFT:
+            return Position(external_posn.col + self.origin.row
+                            - (self.origin_offset.col + self.origin.col),
+                            self.origin_offset.row + self.origin.row
+                            - (external_posn.row - self.origin.col))
+
+    def __len__(self):
+        '''Return the # of atoms in this molecule.'''
+        return len(self.atom_map)
+
+    def __contains__(self, external_posn):
+        return self.get_internal_posn(external_posn) in self.atom_map
+
+    def __getitem__(self, external_posn):
+        '''Return the atom at the specified position or None.'''
+        return self.atom_map[self.get_internal_posn(external_posn)]
+
+    def __setitem__(self, external_posn, atom):
+        '''Set the atom at the specified position.'''
+        self.atom_map[self.get_internal_posn(external_posn)] = \
+                Atom(atom.element, {dir - self.relative_orientation: c for dir, c in atom.bonds.items()})
+
+    def items(self):
+        return ((self.get_external_posn(posn),
+                 Atom(atom.element, {dir + self.relative_orientation: c for dir, c in atom.bonds.items()}))
+                for posn, atom in self.atom_map.items())
+
+    def __iadd__(self, other):
+        '''Since we'll never need to preserve the old molecule when bonding, only implement
+        mutating add for performance reasons.
+        It is expected that each half of the bond between the molecules has already been
+        created on them before calling this method.
+        '''
+        for external_posn, atom in other.items():
+            self[external_posn] = atom
+        return self
+
+    def get_json_str(self):
+        '''Return a string representing this molecule in the level json's format.'''
+        # TODO: formula
+        result = f'{self.name};{self.formula.get_json_str()}'
+        for pos, atom in self.atom_map.items():
+            result += ';' + f'{pos.col}{pos.row}' + atom.get_json_str()
+        return result
+
+    def move(self, direction):
+        self.origin_offset += direction
+
+    def rotate(self, pivot_pos, direction):
+        # set the molecule's new 'origin' to the point we're pivoting around, calculate the new
+        # origin's offset from its external grid position, then update the internal orientation
+        self.origin = self.get_internal_posn(pivot_pos)
+        self.origin_offset = Position(pivot_pos.row - self.origin.row,
+                                      pivot_pos.col - self.origin.col)
+        self.relative_orientation += direction
+
+    def check_collisions(self, other):
+        '''Check for collisions with another molecule. Do nothing if checked against itself.'''
+        if other is not self:
+            for posn in self.atom_map:
+                if self.get_external_posn(posn) in other:
+                    raise Exception("Collision between molecules.")
+
+    def debond(self, posn, direction):
+        '''Decrement the specified bond in this molecule. If doing so disconnects this molecule,
+        mutate this molecule to its new size and return the extra molecule that was split off.
+        return it (else return None).
+        '''
+        posn_A = self.get_internal_posn(posn)
+        atom_A = self.atom_map[posn_A]
+        internal_direction_A = direction - self.relative_orientation
+        cur_bond_count = atom_A.bonds[internal_direction_A]
+
+        if cur_bond_count == 0:
+            return
+
+        posn_B = posn_A + internal_direction_A
+        atom_B = self.atom_map[posn_B]
+        internal_direction_B = internal_direction_A.opposite()
+
+        atom_A.bonds[internal_direction_A] -= 1
+        atom_B.bonds[internal_direction_B] -= 1
+
+        # Search from atom B, stopping if we find atom A. If not, remove all atoms we discovered
+        # connected via B from this molecule and add them to a new molecule
+        visited_posns = set()
+        visit_queue = [posn_B]
+        while visit_queue:
+            cur_posn = visit_queue.pop()
+            visited_posns.add(cur_posn)
+            for neighbor_posn in (neighbor_posn for dir, count in self.atom_map[cur_posn].bonds.items()
+                                  if count != 0 and (neighbor_posn := cur_posn + dir) not in visited_posns):
+                visit_queue.append(neighbor_posn)
+
+        if len(visited_posns) == len(self):
+            # Molecule was not split, nothing left to do
+            return None
+
+        # If the molecule was split, create a new molecule from the positions that were accessible
+        # from the disconnected neighbor (and remove those positions from this molecule)
+        new_atom_map = {}
+        for posn in visited_posns:
+            new_atom_map[posn] = self.atom_map[posn]
+            del self.atom_map[posn]
+        return Molecule(atom_map=new_atom_map, origin=self.origin, origin_offset=self.origin_offset,
+                        relative_orientation=self.relative_orientation)
+
+
+    def output_zone_idx(self):
+        if not self:
+            return None
+
+        if any(self.get_external_posn(posn).col < 6 for posn in self.atom_map.keys()):
+            return None
+
+        # Check if any atom doesn't match the output zone of the first atom
+        # Note that this is a generator so we avoid re-checking the first position
+        posns = (self.get_external_posn(posn) for posn in self.atom_map.keys())
+        is_psi = next(posns).row <= 4
+        if any((posn.row <= 4) != is_psi for posn in posns):
+            return None
+
+        # If we haven't returned yet, all atoms were in the same output zone
+        return 0 if is_psi else 1
+
+    def get_neighbor_bonds(self, internal_posn):
+        '''Helper to return tuples of (bond_count, neighbor_pos) for a given internal position.
+        An atom must exist at the given position. Used by isomorphism algorithm.
+        '''
+        return ((bond_count, internal_posn + direction)
+                for direction, bond_count in self.atom_map[internal_posn].bonds.items()
+                if bond_count > 0)
+
+    # Note that we must be careful not to implement __eq__ so that we don't interfere with e.g.
+    # removing a molecule from the reactor list.
+    def isomorphic(self, other):
+        '''Check if this molecule is topologically equivalent to the given molecule.'''
+
+        if len(self) != len(other):
+            return False
+
+        def get_element_bonds_dicts(molecule):
+            element_bonds_freq_dict = {}
+            element_bonds_posns_dict = {}
+            for pos, atom in molecule.atom_map.items():
+                key = (atom.element.atomic_num, frozenset(Counter(atom.bonds.values()).items()))
+
+                if key not in element_bonds_freq_dict:
+                    element_bonds_freq_dict[key] = 0
+                element_bonds_freq_dict[key] += 1
+
+                if key not in element_bonds_posns_dict:
+                    element_bonds_posns_dict[key] = []
+                element_bonds_posns_dict[key].append(pos)
+
+            return (element_bonds_freq_dict, element_bonds_posns_dict)
+
+        # Identify the positions of the rarest unique element/bonds combination (agnostic of
+        # bond order).
+        # Also take this opportunity to fail early if the two molecules don't exactly match in
+        # distributions of element/bonds combinations.
+        this_element_bonds_freq_dict, this_element_bonds_posns_dict = get_element_bonds_dicts(self)
+        other_element_bonds_freq_dict, other_element_bonds_posns_dict = get_element_bonds_dicts(other)
+
+        if this_element_bonds_freq_dict != other_element_bonds_freq_dict:
+            return False
+
+        # Now that we know that on the surface the two molecules match, check their topology in-depth.
+        # Take the rarest combination of element and bond counts, and try to map the graphs onto each
+        # other starting from any such atom in this molecule, and comparing against all matching atoms
+        # in the other molecule. We'll trickle the 'tree' down from each possible starting atom until we find a tree that matches.
+        rarest_element_bonds_combination = min(this_element_bonds_freq_dict.items(),
+                                                    key=lambda x: x[1])[0]
+        our_root_posn = this_element_bonds_posns_dict[rarest_element_bonds_combination][0]
+        their_possible_root_posns = other_element_bonds_posns_dict[rarest_element_bonds_combination]
+
+        for their_root_posn in their_possible_root_posns:
+            # Track which positions from each molecule we've visited during this algorithm
+            our_visited_posns = set()
+            their_visited_posns = set()
+
+            def molecules_match_recursive(our_posn, their_posn):
+                our_visited_posns.add(our_posn)
+                their_visited_posns.add(their_posn)
+
+                # Attempt to recursively match between any given one of our neighbors and all
+                # possible matches on their neighbors
+                for our_bond_count, our_neighbor in self.get_neighbor_bonds(our_posn):
+                    if our_neighbor not in our_visited_posns:
+                        if not any(molecules_match_recursive(our_neighbor, their_neighbor)
+                                   for their_bond_count, their_neighbor in other.get_neighbor_bonds(their_posn)
+                                   if (their_neighbor not in their_visited_posns
+                                        and our_bond_count == their_bond_count)):
+                            our_visited_posns.remove(our_posn)
+                            their_visited_posns.remove(their_posn)
+                            return False
+                return True
+
+            if molecules_match_recursive(our_root_posn, their_root_posn):
+                return True
+        return False
+
+    # We don't overload __hash__ (which by default checks instance matching) because we want to
+    # preserve the ability to store molecules in a dictionary (ordered and provides O(1) add,
+    # delete). Otherwise if we move a molecule its hash will change and it will no longer be
+    # accessible in the dict.
+    def hashable_repr(self):
+        '''Return a hashable object representing this molecule, for use in comparing run states.'''
+        return frozenset((self.get_external_posn(posn),
+                          atom.hashable_repr(self.relative_orientation))
+                         for posn, atom in self.atom_map.items())
