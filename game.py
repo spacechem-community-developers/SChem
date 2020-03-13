@@ -74,8 +74,6 @@ class RunState:
 
         # Pre-process the soln into red and blue instr maps that allow for skipping along rows/columns
         # to the next arrow/instruction. Ignores Start commands.
-        # TODO: Loop over soln instrs and initialize waldos with instr maps
-        #       Also initialize waldos with start positions (but don't add start instr's to map)
         self.symbols = 0
         self.waldos = [Waldo(i,
                              solution.waldo_starts[i][0],
@@ -145,8 +143,6 @@ class RunState:
             # If we are holding a molecule and didn't just finish a stall, stall the waldo
             # In all other cases, unstall the waldo
             waldo.is_stalled = waldo.molecule is not None and not waldo.is_stalled
-        # TODO: bond+ and bond- must destroy and recreate molecules so they move to the back of the
-        #       molecules list
         elif cmd == Instruction.BOND_PLUS:
             self.bond_plus()
         elif cmd == Instruction.BOND_MINUS:
@@ -294,7 +290,8 @@ class RunState:
                 # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
                 # mark the molecule as modified below
                 internal_direction_A = direction + molecule_A.relative_orientation
-                if atom_A.bonds[internal_direction_A] != 3:
+                if (internal_direction_A not in atom_A.bonds
+                    or atom_A.bonds[internal_direction_A]) != 3:
                     atom_B = molecule_B[neighbor_posn]
 
                     # Do nothing if either atom is at its bond limit (spacechem does not mark
@@ -306,7 +303,11 @@ class RunState:
                     # TODO: the below expression calls the posn ctor twice but could be once
                     internal_direction_B = (direction + molecule_B.relative_orientation).opposite()
 
+                    if internal_direction_A not in atom_A.bonds:
+                        atom_A.bonds[internal_direction_A] = 0
                     atom_A.bonds[internal_direction_A] += 1
+                    if internal_direction_B not in atom_B.bonds:
+                        atom_B.bonds[internal_direction_B] = 0
                     atom_B.bonds[internal_direction_B] += 1
 
                 if molecule_A is molecule_B:
@@ -343,7 +344,7 @@ class RunState:
 
                 # Continue if there isn't a molecule with a bond over this pair
                 if ((molecule := self.get_molecule(position)) is None
-                    or molecule[position].bonds[direction] == 0):
+                    or direction not in molecule[position].bonds):
                     continue
 
                 # Now that we know for sure the molecule will be mutated, debond the molecule

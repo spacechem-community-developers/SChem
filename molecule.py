@@ -14,13 +14,11 @@ class Atom:
     '''Represent an Atom, including its element and attached bonds.'''
     def __init__(self, element):
         self.element = element
-        # TODO 1: only store directions that are non-0, should save time/memory
-        #       Alternate TODO: switch to 4-long array and use dir.value to access instead
         # TODO 2: Also only store RIGHT/DOWN to save on memory. When doing graph algorithms,
         #       auto-magically check LEFT/UP too. Compare runtime/memory to above approach
         # TODO final note: arrays are much smaller than dicts... just use direction.value and we'll
         #      save a fair amount of memory.
-        self.bonds = {Direction.UP: 0, Direction.RIGHT: 0, Direction.DOWN: 0, Direction.LEFT: 0}
+        self.bonds = {}
 
     def __init__(self, element, bonds):
         self.element = element
@@ -34,7 +32,9 @@ class Atom:
 
     def get_json_str(self):
         '''Return a string representing this atom in the level json's format.'''
-        return f'{self.element.atomic_num}{self.bonds[RIGHT]}{self.bonds[DOWN]}'
+        return (f'{self.element.atomic_num}'
+                f'{0 if Direction.RIGHT not in self.bonds else self.bonds[Direction.RIGHT]}'
+                f'{0 if Direction.DOWN not in self.bonds else self.bonds[Direction.DOWN]}')
 
     def hashable_repr(self, relative_orientation):
         '''Return a hashable object representing this molecule, for use in comparing run states.
@@ -97,23 +97,23 @@ class Molecule:
             # Note that atomic_num is from 1-3 characters long so we reference the values after it
             # via negative indices
             position = Position(int(atom_str[1]), int(atom_str[0]))
-            atom = Atom(elements_dict[int(atom_str[2:-2])],
-                        {Direction.UP: 0,
-                         Direction.RIGHT: int(atom_str[-2]),
-                         Direction.DOWN: int(atom_str[-1]),
-                         Direction.LEFT: 0})
+            atom = Atom(elements_dict[int(atom_str[2:-2])], {})
+            if (right_bonds := int(atom_str[-2])) != 0:
+                atom.bonds[Direction.RIGHT] = right_bonds
+            if (down_bonds := int(atom_str[-1])) != 0:
+                atom.bonds[Direction.DOWN] = down_bonds
 
             # Update other existing atoms
             for dir in Direction.RIGHT, Direction.DOWN:
                 # Check if any existing atoms above and to our left have right/down bonds for us
                 neighbor_posn = position + dir.opposite()
-                if neighbor_posn in atom_map:
+                if neighbor_posn in atom_map and dir in atom_map[neighbor_posn].bonds:
                     atom.bonds[dir.opposite()] = atom_map[neighbor_posn].bonds[dir]
 
                 # Check if any existing atoms need our right/down bonds
                 # This doubles information but makes working with atoms less complex/asymmetrical
                 neighbor_posn = position + dir
-                if neighbor_posn in atom_map:
+                if neighbor_posn in atom_map and dir in atom.bonds:
                     atom_map[neighbor_posn].bonds[dir.opposite()] = atom.bonds[dir]
 
             atom_map[position] = atom
@@ -227,17 +227,24 @@ class Molecule:
         posn_A = self.get_internal_posn(posn)
         atom_A = self.atom_map[posn_A]
         internal_direction_A = direction - self.relative_orientation
-        cur_bond_count = atom_A.bonds[internal_direction_A]
 
-        if cur_bond_count == 0:
+        if internal_direction_A not in atom_A.bonds:
             return
+
+        cur_bond_count = atom_A.bonds[internal_direction_A]
 
         posn_B = posn_A + internal_direction_A
         atom_B = self.atom_map[posn_B]
         internal_direction_B = internal_direction_A.opposite()
 
+        # Decrement and/or remove the bond on each atom
         atom_A.bonds[internal_direction_A] -= 1
+        if atom_A.bonds[internal_direction_A] == 0:
+            del atom_A.bonds[internal_direction_A]
+
         atom_B.bonds[internal_direction_B] -= 1
+        if atom_B.bonds[internal_direction_B] == 0:
+            del atom_B.bonds[internal_direction_B]
 
         # Search from atom B, stopping if we find atom A. If not, remove all atoms we discovered
         # connected via B from this molecule and add them to a new molecule
@@ -247,7 +254,7 @@ class Molecule:
             cur_posn = visit_queue.pop()
             visited_posns.add(cur_posn)
             for neighbor_posn in (neighbor_posn for dir, count in self.atom_map[cur_posn].bonds.items()
-                                  if count != 0 and (neighbor_posn := cur_posn + dir) not in visited_posns):
+                                  if (neighbor_posn := cur_posn + dir) not in visited_posns):
                 visit_queue.append(neighbor_posn)
 
         if len(visited_posns) == len(self):
@@ -286,8 +293,7 @@ class Molecule:
         An atom must exist at the given position. Used by isomorphism algorithm.
         '''
         return ((bond_count, internal_posn + direction)
-                for direction, bond_count in self.atom_map[internal_posn].bonds.items()
-                if bond_count > 0)
+                for direction, bond_count in self.atom_map[internal_posn].bonds.items())
 
     # Note that we must be careful not to implement __eq__ so that we don't interfere with e.g.
     # removing a molecule from the reactor list.
