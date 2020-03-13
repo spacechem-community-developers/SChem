@@ -70,6 +70,9 @@ class Level:
             f.write(json.dumps(self.dict).encode('utf-8'))
         return base64.b64encode(out.getvalue()).decode()
 
+    def get_name(self):
+        return self.dict['name']
+
     def get_input_molecule(self, input_idx):
         '''Return a new copy of the given input index's molecule, or None if the input is unused.'''
         return copy.deepcopy(self.input_molecules[input_idx])
