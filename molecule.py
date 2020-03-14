@@ -98,9 +98,11 @@ class Molecule:
             # via negative indices
             position = Position(int(atom_str[1]), int(atom_str[0]))
             atom = Atom(elements_dict[int(atom_str[2:-2])], {})
-            if (right_bonds := int(atom_str[-2])) != 0:
+            right_bonds = int(atom_str[-2])
+            down_bonds = int(atom_str[-1])
+            if right_bonds != 0:
                 atom.bonds[Direction.RIGHT] = right_bonds
-            if (down_bonds := int(atom_str[-1])) != 0:
+            if down_bonds != 0:
                 atom.bonds[Direction.DOWN] = down_bonds
 
             # Update other existing atoms
@@ -253,9 +255,11 @@ class Molecule:
         while visit_queue:
             cur_posn = visit_queue.pop()
             visited_posns.add(cur_posn)
-            for neighbor_posn in (neighbor_posn for dir, count in self.atom_map[cur_posn].bonds.items()
-                                  if (neighbor_posn := cur_posn + dir) not in visited_posns):
-                visit_queue.append(neighbor_posn)
+
+            for dir, count in self.atom_map[cur_posn].bonds.items():
+                neighbor_posn = cur_posn + dir
+                if neighbor_posn not in visited_posns:
+                    visit_queue.append(neighbor_posn)
 
         if len(visited_posns) == len(self):
             # Molecule was not split, nothing left to do

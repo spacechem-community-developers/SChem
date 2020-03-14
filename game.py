@@ -262,12 +262,12 @@ class Reactor:
 
     def bond_plus(self):
         for position in self.solution.bonders:
-            bond_directions = [Direction.RIGHT, Direction.DOWN]
+            bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
+                                             (Direction.DOWN, position + Direction.DOWN)]
             # Bond to higher priority (lower index) bonders first
-            bond_directions.sort(key=lambda d: 0 if (neighbor_posn := position + d) not in self.solution.bonders
-                                                 else self.solution.bonders[neighbor_posn])
-            for direction in bond_directions:
-                neighbor_posn = position + direction
+            bond_dirns_and_neighbor_posns.sort(key=lambda x: 0 if x[1] not in self.solution.bonders
+                                                               else self.solution.bonders[x[1]])
+            for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
                 if neighbor_posn not in self.solution.bonders:
                     continue
 
@@ -336,18 +336,19 @@ class Reactor:
 
     def bond_minus(self):
         for position in self.solution.bonders:
-            debond_directions = [Direction.RIGHT, Direction.DOWN]
+            bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
+                                             (Direction.DOWN, position + Direction.DOWN)]
             # Debond with higher priority (lower index) bonders first
-            debond_directions.sort(key=lambda d: 0 if (neighbor_posn := position + d) not in self.solution.bonders
-                                                   else self.solution.bonders[neighbor_posn])
-            for direction in debond_directions:
-                neighbor_posn = position + direction
+            bond_dirns_and_neighbor_posns.sort(key=lambda x: 0 if x[1] not in self.solution.bonders
+                                                               else self.solution.bonders[x[1]])
+            for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
                 if neighbor_posn not in self.solution.bonders:
                     continue
 
                 # Continue if there isn't a molecule with a bond over this pair
-                if ((molecule := self.get_molecule(position)) is None
-                    or direction not in molecule[position].bonds):
+                molecule = self.get_molecule(position)
+                if (molecule is None
+                    or direction - molecule.relative_orientation not in molecule[position].bonds):
                     continue
 
                 # Now that we know for sure the molecule will be mutated, debond the molecule
