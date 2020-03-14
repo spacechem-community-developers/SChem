@@ -34,7 +34,7 @@ class Waldo:
 
     def cur_cmd(self):
         '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
-        return self.instr_map[self.position][1]
+        return None if self.position not in self.instr_map else self.instr_map[self.position][1]
 
 class RunSuccess(Exception):
     pass
@@ -289,7 +289,7 @@ class Reactor:
                 # If the bond being increased is already at the max bond size of 3, don't do
                 # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
                 # mark the molecule as modified below
-                internal_direction_A = direction + molecule_A.relative_orientation
+                internal_direction_A = direction - molecule_A.relative_orientation
                 if (internal_direction_A not in atom_A.bonds
                     or atom_A.bonds[internal_direction_A]) != 3:
                     atom_B = molecule_B[neighbor_posn]
@@ -301,7 +301,7 @@ class Reactor:
                         continue
 
                     # TODO: the below expression calls the posn ctor twice but could be once
-                    internal_direction_B = (direction + molecule_B.relative_orientation).opposite()
+                    internal_direction_B = (direction - molecule_B.relative_orientation).opposite()
 
                     if internal_direction_A not in atom_A.bonds:
                         atom_A.bonds[internal_direction_A] = 0
@@ -366,7 +366,7 @@ class Reactor:
                             waldo.molecule = split_off_molecule
 
     def hash_state_and_check(self):
-        # Hash the current run state and check if it matches a past run state
+        # Hash the current reactor state and check if it matches a past reactor state
         # TODO: Maybe only hash on cycles when either output count incremented?
         #       But then we can't detect infinite loops, which is pretty important to have for
         #       various applications (self-play, auto-solution-verifier).
@@ -443,15 +443,13 @@ class Reactor:
 
 
 def score_soln(level, soln):
-    # Initialize a hashable object representing the current state of the solution being run
     reactor = Reactor(level, soln)
 
     try:
         while True:
             reactor.do_cycle()
-            print(reactor.molecules)
     except RunSuccess:
-        return (reactor.cycle, soln.symbols)
+        return (reactor.cycle, 1, soln.symbols)
 
 
 if __name__ == '__main__':
@@ -461,57 +459,61 @@ I3njsG6S+XnjTWaKvC2yuV48HB+LNazDVKW5dZGi3t2lipw56lBZ7Qes1nRQvbYBS/gg16Gvvs
 X7VRnQBfI/moz6GPAvCZM1zHeQ0eJE/jfm65RbewyofTumZk6fMzk69tTFlg25gqk4pCrGDUmg
 I4/5PpxMXjvT9yY9z1dQYvkCUjns8KkBAAA=
 '''
-    solution_code = '''
-SOLUTION:An Introduction to Bonding,Zig,74-1-40,Cycles!!!
+    solution_code = '''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
 COMPONENT:'tutorial-research-reactor-2',2,0,''
-MEMBER:'instr-start',-90,0,128,1,7,0,0
-MEMBER:'instr-start',0,0,32,0,0,0,0
+MEMBER:'instr-start',90,0,128,2,3,0,0
+MEMBER:'instr-start',0,0,32,0,5,0,0
 MEMBER:'feature-bonder',-1,0,1,1,1,0,0
-MEMBER:'feature-bonder',-1,0,1,1,2,0,0
-MEMBER:'feature-bonder',-1,0,1,1,4,0,0
-MEMBER:'feature-bonder',-1,0,1,1,5,0,0
-MEMBER:'instr-grab',-1,1,32,1,1,0,0
-MEMBER:'instr-arrow',0,0,16,1,5,0,0
-MEMBER:'instr-arrow',90,0,64,6,3,0,0
-MEMBER:'instr-grab',-1,2,128,6,3,0,0
-MEMBER:'instr-grab',-1,1,32,1,4,0,0
-MEMBER:'instr-arrow',90,0,16,1,4,0,0
-MEMBER:'instr-arrow',-90,0,16,3,5,0,0
-MEMBER:'instr-arrow',180,0,16,3,4,0,0
-MEMBER:'instr-arrow',-90,0,64,4,4,0,0
-MEMBER:'instr-grab',-1,1,128,4,4,0,0
-MEMBER:'instr-rotate',-1,0,128,5,3,0,0
-MEMBER:'instr-grab',-1,2,32,3,4,0,0
-MEMBER:'instr-rotate',-1,1,32,3,5,0,0
-MEMBER:'instr-arrow',90,0,16,2,3,0,0
-MEMBER:'instr-arrow',180,0,16,2,4,0,0
-MEMBER:'instr-bond',-1,1,32,1,5,0,0
-MEMBER:'instr-arrow',0,0,64,4,3,0,0
-MEMBER:'instr-arrow',180,0,64,6,4,0,0
-MEMBER:'instr-arrow',90,0,64,6,2,0,0
-MEMBER:'instr-input',-1,1,32,2,3,0,0
-MEMBER:'instr-input',-1,0,32,1,0,0,0
-MEMBER:'instr-grab',-1,1,128,1,5,0,0
+MEMBER:'feature-bonder',-1,0,1,2,1,0,0
+MEMBER:'feature-bonder',-1,0,1,5,1,0,0
+MEMBER:'feature-bonder',-1,0,1,6,1,0,0
+MEMBER:'instr-input',-1,1,128,2,4,0,0
+MEMBER:'instr-arrow',-90,0,64,2,5,0,0
+MEMBER:'instr-grab',-1,1,128,2,5,0,0
+MEMBER:'instr-arrow',180,0,64,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,2,1,0,0
+MEMBER:'instr-arrow',90,0,64,1,1,0,0
+MEMBER:'instr-grab',-1,0,128,1,1,0,0
+MEMBER:'instr-arrow',180,0,64,1,5,0,0
+MEMBER:'instr-arrow',-90,0,64,0,5,0,0
+MEMBER:'instr-arrow',0,0,64,0,1,0,0
 MEMBER:'instr-bond',-1,0,128,1,2,0,0
-MEMBER:'instr-input',-1,1,128,5,4,0,0
-MEMBER:'instr-arrow',0,0,64,1,2,0,0
-MEMBER:'instr-bond',-1,0,128,5,2,0,0
-MEMBER:'instr-input',-1,1,128,1,6,0,0
-MEMBER:'instr-arrow',90,0,16,1,0,0,0
-MEMBER:'instr-bond',-1,0,32,1,2,0,0
-MEMBER:'instr-bond',-1,0,32,1,3,0,0
-MEMBER:'instr-input',-1,0,128,1,4,0,0
-MEMBER:'instr-input',-1,0,128,1,3,0,0
-MEMBER:'instr-arrow',180,0,16,1,2,0,0
-MEMBER:'instr-arrow',90,0,16,0,2,0,0
+MEMBER:'instr-grab',-1,2,128,1,3,0,0
+MEMBER:'instr-bond',-1,1,128,1,4,0,0
+MEMBER:'instr-grab',-1,1,128,1,5,0,0
+MEMBER:'instr-input',-1,1,128,0,5,0,0
+MEMBER:'instr-sync',-1,0,128,0,4,0,0
+MEMBER:'instr-input',-1,0,128,0,3,0,0
+MEMBER:'instr-bond',-1,1,128,0,2,0,0
+MEMBER:'instr-grab',-1,1,32,1,5,0,0
+MEMBER:'instr-grab',-1,2,32,2,5,0,0
+MEMBER:'instr-arrow',-90,0,16,3,5,0,0
+MEMBER:'instr-input',-1,0,32,3,5,0,0
+MEMBER:'instr-arrow',180,0,16,3,4,0,0
+MEMBER:'instr-bond',-1,0,32,1,4,0,0
+MEMBER:'instr-arrow',-90,0,16,0,4,0,0
 MEMBER:'instr-arrow',0,0,16,0,3,0,0
-MEMBER:'instr-input',-1,0,128,2,2,0,0
-MEMBER:'instr-bond',-1,0,32,2,4,0,0
-MEMBER:'instr-input',-1,0,128,4,3,0,0
-MEMBER:'instr-input',-1,0,128,4,2,0,0
-MEMBER:'instr-output',-1,0,32,2,5,0,0
+MEMBER:'instr-arrow',-90,0,16,1,3,0,0
+MEMBER:'instr-arrow',180,0,16,1,2,0,0
+MEMBER:'instr-arrow',-90,0,16,0,2,0,0
+MEMBER:'instr-arrow',0,0,16,0,0,0,0
+MEMBER:'instr-arrow',90,0,16,1,0,0,0
+MEMBER:'instr-arrow',0,0,16,1,1,0,0
+MEMBER:'instr-arrow',90,0,16,3,1,0,0
+MEMBER:'instr-arrow',180,0,16,3,2,0,0
+MEMBER:'instr-arrow',-90,0,16,2,2,0,0
+MEMBER:'instr-arrow',180,0,16,2,0,0,0
+MEMBER:'instr-grab',-1,1,32,1,3,0,0
+MEMBER:'instr-rotate',-1,0,32,0,1,0,0
+MEMBER:'instr-grab',-1,1,32,1,0,0,0
+MEMBER:'instr-grab',-1,2,32,2,0,0,0
+MEMBER:'instr-sync',-1,0,32,1,1,0,0
+MEMBER:'instr-bond',-1,0,32,2,1,0,0
+MEMBER:'instr-output',-1,0,32,3,1,0,0
+MEMBER:'instr-rotate',-1,1,32,2,2,0,0
+MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
-PIPE:1,4,2
-'''
+PIPE:1,4,2'''
 
     cProfile.run('score_soln(ResearchLevel(level_code), Solution(solution_code))', sort='cumtime')
+    #score_soln(ResearchLevel(level_code), Solution(solution_code))

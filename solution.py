@@ -77,6 +77,7 @@ class Instruction(Enum):
 
 class Solution:
     def __init__(self, soln_export_string):
+        self.name=''
         self.symbols = 0
         # Level Features
         self.bonders = {}
@@ -153,6 +154,12 @@ class Solution:
                         self.waldo_instr_maps[color_idx][position][1] = Instruction.BOND_PLUS
                     else:
                         self.waldo_instr_maps[color_idx][position][1] = Instruction.BOND_MINUS
+            elif line.startswith('SOLUTION'):
+                csv_values = line.split(',')
+                self.expected_score = tuple(int(i) for i in csv_values[2].split('-'))
+
+                if len(csv_values) >= 4:
+                    self.name = csv_values[3]
 
     def __repr__(self):
         return f'Solution(bonders={self.bonders}, starts={self.waldo_starts}, instrs={self.waldo_instr_maps})'

@@ -10,7 +10,7 @@ vRDpZDTt2bZxIYd1D1XFmJjztcvCOdHcEI59dtIZ7O72qY+v40qGnoT0pBC9pnTjD2w/F0HC34
 nP5u/mtI1ZkVpXMYF+pugzAadEItPHueKXafZXVrCrH4+NWpyGShn0SCsyn9gokcBR+/47SFKh
 pJCKNeixnj5apumjtkjS8kDfLc3AfUJKsNUjqY01oV4MEuJc7WGFteTluRPD4A+MBbU2oBAAA=''':
 (
-'''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7
+'''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,Basic
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -122,6 +122,61 @@ MEMBER:'instr-input',-1,0,128,4,2,0,0
 MEMBER:'instr-output',-1,0,32,2,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+'''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
+COMPONENT:'tutorial-research-reactor-2',2,0,''
+MEMBER:'instr-start',90,0,128,2,3,0,0
+MEMBER:'instr-start',0,0,32,0,5,0,0
+MEMBER:'feature-bonder',-1,0,1,1,1,0,0
+MEMBER:'feature-bonder',-1,0,1,2,1,0,0
+MEMBER:'feature-bonder',-1,0,1,5,1,0,0
+MEMBER:'feature-bonder',-1,0,1,6,1,0,0
+MEMBER:'instr-input',-1,1,128,2,4,0,0
+MEMBER:'instr-arrow',-90,0,64,2,5,0,0
+MEMBER:'instr-grab',-1,1,128,2,5,0,0
+MEMBER:'instr-arrow',180,0,64,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,2,1,0,0
+MEMBER:'instr-arrow',90,0,64,1,1,0,0
+MEMBER:'instr-grab',-1,0,128,1,1,0,0
+MEMBER:'instr-arrow',180,0,64,1,5,0,0
+MEMBER:'instr-arrow',-90,0,64,0,5,0,0
+MEMBER:'instr-arrow',0,0,64,0,1,0,0
+MEMBER:'instr-bond',-1,0,128,1,2,0,0
+MEMBER:'instr-grab',-1,2,128,1,3,0,0
+MEMBER:'instr-bond',-1,1,128,1,4,0,0
+MEMBER:'instr-grab',-1,1,128,1,5,0,0
+MEMBER:'instr-input',-1,1,128,0,5,0,0
+MEMBER:'instr-sync',-1,0,128,0,4,0,0
+MEMBER:'instr-input',-1,0,128,0,3,0,0
+MEMBER:'instr-bond',-1,1,128,0,2,0,0
+MEMBER:'instr-grab',-1,1,32,1,5,0,0
+MEMBER:'instr-grab',-1,2,32,2,5,0,0
+MEMBER:'instr-arrow',-90,0,16,3,5,0,0
+MEMBER:'instr-input',-1,0,32,3,5,0,0
+MEMBER:'instr-arrow',180,0,16,3,4,0,0
+MEMBER:'instr-bond',-1,0,32,1,4,0,0
+MEMBER:'instr-arrow',-90,0,16,0,4,0,0
+MEMBER:'instr-arrow',0,0,16,0,3,0,0
+MEMBER:'instr-arrow',-90,0,16,1,3,0,0
+MEMBER:'instr-arrow',180,0,16,1,2,0,0
+MEMBER:'instr-arrow',-90,0,16,0,2,0,0
+MEMBER:'instr-arrow',0,0,16,0,0,0,0
+MEMBER:'instr-arrow',90,0,16,1,0,0,0
+MEMBER:'instr-arrow',0,0,16,1,1,0,0
+MEMBER:'instr-arrow',90,0,16,3,1,0,0
+MEMBER:'instr-arrow',180,0,16,3,2,0,0
+MEMBER:'instr-arrow',-90,0,16,2,2,0,0
+MEMBER:'instr-arrow',180,0,16,2,0,0,0
+MEMBER:'instr-grab',-1,1,32,1,3,0,0
+MEMBER:'instr-rotate',-1,0,32,0,1,0,0
+MEMBER:'instr-grab',-1,1,32,1,0,0,0
+MEMBER:'instr-grab',-1,2,32,2,0,0,0
+MEMBER:'instr-sync',-1,0,32,1,1,0,0
+MEMBER:'instr-bond',-1,0,32,2,1,0,0
+MEMBER:'instr-output',-1,0,32,3,1,0,0
+MEMBER:'instr-rotate',-1,1,32,2,2,0,0
+MEMBER:'instr-rotate',-1,0,32,3,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
 ),
 
 # 2-1 Double Bonds
@@ -159,7 +214,51 @@ MEMBER:'instr-bond',-1,0,32,5,1,0,0
 MEMBER:'instr-bond',-1,0,128,1,3,0,0
 MEMBER:'instr-bond',-1,0,128,3,1,0,0
 PIPE:0,4,1
-PIPE:1,4,2''',)
+PIPE:1,4,2''',
+),
+
+# 3-3 Split Before Bonding
+'''H4sIAD8ObF4A/3WQzWrDMBCEX8Xs2QZJ9BDkW065pdBbSw6qvbIFimT0A3GM++zVxqWkTavDwo
+6Gb0ZawLgpp+bqHUaQCzAaN62sbwucvcUuWwQJh7kPfkDXHj6YaHk5rBVlMKih89klkFysp7UG
+/j/keJkJcdwQO0GI3QOiMHxOj8X+aFM9Y/AX0+Ot1sYVpRTROd/orWCc8bsMRgmjio1VYcBmyw
+KplY1Yw7t3PYbmy/y0OSO66MO3hySdI/5U4mRNSr/EhBYnH+7lNE/0hoARVejG0sypMykvBKj2
+qH3Aal96GDeUW5XTSOHwamjtjdam/EOaQbL1EwCzJ/3EAQAA''':
+(
+'''SOLUTION:Split Before Bonding,Zig,73-1-24,Cycles
+COMPONENT:'drag-starter-reactor',2,0,''
+MEMBER:'instr-start',90,0,128,6,4,0,0
+MEMBER:'instr-start',180,0,32,3,5,0,0
+MEMBER:'feature-bonder',-1,0,1,1,1,0,0
+MEMBER:'feature-bonder',-1,0,1,1,2,0,0
+MEMBER:'feature-bonder',-1,0,1,2,2,0,0
+MEMBER:'feature-bonder',-1,0,1,2,1,0,0
+MEMBER:'instr-input',-1,1,128,4,5,0,0
+MEMBER:'instr-arrow',180,0,64,6,5,0,0
+MEMBER:'instr-arrow',-90,0,64,2,5,0,0
+MEMBER:'instr-arrow',0,0,64,2,2,0,0
+MEMBER:'instr-arrow',90,0,64,6,2,0,0
+MEMBER:'instr-bond',-1,0,32,2,2,0,0
+MEMBER:'instr-grab',-1,1,128,2,5,0,0
+MEMBER:'instr-bond',-1,1,128,2,2,0,0
+MEMBER:'instr-input',-1,0,128,2,3,0,0
+MEMBER:'instr-grab',-1,2,128,6,2,0,0
+MEMBER:'instr-output',-1,0,32,6,3,0,0
+MEMBER:'instr-grab',-1,1,32,2,5,0,0
+MEMBER:'instr-arrow',0,0,16,2,2,0,0
+MEMBER:'instr-arrow',90,0,16,6,2,0,0
+MEMBER:'instr-arrow',180,0,16,6,5,0,0
+MEMBER:'instr-arrow',-90,0,16,2,5,0,0
+MEMBER:'instr-grab',-1,2,32,6,2,0,0
+MEMBER:'instr-input',-1,1,128,6,5,0,0
+MEMBER:'instr-bond',-1,1,128,3,5,0,0
+MEMBER:'instr-input',-1,0,32,2,3,0,0
+MEMBER:'instr-output',-1,0,32,5,5,0,0
+MEMBER:'instr-bond',-1,0,32,5,2,0,0
+MEMBER:'instr-rotate',-1,0,32,4,2,0,0
+MEMBER:'instr-rotate',-1,0,128,4,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+),
 }
 
 infinite_loops = (
