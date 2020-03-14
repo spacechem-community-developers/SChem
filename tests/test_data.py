@@ -278,3 +278,34 @@ MEMBER:'instr-rotate',-1,0,128,4,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2'''),
 )
+
+invalid_outputs = (
+# R-2-11-1 Swapite (isomorphism false positive check)
+('''H4sIAEoXbF4A/5WQy07DMBBF/2XWieSZQEHxZ3QHYmHSSWvJjSM/hEqUf2fsFKQWNmx8dY9m5G
+MvYKc5p/bTTxyhX0CVozKprwucveMhO4Ye9tmNOei9Vgp3RFoh7pA0loZakYTSSBVSV1snoSQE
+KtId1iCsC6TwURp2T2VNtgQRPiBCA4PPU4IeaX1b1wZ8Tr8l/zL7drkR/LfZpnT1IypmiHdmqn
+idTGydCUduN0PoR+MiN/DupwOH9jr8vE1GnqIPPzMFjTnyLYmzsyndwcSOZx8qTiELTZe5PDxw
+ZBOGk4hN5ly/4sPMNrEAk9OpXAcv9ij1YMfRyn+lC/Rq/QLaJVeK+AEAAA==''',
+'''SOLUTION:,Zig,0-0-0
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'feature-bonder',-1,0,1,4,2,0,0
+MEMBER:'feature-bonder',-1,0,1,5,2,0,0
+MEMBER:'feature-bonder',-1,0,1,4,3,0,0
+MEMBER:'feature-bonder',-1,0,1,5,3,0,0
+MEMBER:'feature-bonder',-1,0,1,4,4,0,0
+MEMBER:'feature-bonder',-1,0,1,5,4,0,0
+MEMBER:'feature-bonder',-1,0,1,4,5,0,0
+MEMBER:'feature-bonder',-1,0,1,5,5,0,0
+MEMBER:'feature-tunnel',-1,0,1,2,4,0,0
+MEMBER:'feature-tunnel',-1,0,1,3,4,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-arrow',180,0,64,8,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-grab',-1,2,128,8,1,0,0
+MEMBER:'instr-output',-1,0,128,7,1,0,0
+PIPE:0,4,1
+PIPE:1,4,2'''),
+)

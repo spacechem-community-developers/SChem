@@ -22,8 +22,7 @@ class TestGame(unittest.TestCase):
                     # Check the time performance of the solver
                     avg_time = timeit(lambda: game.score_soln(level_obj, solution_obj),
                                       number=100, globals=globals()) / 100
-                    print(f'{level_obj.get_name()} {solution_obj.name} ran in avg {avg_time} seconds')
-
+                    print(f'Avg {avg_time} seconds to run {level_obj.get_name()} {solution_obj.name}')
 
     def test_infinite_loops(self):
         for level_code, solution_code in test_data.infinite_loops:
@@ -31,6 +30,14 @@ class TestGame(unittest.TestCase):
             solution_obj = solution.Solution(solution_code)
             with self.subTest(msg=f'{level_obj.get_name()}'):
                 with self.assertRaises(game.InfiniteLoopException):
+                    game.score_soln(level_obj, solution_obj)
+
+    def test_invalid_outputs(self):
+        for level_code, solution_code in test_data.invalid_outputs:
+            level_obj = level.ResearchLevel(level_code)
+            solution_obj = solution.Solution(solution_code)
+            with self.subTest(msg=f'{level_obj.get_name()}'):
+                with self.assertRaises(game.InvalidOutputException):
                     game.score_soln(level_obj, solution_obj)
 
 

@@ -289,7 +289,7 @@ class Molecule:
         return 0 if is_psi else 1
 
     def get_neighbor_bonds(self, internal_posn):
-        '''Helper to return tuples of (bond_count, neighbor_pos) for a given internal position.
+        '''Helper to return tuples of (bond_count, neighbor_posn) for a given internal position.
         An atom must exist at the given position. Used by isomorphism algorithm.
         '''
         return ((bond_count, internal_posn + direction)
@@ -300,59 +300,71 @@ class Molecule:
     def isomorphic(self, other):
         '''Check if this molecule is topologically equivalent to the given molecule.'''
 
+        # Fail early if inequal length
         if len(self) != len(other):
             return False
 
-        def get_element_bonds_dicts(molecule):
-            element_bonds_freq_dict = {}
-            element_bonds_posns_dict = {}
-            for pos, atom in molecule.atom_map.items():
-                key = (atom.element.atomic_num, frozenset(Counter(atom.bonds.values()).items()))
+        def get_atom_struct_dicts(molecule):
+            '''Helper to return dicts mapping an atom structure (element + bonds, unordered)
+            to the frequency of atoms of that structure in the molecule, or mapping a position
+            in the given molecule to its atom structure.
+            '''
+            atom_struct_to_freq = {}
+            posn_to_atom_struct = {}
+            for posn, atom in molecule.atom_map.items():
+                atom_struct = (atom.element.atomic_num,
+                               frozenset(Counter(atom.bonds.values()).items()))
 
-                if key not in element_bonds_freq_dict:
-                    element_bonds_freq_dict[key] = 0
-                element_bonds_freq_dict[key] += 1
+                if atom_struct not in atom_struct_to_freq:
+                    atom_struct_to_freq[atom_struct] = 0
+                atom_struct_to_freq[atom_struct] += 1
 
-                if key not in element_bonds_posns_dict:
-                    element_bonds_posns_dict[key] = []
-                element_bonds_posns_dict[key].append(pos)
+                posn_to_atom_struct[posn] = atom_struct
 
-            return (element_bonds_freq_dict, element_bonds_posns_dict)
+            return (atom_struct_to_freq, posn_to_atom_struct)
 
         # Identify the positions of the rarest unique element/bonds combination (agnostic of
         # bond order).
-        # Also take this opportunity to fail early if the two molecules don't exactly match in
-        # distributions of element/bonds combinations.
-        this_element_bonds_freq_dict, this_element_bonds_posns_dict = get_element_bonds_dicts(self)
-        other_element_bonds_freq_dict, other_element_bonds_posns_dict = get_element_bonds_dicts(other)
+        this_atom_struct_to_freq, this_posn_to_atom_struct = get_atom_struct_dicts(self)
+        other_atom_struct_to_freq, other_posn_to_atom_struct = get_atom_struct_dicts(other)
 
-        if this_element_bonds_freq_dict != other_element_bonds_freq_dict:
+        # Also take this opportunity to fail early if the two molecules don't exactly match in
+        # distributions of atom structures
+        if this_atom_struct_to_freq != other_atom_struct_to_freq:
             return False
 
         # Now that we know that on the surface the two molecules match, check their topology in-depth.
         # Take the rarest combination of element and bond counts, and try to map the graphs onto each
         # other starting from any such atom in this molecule, and comparing against all matching atoms
         # in the other molecule. We'll trickle the 'tree' down from each possible starting atom until we find a tree that matches.
-        rarest_element_bonds_combination = min(this_element_bonds_freq_dict.items(),
-                                                    key=lambda x: x[1])[0]
-        our_root_posn = this_element_bonds_posns_dict[rarest_element_bonds_combination][0]
-        their_possible_root_posns = other_element_bonds_posns_dict[rarest_element_bonds_combination]
+        rarest_atom_struct = min(this_atom_struct_to_freq.items(),
+                                 key=lambda x: x[1])[0]
+        our_root_posn = next(posn for posn, atom_struct in this_posn_to_atom_struct.items()
+                             if atom_struct == rarest_atom_struct)
 
-        for their_root_posn in their_possible_root_posns:
+        for their_root_posn in (posn for posn, atom_struct in other_posn_to_atom_struct.items()
+                                if atom_struct == rarest_atom_struct):
             # Track which positions from each molecule we've visited during this algorithm
             our_visited_posns = set()
             their_visited_posns = set()
 
             def molecules_match_recursive(our_posn, their_posn):
+                '''Attempt to recursively map any unvisited atoms of the molecules onto each other
+                starting from the given position in each.
+                '''
+                if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
+                    return False
+
                 our_visited_posns.add(our_posn)
                 their_visited_posns.add(their_posn)
 
-                # Attempt to recursively match between any given one of our neighbors and all
-                # possible matches on their neighbors
+                # Attempt to recursively match each of our bonded neighbors in turn (comparing
+                # against all possible bonds of their
                 for our_bond_count, our_neighbor in self.get_neighbor_bonds(our_posn):
                     if our_neighbor not in our_visited_posns:
                         if not any(molecules_match_recursive(our_neighbor, their_neighbor)
                                    for their_bond_count, their_neighbor in other.get_neighbor_bonds(their_posn)
+                                   # Only check bonds of theirs
                                    if (their_neighbor not in their_visited_posns
                                         and our_bond_count == their_bond_count)):
                             our_visited_posns.remove(our_posn)

@@ -42,6 +42,9 @@ class RunSuccess(Exception):
 class InfiniteLoopException(Exception):
     pass
 
+class InvalidOutputException(Exception):
+    pass
+
 class Reactor:
     '''Represents the current state of a running solution.
     To track state properly, requires that exec_cmd(waldo) be called with each of its waldos on each
@@ -187,7 +190,7 @@ class Reactor:
                 #         got fucked
                 if molecule.output_zone_idx() == output_idx:
                     if not molecule.isomorphic(self.level.get_output_molecule(output_idx)):
-                        raise Exception("Invalid output molecule.")
+                        raise InvalidOutputException("Invalid output molecule.")
 
                     self.completed_output_counts[output_idx] += 1
 
