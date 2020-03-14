@@ -42,7 +42,7 @@ class RunSuccess(Exception):
 class InfiniteLoopException(Exception):
     pass
 
-class RunState:
+class Reactor:
     '''Represents the current state of a running solution.
     To track state properly, requires that exec_cmd(waldo) be called with each of its waldos on each
     cycle for which that waldo has a cmd, followed by move(waldo) for each waldo each cycle.
@@ -444,19 +444,14 @@ class RunState:
 
 def score_soln(level, soln):
     # Initialize a hashable object representing the current state of the solution being run
-    run_state = RunState(level, soln)
-
-    # If a waldo has only arrow instructions ahead of it and is not holding a molecule, we can
-    # effectively ignore it until it next hits an instruction. Track the next cycle to continue
-    # evaluating it from.
-    cycle_of_next_red_cmd = 0
-    cycle_of_next_blue_cmd = 0
+    reactor = Reactor(level, soln)
 
     try:
         while True:
-            run_state.do_cycle()
+            reactor.do_cycle()
+            print(reactor.molecules)
     except RunSuccess:
-        return (run_state.cycle, soln.symbols)
+        return (reactor.cycle, soln.symbols)
 
 
 if __name__ == '__main__':
