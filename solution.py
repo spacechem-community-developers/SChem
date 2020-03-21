@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from collections import namedtuple
 from enum import Enum
 
 from spacechem.grid import Position, Direction
@@ -53,31 +54,50 @@ from spacechem.grid import Position, Direction
 # 13, 14 = Fuse, Split
 # 15 = Swap
 
-class Instruction(Enum):
-    INPUT_ALPHA = 0
-    INPUT_BETA = 1
-    OUTPUT_PSI = 2
-    OUTPUT_OMEGA = 3
-    GRAB = 4
-    DROP = 5
-    GRAB_DROP = 6
-    ROTATE_CWISE = 7
-    ROTATE_CCWISE = 8
-    BOND_PLUS = 9
-    BOND_MINUS = 10
-    SYNC = 11
-    FLIP_FLOP = 12
-    FUSE = 13
-    SPLIT = 14
-    SWAP = 15
+class InstructionType(Enum):
+    '''Represents the various types of SpaceChem instruction.'''
+    INPUT = 0
+    OUTPUT = 1
+    GRAB = 2
+    DROP = 3
+    GRAB_DROP = 4
+    ROTATE = 5
+    SYNC = 6
+    BOND_PLUS = 7
+    BOND_MINUS = 8
+    SENSE = 9
+    FLIP_FLOP = 10
+    FUSE = 11
+    SPLIT = 12
+    SWAP = 13
 
     def __str__(self):
         return self.name
     __repr__ = __str__
 
+
+class Instruction(namedtuple('Instruction', ('instr_type', 'direction', 'target_idx'),
+                             # Default direction and target_idx if unneeded
+                             defaults=(None, None))):
+    '''Represents a non-arrow SpaceChem instruction and any associated properties.
+    Direction is used by rotates, flip-flops and sensor cmds. Target index represents either the zone idx for an input
+    or output instruction, or an element's atomic # in the case of a sensor cmd.
+    '''
+    __slots__ = ()
+
+    def __eq__(self, other):
+        '''Allow direct comparison to instruction type for sanity.'''
+        if isinstance(other, InstructionType):
+            return self.instr_type == other
+        else:
+            return super().__eq__(self, other)
+
+
 class Solution:
+    __slots__ = 'name', 'symbols', 'bonders', 'waldo_starts', 'waldo_instr_maps', 'expected_score'
+
     def __init__(self, soln_export_string):
-        self.name=''
+        self.name = ''
         self.symbols = 0
         # Level Features
         self.bonders = {}
@@ -95,7 +115,7 @@ class Solution:
 
                 # Red has a field which is 64 for arrows, 128 for instructions
                 # The same field in Blue is 16 for arrows, 32 for instructions
-                color_idx = 0 if int(csv_values[3]) >= 64 else 1
+                waldo_idx = 0 if int(csv_values[3]) >= 64 else 1
 
                 position = Position(int(csv_values[5]), int(csv_values[4]))
 
@@ -110,50 +130,48 @@ class Solution:
                     self.bonders[position] = bonder_count
                     continue
                 elif member_name == 'instr-start':
-                    self.waldo_starts[color_idx] = (position, direction)
+                    self.waldo_starts[waldo_idx] = (position, direction)
                     continue
 
                 # If this isn't a start instruction, increment total symbols
                 self.symbols += 1
 
                 # All commands except start instructions get added to the instruction map
-                if position not in self.waldo_instr_maps[color_idx]:
-                    self.waldo_instr_maps[color_idx][position] = [None, None]
+                if position not in self.waldo_instr_maps[waldo_idx]:
+                    self.waldo_instr_maps[waldo_idx][position] = [None, None]
 
                 # Note: Some similar instructions have the same name but are sub-typed by the
                 #       second integer field
                 instr_sub_type = int(csv_values[2])
                 if member_name == 'instr-arrow':
-                    self.waldo_instr_maps[color_idx][position][0] = direction
+                    self.waldo_instr_maps[waldo_idx][position][0] = direction
                 elif member_name == 'instr-input':
-                    if instr_sub_type == 0:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.INPUT_ALPHA
-                    else:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.INPUT_BETA
+                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT,
+                                                                                target_idx=instr_sub_type)
                 elif member_name == 'instr-output':
-                    if instr_sub_type == 0:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.OUTPUT_PSI
-                    else:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.OUTPUT_OMEGA
+                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.OUTPUT,
+                                                                                target_idx=instr_sub_type)
                 elif member_name == 'instr-grab':
                     if instr_sub_type == 0:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.GRAB_DROP
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB_DROP)
                     elif instr_sub_type == 1:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.GRAB
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB)
                     else:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.DROP
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.DROP)
                 elif member_name == 'instr-rotate':
                     if instr_sub_type == 0:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.ROTATE_CWISE
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
+                                                                                    direction=Direction.CLOCKWISE)
                     else:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.ROTATE_CCWISE
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
+                                                                                    direction=Direction.COUNTER_CLOCKWISE)
                 elif member_name == 'instr-sync':
-                    self.waldo_instr_maps[color_idx][position][1] = Instruction.SYNC
+                    self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.SYNC
                 elif member_name == 'instr-bond':
                     if instr_sub_type == 0:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.BOND_PLUS
+                        self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.BOND_PLUS
                     else:
-                        self.waldo_instr_maps[color_idx][position][1] = Instruction.BOND_MINUS
+                        self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.BOND_MINUS
             elif line.startswith('SOLUTION'):
                 csv_values = line.split(',')
                 self.expected_score = tuple(int(i) for i in csv_values[2].split('-'))
@@ -166,3 +184,15 @@ class Solution:
 
     def get_export_string(self):
         pass
+
+    def add_instruction(self, waldo_idx, posn, instr):
+        if posn not in self.waldo_instr_maps[waldo_idx]:
+            self.waldo_instr_maps[waldo_idx][posn] = [None, None]
+
+        self.waldo_instr_maps[waldo_idx][1] = instr
+
+    def add_arrow(self, waldo_idx, posn, arrow_dirn):
+        if posn not in self.waldo_instr_maps[waldo_idx]:
+            self.waldo_instr_maps[waldo_idx][posn] = [None, None]
+
+        self.waldo_instr_maps[waldo_idx][0] = arrow_dirn

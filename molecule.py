@@ -4,25 +4,20 @@
 from collections import Counter
 
 from spacechem.grid import Position, Direction
-from spacechem.elements_data import Element, elements, elements_dict
+from spacechem.elements_data import elements_dict
+
 
 # TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
 #       cut atom sizes significantly and parsing the game's level data (which only stores right and
 #       down) will be less kludgy.
 #       Investigate how hard it would be to handle the asymmetry at runtime.
 class Atom:
-    '''Represent an Atom, including its element and attached bonds.'''
-    def __init__(self, element):
-        self.element = element
-        # TODO 2: Also only store RIGHT/DOWN to save on memory. When doing graph algorithms,
-        #       auto-magically check LEFT/UP too. Compare runtime/memory to above approach
-        # TODO final note: arrays are much smaller than dicts... just use direction.value and we'll
-        #      save a fair amount of memory.
-        self.bonds = {}
+    """Represent an Atom, including its element and attached bonds."""
+    __slots__ = 'element', 'bonds'
 
-    def __init__(self, element, bonds):
+    def __init__(self, element, bonds=None):
         self.element = element
-        self.bonds = bonds
+        self.bonds = bonds if bonds is not None else {}
 
     def __str__(self):
         return self.element.symbol
@@ -44,6 +39,7 @@ class Atom:
         return (self.element.atomic_num,
                 frozenset((dir + relative_orientation, bond_count)
                           for dir, bond_count in self.bonds.items()))
+
 
 # Performance requirements:
 # Molecule:
@@ -70,21 +66,22 @@ class Atom:
 # Molecules container candidates:
 # * dict +: ordered, O(1) add/delete, O(N) lookup by pos (assuming O(1) pos lookup on Molecule)
 # * list -: ordered, O(1) add, O(N) delete, O(N) lookup by pos
-
 class Molecule:
     '''Class used for representing a molecule in a level's input/output zones and for evaluating
     solutions during runtime.
     All externally-exposed methods should accept external positions. However, to increase
     performance when moving/rotating large molecules, internal positions will be relative.
     '''
-    def __init__(self, name='', atom_map={},
+    __slots__ = 'name', 'origin', 'origin_offset', 'relative_orientation', 'atom_map'
+
+    def __init__(self, name='', atom_map=None,
                  origin=Position(0, 0), origin_offset=Position(0, 0),
                  relative_orientation=Direction.UP):
         self.name = name
         self.origin = origin
         self.origin_offset = origin_offset
         self.relative_orientation = relative_orientation
-        self.atom_map = atom_map
+        self.atom_map = atom_map if atom_map is not None else {}
 
     @classmethod
     def from_json_string(cls, json_string):
@@ -97,7 +94,7 @@ class Molecule:
             # Note that atomic_num is from 1-3 characters long so we reference the values after it
             # via negative indices
             position = Position(int(atom_str[1]), int(atom_str[0]))
-            atom = Atom(elements_dict[int(atom_str[2:-2])], {})
+            atom = Atom(elements_dict[int(atom_str[2:-2])])
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
             if right_bonds != 0:

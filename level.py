@@ -3,6 +3,8 @@
 
 import base64
 import copy
+import gzip
+import io
 import json
 import zlib
 
@@ -29,6 +31,8 @@ from spacechem.molecule import Molecule
 # Total level bits: 988 bits
 
 class Level:
+    __slots__ = 'dict', 'input_molecules', 'output_molecules', 'output_counts'
+
     '''Parent class for Research and Production levels.'''
     def __init__(self):
         self.dict = {}
@@ -79,10 +83,12 @@ class Level:
 
     def get_output_molecule(self, output_idx):
         '''Return the given output index's molecule, or None if the output is unused.'''
-        return self.output_molecules[output_idx] # Promise not to mutate it please thx
+        return self.output_molecules[output_idx]  # Promise not to mutate it please thx
 
 
 class ResearchLevel(Level):
+    __slots__ = ()
+
     def __init__(self):
         super().__init__()
         self['input-zones'] = {}

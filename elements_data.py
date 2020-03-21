@@ -6,11 +6,13 @@ from collections import namedtuple
 '''Immutable class representing a SpaceChemical element.'''
 Element = namedtuple('Element', ('atomic_num', 'symbol', 'max_bonds'))
 
+
 class Element(namedtuple("Element", ('atomic_num', 'symbol', 'max_bonds'))):
     __slots__ = () # Apparently necessary for preserving namedtuple performance in a subclass
     def __str__(self):
         return self.symbol
     __repr__ = __str__
+
 
 elements = [Element(1, 'H', 1),
             Element(2, 'He', 0),
@@ -133,16 +135,16 @@ elements = [Element(1, 'H', 1),
             #Element(-79, '<Insert kangaroo>', 5)
 
             # Element ?
-            # TODO: Add support for generating levels that use '?'.
+            # TODO: Add support for the '?' element
             #Element(0, '?', 12)
             ]
+
 
 # A Class for O(1) lookup of elements via either their atomic number or their symbol
 # It's only used for handling user-input for now, but it'll come in much more handy later with
 # fission/fusion
 class ElementDict:
-    '''A set of Elements, with O(1) atomic # or symbol lookup.
-    '''
+    '''A set of Elements, with O(1) atomic # or symbol lookup.'''
     def __init__(self, elements):
         self.atomic_num_element_dict = {}
         self.symbol_element_dict = {}
@@ -166,5 +168,6 @@ class ElementDict:
 
     def __str__(self):
         return f"[{', '.join(str(e) for e in self)}]"
+
 
 elements_dict = ElementDict(elements)

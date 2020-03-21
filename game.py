@@ -4,19 +4,21 @@
 import cProfile
 from timeit import timeit
 
-from spacechem.elements_data import Element, elements, elements_dict
 from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import Molecule
-from spacechem.solution import Instruction, Solution
+from spacechem.solution import InstructionType, Solution
+
 
 class Waldo:
+    __slots__ = 'idx', 'position', 'direction', 'is_stalled', 'instr_map', 'molecule'
+
     def __init__(self, idx, position, direction, instr_map):
         self.idx = idx
         self.position = position
         self.direction = direction
         self.is_stalled = False
-        self.instr_map = instr_map # Position map of tuples containing arrow and 'command' (non-arrow) instructions
+        self.instr_map = instr_map  # Position map of tuples containing arrow and 'command' (non-arrow) instructions
         self.molecule = None
 
     def __hash__(self):
@@ -36,6 +38,7 @@ class Waldo:
         '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
         return None if self.position not in self.instr_map else self.instr_map[self.position][1]
 
+
 class RunSuccess(Exception):
     pass
 
@@ -45,6 +48,7 @@ class InfiniteLoopException(Exception):
 class InvalidOutputException(Exception):
     pass
 
+
 class Reactor:
     '''Represents the current state of a running solution.
     To track state properly, requires that exec_cmd(waldo) be called with each of its waldos on each
@@ -52,6 +56,9 @@ class Reactor:
     Might be able to skip ahead to cycles when either waldo has a command... but on the other hand
     if this is coded right it won't make a huge difference.
     '''
+    __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'flipflop_states',
+                 'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts')
+
     def __init__(self, level, solution):
         self.level = level
         self.solution = solution
@@ -77,7 +84,6 @@ class Reactor:
 
         # Pre-process the soln into red and blue instr maps that allow for skipping along rows/columns
         # to the next arrow/instruction. Ignores Start commands.
-        self.symbols = 0
         self.waldos = [Waldo(i,
                              solution.waldo_starts[i][0],
                              solution.waldo_starts[i][1],
@@ -125,42 +131,38 @@ class Reactor:
             waldo.direction = arrow_direction
 
         # Execute the non-arrow instruction
-        if cmd == Instruction.INPUT_ALPHA:
-            self.input(waldo, 0)
-        elif cmd == Instruction.INPUT_BETA:
-            self.input(waldo, 1)
-        elif cmd == Instruction.OUTPUT_PSI:
-            self.output(waldo, 0)
-        elif cmd == Instruction.OUTPUT_OMEGA:
-            self.output(waldo, 1)
-        elif cmd == Instruction.GRAB:
+        if cmd == InstructionType.INPUT:
+            self.input(waldo, cmd.target_idx)
+        elif cmd == InstructionType.OUTPUT:
+            self.output(waldo, cmd.target_idx)
+        elif cmd == InstructionType.GRAB:
             self.grab(waldo)
-        elif cmd == Instruction.DROP:
+        elif cmd == InstructionType.DROP:
             self.drop(waldo)
-        elif cmd == Instruction.GRAB_DROP:
+        elif cmd == InstructionType.GRAB_DROP:
             if waldo.molecule is None:
                 self.grab(waldo)
             else:
                 self.drop(waldo)
-        elif cmd in (Instruction.ROTATE_CWISE, Instruction.ROTATE_CCWISE):
+        elif cmd == InstructionType.ROTATE:
             # If we are holding a molecule and didn't just finish a stall, stall the waldo
             # In all other cases, unstall the waldo
             waldo.is_stalled = waldo.molecule is not None and not waldo.is_stalled
-        elif cmd == Instruction.BOND_PLUS:
+        elif cmd == InstructionType.BOND_PLUS:
             self.bond_plus()
-        elif cmd == Instruction.BOND_MINUS:
+        elif cmd == InstructionType.BOND_MINUS:
             self.bond_minus()
-        elif cmd == Instruction.SYNC:
+        elif cmd == InstructionType.SYNC:
             # Mark this waldo as stalled if both waldos aren't on a Sync
             other_waldo = self.waldos[1 - waldo.idx]
-            waldo.is_stalled = other_waldo.cur_cmd() != Instruction.SYNC
-        elif cmd == Instruction.FUSE:
+            waldo.is_stalled = other_waldo.cur_cmd() != InstructionType.SYNC
+        elif cmd == InstructionType.FUSE:
             pass
-        elif cmd == Instruction.SPLIT:
+        elif cmd == InstructionType.SPLIT:
             pass
-        elif cmd == Instruction.FLIP_FLOP:
+        elif cmd == InstructionType.FLIP_FLOP:
             pass
-        elif cmd == Instruction.SWAP:
+        elif cmd == InstructionType.SWAP:
             pass
 
     def input(self, waldo, input_idx):
@@ -222,7 +224,7 @@ class Reactor:
                 return molecule
 
     def drop(self, waldo):
-        waldo.molecule = None # Remove the reference to the molecule
+        waldo.molecule = None  # Remove the reference to the molecule
 
     def move(self, waldo):
         # Check that we're not pulling our molecule apart (note that for some reason spacechem
@@ -234,16 +236,13 @@ class Reactor:
             if (waldo.molecule is other_waldo.molecule
                 and (waldo.is_stalled != other_waldo.is_stalled
                      or waldo.direction != other_waldo.direction
-                     or waldo.cur_cmd() in (Instruction.ROTATE_CWISE, Instruction.ROTATE_CCWISE))):
+                     or waldo.cur_cmd() == InstructionType.ROTATE)):
                 raise Exception("Molecule pulled apart")
 
         if waldo.is_stalled:
             # Rotate the molecule if it's stalled on a rotate cmd (hasn't rotated yet)
-            if waldo.molecule is not None and waldo.cur_cmd() == Instruction.ROTATE_CWISE:
-                waldo.molecule.rotate(waldo.position, Direction.CLOCKWISE)
-                self.check_collisions(waldo.molecule)
-            elif waldo.molecule is not None and waldo.cur_cmd() == Instruction.ROTATE_CCWISE:
-                waldo.molecule.rotate(waldo.position, Direction.COUNTER_CLOCKWISE)
+            if waldo.molecule is not None and waldo.cur_cmd() == InstructionType.ROTATE:
+                waldo.molecule.rotate(waldo.position, waldo.cur_cmd().direction)
                 self.check_collisions(waldo.molecule)
             else:
                 # Un-stall the waldo (unless it just rotated, in which case we leave it marked as
