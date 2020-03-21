@@ -18,19 +18,11 @@ class Direction(Enum):
     __repr__ = __str__
 
     def __add__(self, other):
-        '''The sum of UP and CLOCKWISE is RIGHT.
-        Also functions as a mapper from internal bond directions to the external grid's directions.
-        (a molecule that has relative orientation RIGHT needs to transform each of its bond
-        directions to be direction + RIGHT (clockwise) (UP is the identity direction).
-        '''
+        '''E.g. UP + CLOCKWISE == RIGHT.'''
         return Direction((self.value + other.value) % 4)
 
     def __sub__(self, other):
-        '''The UP minus CLOCKWISE is LEFT.
-        Also functions as a mapper from the external grid's directions to internal bond directions.
-        (a molecule that has relative orientation RIGHT needs to transform an added atom's bonds
-        to be direction - RIGHT (counter-clockwise) (UP is the identity direction).
-        '''
+        '''E.g. UP - CLOCKWISE == LEFT.'''
         return Direction((self.value - other.value) % 4)
 
     def opposite(self):

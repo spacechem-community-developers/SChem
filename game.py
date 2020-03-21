@@ -26,7 +26,7 @@ class Waldo:
         whether it's stalled (to distinguish start vs end cycle of a rotate), and whether it's
         holding a molecule.
         '''
-        # TODO: Maybe (self.is_stalled and self.instr_map[self.position] in (rotates))) instead, to
+        # TODO: Maybe (self.is_stalled and self.cur_cmd().type == ROTATE)) instead, to
         #       avoid worrying about sync states? (since whether we just reached or were already on
         #       Sync doesn't affect future run state, unlike with Rotate)
         return hash((self.position, self.direction, self.is_stalled, self.molecule is None))
@@ -118,7 +118,7 @@ class Reactor:
         Raise an exception if it does.
         '''
         for other_molecule in self.molecules.keys():
-            molecule.check_collisions(other_molecule) # Implicitly ignores self
+            molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
     def exec_instrs(self, waldo):
         if waldo.position not in waldo.instr_map:
@@ -248,7 +248,7 @@ class Reactor:
                 # Un-stall the waldo (unless it just rotated, in which case we leave it marked as
                 # stalled so we know not to rotate it again next cycle). It is indeed true that
                 # waldos stalled against a wall on a rotate command only rotate every second cycle.
-                waldo.is_stalled = False # TODO: avoid re-execing syncs for performance?
+                waldo.is_stalled = False  # TODO: avoid re-execing syncs for performance?
         elif not ((waldo.direction == Direction.UP and waldo.position.row == 0)
                   or (waldo.direction == Direction.DOWN and waldo.position.row == 8)
                   or (waldo.direction == Direction.LEFT and waldo.position.col == 0)
@@ -281,41 +281,34 @@ class Reactor:
                 if molecule_A is None or molecule_B is None:
                     continue
 
-                # TODO: Make Molecule's external API's hide the internal positioning system
-                #       Update this section to be agnostic of whether we use an internal positioning
-                #       system so that we can try switching back to raw external coordinates later
-                #       and see if there's a performance diff one way or the other
-
                 atom_A = molecule_A[position]
 
                 # If the bond being increased is already at the max bond size of 3, don't do
                 # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
                 # mark the molecule as modified below
-                internal_direction_A = direction - molecule_A.relative_orientation
-                if (internal_direction_A not in atom_A.bonds
-                    or atom_A.bonds[internal_direction_A]) != 3:
+                if (direction not in atom_A.bonds
+                    or atom_A.bonds[direction]) != 3:
                     atom_B = molecule_B[neighbor_posn]
 
                     # Do nothing if either atom is at its bond limit (spacechem does not mark
                     # any molecules as modified in this case unless the bond was size 3)
                     if (sum(atom_A.bonds.values()) == atom_A.element.max_bonds
-                        or sum(atom_B.bonds.values()) == atom_B.element.max_bonds):
+                            or sum(atom_B.bonds.values()) == atom_B.element.max_bonds):
                         continue
 
-                    # TODO: the below expression calls the posn ctor twice but could be once
-                    internal_direction_B = (direction - molecule_B.relative_orientation).opposite()
+                    direction_B = direction.opposite()
 
-                    if internal_direction_A not in atom_A.bonds:
-                        atom_A.bonds[internal_direction_A] = 0
-                    atom_A.bonds[internal_direction_A] += 1
-                    if internal_direction_B not in atom_B.bonds:
-                        atom_B.bonds[internal_direction_B] = 0
-                    atom_B.bonds[internal_direction_B] += 1
+                    if direction not in atom_A.bonds:
+                        atom_A.bonds[direction] = 0
+                    atom_A.bonds[direction] += 1
+                    if direction_B not in atom_B.bonds:
+                        atom_B.bonds[direction_B] = 0
+                    atom_B.bonds[direction_B] += 1
 
                 if molecule_A is molecule_B:
                     # Mark molecule as modified by popping it to the back of the reactor's queue
                     del self.molecules[molecule_A]
-                    self.molecules[molecule_A] = None # dummy value
+                    self.molecules[molecule_A] = None  # dummy value
                 else:
                     # Add the smaller molecule to the larger one (faster), then delete the smaller
                     # and mark the larger as modified
@@ -331,7 +324,7 @@ class Reactor:
 
                     del self.molecules[molecules[0]]
                     del self.molecules[molecules[1]]
-                    self.molecules[molecules[1]] = None # dummy value
+                    self.molecules[molecules[1]] = None  # dummy value
 
     def bond_minus(self):
         for position in self.solution.bonders:
@@ -346,8 +339,7 @@ class Reactor:
 
                 # Continue if there isn't a molecule with a bond over this pair
                 molecule = self.get_molecule(position)
-                if (molecule is None
-                    or direction - molecule.relative_orientation not in molecule[position].bonds):
+                if molecule is None or direction not in molecule[position].bonds:
                     continue
 
                 # Now that we know for sure the molecule will be mutated, debond the molecule

@@ -120,14 +120,10 @@ class ResearchLevel(Level):
         for i, input_dict in self['input-zones'].items():
             i = int(i)
             # TODO: Assuming non-random level for now (only one input molecule)
-            self.input_molecules[i] = Molecule.from_json_string(input_dict['inputs'][0]['molecule'])
 
-            # Input molecules have relative indices to within their zones, so update
-            # beta input zone molecules to have external positions 4 rows down
-            if i == 1:
-                # TODO shouldn't rely on knowing origin_offset inits to (0,0)
-                # Implement addition of Positions to Positions and use that instead
-                self.input_molecules[i].origin_offset = Position(4, 0)
+            # Input molecules have relative indices to within their zones, so let the ctor know if this is a beta input
+            # zone molecule (will be initialized 4 rows downward)
+            self.input_molecules[i] = Molecule.from_json_string(input_dict['inputs'][0]['molecule'], is_beta=(i == 1))
 
         # Even in a large output level we'll leave the second field as None in each case, to
         # simplify downstream code handling omega output commands (which can be put in large
