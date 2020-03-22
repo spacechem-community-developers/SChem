@@ -113,27 +113,21 @@ class ResearchLevel(Level):
         super().__init__(level_export_string)
         assert self['type'] == 'research'
 
-        self.output_counts = [None, None]
-
-        # Prepare input and output molecule objects
-        self.input_molecules = [None, None]
+        self.input_molecules = {}
         for i, input_dict in self['input-zones'].items():
             i = int(i)
             # TODO: Assuming non-random level for now (only one input molecule)
 
             # Input molecules have relative indices to within their zones, so let the ctor know if this is a beta input
             # zone molecule (will be initialized 4 rows downward)
-            self.input_molecules[i] = Molecule.from_json_string(input_dict['inputs'][0]['molecule'], is_beta=(i == 1))
+            self.input_molecules[i] = Molecule.from_json_string(input_dict['inputs'][0]['molecule'], zone_idx=i)
 
-        # Even in a large output level we'll leave the second field as None in each case, to
-        # simplify downstream code handling omega output commands (which can be put in large
-        # output levels)
-        self.output_molecules = [None, None]
-        self.output_counts = [None, None]
+        self.output_molecules = {}
+        self.output_counts = {}
 
         for i, output_dict in self['output-zones'].items():
             i = int(i)
-            self.output_molecules[i] = Molecule.from_json_string(output_dict['molecule'])
+            self.output_molecules[i] = Molecule.from_json_string(output_dict['molecule'], zone_idx=i)
             self.output_counts[i] = output_dict['count']
 
     def get_bonder_count(self):

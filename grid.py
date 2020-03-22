@@ -13,9 +13,11 @@ class Direction(Enum):
     CLOCKWISE = 5  # 1 mod 4
     COUNTER_CLOCKWISE = 7  # 3 mod 4
 
-    def __str__(self):
+    def __repr__(self):
         return self.name
-    __repr__ = __str__
+
+    def __str__(self):
+        return {0: '^', 1: '>', 2: 'v', 3: '<', 5: '<', 7: '>'}[self.value]
 
     def __add__(self, other):
         '''E.g. UP + CLOCKWISE == RIGHT.'''

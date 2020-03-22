@@ -59,8 +59,8 @@ class Reactor:
     __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'flipflop_states',
                  'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts')
 
-    def __init__(self, level, solution):
-        self.level = level
+    def __init__(self, solution):
+        self.level = solution.level
         self.solution = solution
         self.cycle = 0
 
@@ -72,8 +72,7 @@ class Reactor:
         self.did_input_this_cycle = [False, False]
 
         # Global output vars
-        self.completed_output_counts = [None if output_count is None else 0
-                                        for output_count in level.output_counts]
+        self.completed_output_counts = {i: 0 for i in self.level.output_counts.keys()}
         # Track whether each input zone has already done its max of 1 output per cycle
         self.did_output_this_cycle = [False, False]
 
@@ -131,38 +130,40 @@ class Reactor:
             waldo.direction = arrow_direction
 
         # Execute the non-arrow instruction
-        if cmd == InstructionType.INPUT:
+        if cmd is None:
+            return
+        elif cmd.type == InstructionType.INPUT:
             self.input(waldo, cmd.target_idx)
-        elif cmd == InstructionType.OUTPUT:
+        elif cmd.type == InstructionType.OUTPUT:
             self.output(waldo, cmd.target_idx)
-        elif cmd == InstructionType.GRAB:
+        elif cmd.type == InstructionType.GRAB:
             self.grab(waldo)
-        elif cmd == InstructionType.DROP:
+        elif cmd.type == InstructionType.DROP:
             self.drop(waldo)
-        elif cmd == InstructionType.GRAB_DROP:
+        elif cmd.type == InstructionType.GRAB_DROP:
             if waldo.molecule is None:
                 self.grab(waldo)
             else:
                 self.drop(waldo)
-        elif cmd == InstructionType.ROTATE:
+        elif cmd.type == InstructionType.ROTATE:
             # If we are holding a molecule and didn't just finish a stall, stall the waldo
             # In all other cases, unstall the waldo
             waldo.is_stalled = waldo.molecule is not None and not waldo.is_stalled
-        elif cmd == InstructionType.BOND_PLUS:
+        elif cmd.type == InstructionType.BOND_PLUS:
             self.bond_plus()
-        elif cmd == InstructionType.BOND_MINUS:
+        elif cmd.type == InstructionType.BOND_MINUS:
             self.bond_minus()
-        elif cmd == InstructionType.SYNC:
+        elif cmd.type == InstructionType.SYNC:
             # Mark this waldo as stalled if both waldos aren't on a Sync
             other_waldo = self.waldos[1 - waldo.idx]
-            waldo.is_stalled = other_waldo.cur_cmd() != InstructionType.SYNC
-        elif cmd == InstructionType.FUSE:
+            waldo.is_stalled = other_waldo.cur_cmd() is None or other_waldo.cur_cmd().type != InstructionType.SYNC
+        elif cmd.type == InstructionType.FUSE:
             pass
-        elif cmd == InstructionType.SPLIT:
+        elif cmd.type == InstructionType.SPLIT:
             pass
-        elif cmd == InstructionType.FLIP_FLOP:
+        elif cmd.type == InstructionType.FLIP_FLOP:
             pass
-        elif cmd == InstructionType.SWAP:
+        elif cmd.type == InstructionType.SWAP:
             pass
 
     def input(self, waldo, input_idx):
@@ -197,9 +198,8 @@ class Reactor:
                     self.completed_output_counts[output_idx] += 1
 
                     # Check if we've won
-                    if all(self.level.output_counts[i] is None
-                           or self.completed_output_counts[i] >= self.level.output_counts[i]
-                           for i in range(len(self.level.output_counts))):
+                    if all(self.completed_output_counts[i] >= self.level.output_counts[i]
+                           for i in self.level.output_counts.keys()):
                         raise RunSuccess()
 
                     # Remove the molecule from the reactor
@@ -236,12 +236,13 @@ class Reactor:
             if (waldo.molecule is other_waldo.molecule
                 and (waldo.is_stalled != other_waldo.is_stalled
                      or waldo.direction != other_waldo.direction
-                     or waldo.cur_cmd() == InstructionType.ROTATE)):
+                     or (waldo.cur_cmd() is not None and waldo.cur_cmd().type == InstructionType.ROTATE))):
                 raise Exception("Molecule pulled apart")
 
         if waldo.is_stalled:
             # Rotate the molecule if it's stalled on a rotate cmd (hasn't rotated yet)
-            if waldo.molecule is not None and waldo.cur_cmd() == InstructionType.ROTATE:
+            if waldo.molecule is not None and (waldo.cur_cmd() is not None
+                                               and waldo.cur_cmd().type == InstructionType.ROTATE):
                 waldo.molecule.rotate(waldo.position, waldo.cur_cmd().direction)
                 self.check_collisions(waldo.molecule)
             else:
@@ -375,17 +376,19 @@ class Reactor:
         cur_state_hash = hash(self)
         if cur_state_hash not in self.prior_states:
             # If this is a new state, store it
-            self.prior_states[cur_state_hash] = (self.cycle, tuple(self.completed_output_counts))
+            self.prior_states[cur_state_hash] = (self.cycle,
+                                                 # Store tuples rather than dict copies to reduce memory bloat
+                                                 tuple(self.completed_output_counts[i] if i in self.completed_output_counts
+                                                       else None
+                                                       for i in range(2)))
         else:
             # We're in a loop!
             # TODO: Random levels will throw a wrench in this. We can basically only progress
             # to the next input command state in them.
             prior_cycle, prior_completed_output_counts = self.prior_states[cur_state_hash]
 
-            if any(self.level.output_counts[i] is not None
-                   # == should be sufficient but I'm paranoid
-                   and self.completed_output_counts[i] <= prior_completed_output_counts[i]
-                   for i in range(len(self.level.output_counts))):
+            if any(self.completed_output_counts[i] <= prior_completed_output_counts[i]  # == if I weren't paranoid
+                   for i in self.level.output_counts.keys()):
                 # We're in the same state as before but at least one required output hasn't been
                 # increased, therefore (TODO: assuming not random level) this solution is stuck
                 # in an infinite loop that will never win
@@ -394,24 +397,21 @@ class Reactor:
             # Figure out how many times we could repeat this state loop to get as close to
             # winning as possible without looping past the winning cycle
             future_loops = 0
-            for i in range(len(self.level.output_counts)):
-                if self.level.output_counts[i] is not None:
-                    loop_output_diff = self.completed_output_counts[i] - prior_completed_output_counts[i]
-                    remaining_outputs = self.level.output_counts[i] - self.completed_output_counts[i]
-                    # Calculate with remaining_outputs - 1 to ensure we don't loop past the
-                    # winning state
-                    future_loops = max((future_loops, (remaining_outputs - 1) // loop_output_diff))
+            for i in self.level.output_counts.keys():
+                loop_output_diff = self.completed_output_counts[i] - prior_completed_output_counts[i]
+                remaining_outputs = self.level.output_counts[i] - self.completed_output_counts[i]
+                # Calculate with remaining_outputs - 1 to ensure we don't loop past the
+                # winning state
+                future_loops = max((future_loops, (remaining_outputs - 1) // loop_output_diff))
 
             # Calculate the future cycle if we progress to the start of the last loop
             loop_size = self.cycle - prior_cycle
-            loop_completed_output_counts = [None if self.level.output_counts[i] is None
-                                            else self.completed_output_counts[i] - prior_completed_output_counts[i]
-                                            for i in range(len(self.level.output_counts))]
+            loop_completed_output_counts = {i: self.completed_output_counts[i] - prior_completed_output_counts[i]
+                                            for i in self.level.output_counts.keys()}
 
             future_cycle = self.cycle + future_loops * loop_size
-            future_completed_output_counts = [None if self.level.output_counts[i] is None
-                                              else self.completed_output_counts[i] + future_loops * loop_completed_output_counts[i]
-                                              for i in range(len(self.level.output_counts))]
+            future_completed_output_counts = {i: self.completed_output_counts[i] + future_loops * loop_completed_output_counts[i]
+                                              for i in self.level.output_counts.keys()}
 
             # We now know that one more loop will win us the game: walk through the prior states
             # until we identify the winning cycle
@@ -419,10 +419,10 @@ class Reactor:
             for state_hash, (cycle, completed_output_counts) in self.prior_states.items():
                 # Skip ahead to the loop we found...
                 in_loop |= state_hash == cur_state_hash
-                if in_loop and all(self.level.output_counts[i] is None
-                                   or (future_completed_output_counts[i]
-                                       + (completed_output_counts[i] - prior_completed_output_counts[i])) >= self.level.output_counts[i]
-                                   for i in range(len(self.level.output_counts))):
+                if in_loop and all((future_completed_output_counts[i]
+                                    + (completed_output_counts[i] - prior_completed_output_counts[i]))
+                                   >= self.level.output_counts[i]
+                                   for i in self.level.output_counts.keys()):
                     # Skip ahead our run state cycle to the winning cycle then alert the caller
                     self.cycle = future_cycle + (cycle - prior_cycle)
                     raise RunSuccess()
@@ -436,15 +436,16 @@ class Reactor:
             self.did_input_this_cycle[i] = False
             self.did_output_this_cycle[i] = False
 
+    def run(self):
+        try:
+            while True:
+                self.do_cycle()
+        except RunSuccess:
+            return self.cycle, 1, self.solution.symbols
 
-def score_soln(level, soln):
-    reactor = Reactor(level, soln)
 
-    try:
-        while True:
-            reactor.do_cycle()
-    except RunSuccess:
-        return (reactor.cycle, 1, soln.symbols)
+def score_solution(soln):
+    return Reactor(soln).run()
 
 
 if __name__ == '__main__':
@@ -509,6 +510,5 @@ MEMBER:'instr-rotate',-1,1,32,2,2,0,0
 MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2'''
-
-    cProfile.run('score_soln(ResearchLevel(level_code), Solution(solution_code))', sort='cumtime')
-    #score_soln(ResearchLevel(level_code), Solution(solution_code))
+    cProfile.run('score_solution(Solution(ResearchLevel(level_code), solution_code))', sort='cumtime')
+    #score_solution(Solution(ResearchLevel(level_code), solution_code))

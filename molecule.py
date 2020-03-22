@@ -77,7 +77,7 @@ class Molecule:
         self.atom_map = atom_map if atom_map is not None else {}
 
     @classmethod
-    def from_json_string(cls, json_string, is_beta=False):
+    def from_json_string(cls, json_string, zone_idx=0, is_output=False):
         parts = json_string.split(';')
         name = parts[0]
         atom_map = {}
@@ -86,8 +86,11 @@ class Molecule:
             # formatted as: {col}{row}{atomic_num}{right_bonds}{down_bonds}
             # Note that atomic_num is from 1-3 characters long so we reference the values after it
             # via negative indices
-            # Initialize the position, adding 4 to the column value if this is beta input zone molecule
-            position = Position(int(atom_str[1]) + (4 * is_beta), int(atom_str[0]))
+            # Initialize the position, adding 4 to the row value if this is the beta or omega zone,
+            # and 6 to the column value if this is an output molecule (our output-checking algorithm is agnostic
+            # of this so it doesn't much matter, but mapping to grid co-ordinates is more precise for the convenience
+            # of users of this library).
+            position = Position(int(atom_str[1]) + 4 * zone_idx, int(atom_str[0]) + 6 * is_output)
             atom = Atom(elements_dict[int(atom_str[2:-2])])
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
@@ -115,9 +118,7 @@ class Molecule:
 
     def __repr__(self):
         return f'Molecule({self.atom_map})'
-
-    def __str__(self):
-        return f'Molecule({list(self.items())})'
+    __str__ = __repr__
 
     def __len__(self):
         '''Return the # of atoms in this molecule.'''
@@ -217,7 +218,6 @@ class Molecule:
             new_atom_map[posn] = self.atom_map[posn]
             del self.atom_map[posn]
         return Molecule(atom_map=new_atom_map)
-
 
     def output_zone_idx(self):
         if not self:

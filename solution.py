@@ -6,6 +6,7 @@ from enum import Enum
 
 from spacechem.grid import Position, Direction
 
+
 # Solution (NN output) bits:
 # 80 x Cell bits:
 #    Red: 10 bits
@@ -56,27 +57,30 @@ from spacechem.grid import Position, Direction
 
 class InstructionType(Enum):
     '''Represents the various types of SpaceChem instruction.'''
-    INPUT = 0
-    OUTPUT = 1
-    GRAB = 2
-    DROP = 3
-    GRAB_DROP = 4
-    ROTATE = 5
-    SYNC = 6
-    BOND_PLUS = 7
-    BOND_MINUS = 8
-    SENSE = 9
-    FLIP_FLOP = 10
-    FUSE = 11
-    SPLIT = 12
-    SWAP = 13
+    START = 'S'
+    INPUT = 'i'
+    OUTPUT = 'o'
+    GRAB = 'g'
+    DROP = 'd'
+    GRAB_DROP = 'gd'
+    ROTATE = 'r'
+    SYNC = 'sy'
+    BOND_PLUS = 'b+'
+    BOND_MINUS = 'b-'
+    SENSE = '?'
+    FLIP_FLOP = 'f'
+    FUSE = 'fus'
+    SPLIT = 'spl'
+    SWAP = 'swp'
+
+    def __repr__(self):
+        return self.name
 
     def __str__(self):
-        return self.name
-    __repr__ = __str__
+        return self.value
 
 
-class Instruction(namedtuple('Instruction', ('instr_type', 'direction', 'target_idx'),
+class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
                              # Default direction and target_idx if unneeded
                              defaults=(None, None))):
     '''Represents a non-arrow SpaceChem instruction and any associated properties.
@@ -85,27 +89,36 @@ class Instruction(namedtuple('Instruction', ('instr_type', 'direction', 'target_
     '''
     __slots__ = ()
 
-    def __eq__(self, other):
-        '''Allow direct comparison to instruction type for sanity.'''
-        if isinstance(other, InstructionType):
-            return self.instr_type == other
-        else:
-            return super().__eq__(self, other)
+    def __str__(self):
+        return (f'{self.type}'
+                f'{self.target_idx if self.target_idx is not None else ""}'
+                f'{self.direction if self.direction is not None else ""}')
+
+    def __repr__(self):
+        return (f'Instruction({repr(self.type)}'
+                + (f', target_idx={self.target_idx}' if self.target_idx is not None else '')
+                + (f', direction={repr(self.direction)}' if self.direction is not None else '')
+                + ')')
 
 
 class Solution:
-    __slots__ = 'name', 'symbols', 'bonders', 'waldo_starts', 'waldo_instr_maps', 'expected_score'
+    __slots__ = 'level', 'name', 'symbols', 'bonders', 'waldo_starts', 'waldo_instr_maps', 'expected_score'
 
-    def __init__(self, soln_export_string):
+    def __init__(self, level, soln_export_string=None):
+        self.level = level
         self.name = ''
         self.symbols = 0
         # Level Features
         self.bonders = {}
-         # Store waldo starts outside the instruction map for quick access when initializing
-         # a solution (and since they don't need to appear in the instruction map)
+        # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
         self.waldo_starts = [None, None]
-        # Map of positions to pairs of arrows (directions) and/or non-arrow instructions
+        # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
+        # TODO: usage might be cleaner if separate arrow_maps and instr_maps
         self.waldo_instr_maps = [{}, {}]
+
+        if soln_export_string is None:
+            return
+
         bonder_count = 0
         for line in soln_export_string.split('\n'):
             if line.startswith('MEMBER'):
@@ -130,7 +143,8 @@ class Solution:
                     self.bonders[position] = bonder_count
                     continue
                 elif member_name == 'instr-start':
-                    self.waldo_starts[waldo_idx] = (position, direction)
+                    self.add_instruction(waldo_idx=waldo_idx, posn=position,
+                                         instr=Instruction(InstructionType.START, direction=direction))
                     continue
 
                 # If this isn't a start instruction, increment total symbols
@@ -166,12 +180,12 @@ class Solution:
                         self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
                                                                                     direction=Direction.COUNTER_CLOCKWISE)
                 elif member_name == 'instr-sync':
-                    self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.SYNC
+                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SYNC)
                 elif member_name == 'instr-bond':
                     if instr_sub_type == 0:
-                        self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.BOND_PLUS
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_PLUS)
                     else:
-                        self.waldo_instr_maps[waldo_idx][position][1] = InstructionType.BOND_MINUS
+                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_MINUS)
             elif line.startswith('SOLUTION'):
                 csv_values = line.split(',')
                 self.expected_score = tuple(int(i) for i in csv_values[2].split('-'))
@@ -182,17 +196,51 @@ class Solution:
     def __repr__(self):
         return f'Solution(bonders={self.bonders}, starts={self.waldo_starts}, instrs={self.waldo_instr_maps})'
 
+    def __str__(self):
+        s = f'inputs={self.level.input_molecules}'
+        s += f'\noutputs={self.level.output_molecules}'
+
+        for waldo_idx, waldo_name in ((0, 'red'), (1, 'blue')):
+            s += f'\n{waldo_name}:'
+
+            # Show col indices
+            s += '\n  '
+            for col in range(10):
+                s += f'  {col}  '
+
+            for row in range(8):
+                s += f'\n{row} '  # Show row index
+                for col in range(10):
+                    posn = Position(row, col)
+                    if posn in self.waldo_instr_maps[waldo_idx]:
+                        arrow, instr = self.waldo_instr_maps[waldo_idx][Position(row, col)]
+                        s += f'{str(instr).rjust(3) if instr is not None else "   "} {arrow if arrow is not None else " "}'
+                    else:
+                        s += 5 * ' '
+
+        return s
+
     def get_export_string(self):
         pass
 
     def add_instruction(self, waldo_idx, posn, instr):
+        # TODO: Raise exception if start instr already exists for this waldo? Or else return False for performance...
+        if instr.type == InstructionType.START:
+            self.waldo_starts[waldo_idx] = (posn, instr.direction)
+        else:
+            self.symbols += 1
+
         if posn not in self.waldo_instr_maps[waldo_idx]:
             self.waldo_instr_maps[waldo_idx][posn] = [None, None]
 
-        self.waldo_instr_maps[waldo_idx][1] = instr
+        self.waldo_instr_maps[waldo_idx][posn][1] = instr
 
     def add_arrow(self, waldo_idx, posn, arrow_dirn):
         if posn not in self.waldo_instr_maps[waldo_idx]:
             self.waldo_instr_maps[waldo_idx][posn] = [None, None]
 
-        self.waldo_instr_maps[waldo_idx][0] = arrow_dirn
+        self.waldo_instr_maps[waldo_idx][posn][0] = arrow_dirn
+        self.symbols += 1
+
+    def add_bonder(self, posn):
+        self.bonders[posn] = len(self.bonders) + 1  # Index the bonders by order of insertion
