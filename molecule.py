@@ -2,10 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from collections import Counter
+import math
 
 from spacechem.grid import Position, Direction
 from spacechem.elements_data import elements_dict
 
+
+ATOM_DIAMETER = 0.772  # Diameter of an atom relative to a grid cell, per the gamemechanics wiki
+ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
 
 # TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
 #       cut atom sizes significantly and parsing the game's level data (which only stores right and
@@ -159,17 +163,57 @@ class Molecule:
         self.atom_map = {posn + direction: atom for posn, atom in self.atom_map.items()}
         return self
 
+    def move_fine(self, direction, distance):
+        self.atom_map = {posn.move(direction, distance=distance): atom for posn, atom in self.atom_map.items()}
+        return self
+
     def rotate(self, pivot_pos, direction):
         self.atom_map = {posn.rotate(pivot_pos, direction): atom.rotate(direction)
                          for posn, atom in self.atom_map.items()}
         return self
 
+    def rotate_fine(self, pivot_pos, direction, radians):
+        '''Rotate the positions in the molecule a certain number of radians, but don't change bonds yet.
+        Used for step-wise rotation collision checks.
+        '''
+        self.atom_map = {posn.rotate_fine(pivot_pos, direction, radians=radians): atom
+                         for posn, atom in self.atom_map.items()}
+        return self
+
+    def rotate_bonds(self, direction):
+        '''Used for completing the rotation of a molecule after all the position collision checks are done.
+        Rotate the bonds on each atom in this molecule but leave co-ordinates untouched
+        '''
+        for atom in self.atom_map.values():
+            atom.rotate(direction)
+        return self
+
+    def round_posns(self):
+        '''Used after performing float-precision movement collision checks. Round all posns in this molecule back to
+        integers.
+        '''
+        self.atom_map = {posn.round(): atom for posn, atom in self.atom_map.items()}
+        return self
+
     def check_collisions(self, other):
-        '''Check for collisions with another molecule. Do nothing if checked against itself.'''
+        '''Check for collisions with another molecule, assuming integer co-ordinates in both molecules.
+        Do nothing if checked against itself.
+        '''
         if other is not self:
             for posn in self.atom_map:
                 if posn in other:
                     raise Exception("Collision between molecules.")
+
+    def check_collisions_fine(self, other):
+        '''Check for collisions with another molecule while accounting for fine positions.
+        Do nothing if checked against itself.
+        '''
+        if other is not self:
+            for posn in self.atom_map:
+                for other_posn in other.atom_map:
+                    if (math.sqrt((posn.row - other_posn.row)**2
+                                  + (posn.col - other_posn.col)**2) < ATOM_DIAMETER):
+                        raise Exception("Collision between molecules.")
 
     def debond(self, posn, direction):
         '''Decrement the specified bond in this molecule. If doing so disconnects this molecule,

@@ -3,7 +3,7 @@
 
 from collections import namedtuple
 from enum import Enum
-
+import math
 
 class Direction(Enum):
     UP = 0
@@ -44,16 +44,18 @@ class Position(namedtuple("Position", ('row', 'col'))):
         return f'({self.row}, {self.col})'
     __repr__ = __str__
 
-    # TODO: Check for wall collisions implicitly here?
     def __add__(self, direction):
+        return self.move(direction, distance=1)
+
+    def move(self, direction, distance=1):
         if direction == Direction.UP:
-            return Position(self.row - 1, self.col)
+            return Position(self.row - distance, self.col)
         elif direction == Direction.RIGHT:
-            return Position(self.row, self.col + 1)
+            return Position(self.row, self.col + distance)
         elif direction == Direction.DOWN:
-            return Position(self.row + 1, self.col)
+            return Position(self.row + distance, self.col)
         elif direction == Direction.LEFT:
-            return Position(self.row, self.col - 1)
+            return Position(self.row, self.col - distance)
 
     def rotate(self, pivot_pos, direction):
         '''Return the position obtained by rotating this position around a pivot point.'''
@@ -63,3 +65,28 @@ class Position(namedtuple("Position", ('row', 'col'))):
         else:
             return Position(pivot_pos.row - (self.col - pivot_pos.col),
                             pivot_pos.col + (self.row - pivot_pos.row))
+
+    def rotate_fine(self, pivot_pos, direction, radians):
+        '''Rotate in sub-quarter-turn increments.'''
+        # In normal cartesian math clockwise would be negative, but our vertical axis is reversed
+        if direction == Direction.COUNTER_CLOCKWISE:
+            radians *= -1
+
+        sin_theta, cos_theta = math.sin(radians), math.cos(radians)
+        return Position(pivot_pos.row + sin_theta * (self.col - pivot_pos.col) + cos_theta * (self.row - pivot_pos.row),
+                        pivot_pos.col + cos_theta * (self.col - pivot_pos.col) - sin_theta * (self.row - pivot_pos.row))
+
+    def round(self):
+        '''Return from float-precision co-ordinates to the integer grid.'''
+        return Position(round(self.row), round(self.col))
+
+
+
+# class FinePosition(namedtuple("FinePosition", ('row', 'col'))):
+#     '''Fine co-ordinates used for calculating collisions during molecule rotations.'''
+#
+#     __slots__ = ()
+#
+#     def __new__(cls, posn):
+#         return super().__new__(cls, (posn.row + 0.5, posn.col + 0.5))
+

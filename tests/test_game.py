@@ -40,6 +40,14 @@ class TestGame(unittest.TestCase):
                 with self.assertRaises(game.InvalidOutputException):
                     game.score_solution(solution_obj)
 
+    def test_collisions(self):
+        for level_code, solution_code in test_data.collisions:
+            level_obj = level.ResearchLevel(level_code)
+            solution_obj = solution.Solution(level_obj, solution_code)
+            with self.subTest(msg=f'{level_obj.get_name()}'):
+                with self.assertRaises(game.ReactionError):
+                    game.score_solution(solution_obj)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

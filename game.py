@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import math
 import time
 
 from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
-from spacechem.molecule import Molecule
+from spacechem.molecule import Molecule, ATOM_RADIUS
 from spacechem.solution import InstructionType, Solution
+
+NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
 
 
 class Waldo:
@@ -38,14 +41,39 @@ class Waldo:
         '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
         return None if self.position not in self.instr_map else self.instr_map[self.position][1]
 
+    def is_moving(self):
+        '''Return True if this waldo is about to move to a different grid cell.
+        Should not be called until after executing all instantaneous instructions in a cycle.
+        '''
+        return not (self.is_stalled
+                    or (self.direction == Direction.UP and self.position.row == 0)
+                    or (self.direction == Direction.DOWN and self.position.row == 7)
+                    or (self.direction == Direction.LEFT and self.position.col == 0)
+                    or (self.direction == Direction.RIGHT and self.position.col == 9))
+
+    def is_rotating(self):
+        '''Return True if this waldo is rotating a molecule.
+        Should not be called until after executing all instantaneous instructions in a cycle.
+        '''
+        return (self.is_stalled
+                and self.molecule is not None
+                and self.cur_cmd() is not None
+                and self.cur_cmd().type == InstructionType.ROTATE)
+
 
 class RunSuccess(Exception):
     pass
 
+
 class InfiniteLoopException(Exception):
     pass
 
+
 class InvalidOutputException(Exception):
+    pass
+
+
+class ReactionError(Exception):
     pass
 
 
@@ -56,6 +84,13 @@ class Reactor:
     Might be able to skip ahead to cycles when either waldo has a command... but on the other hand
     if this is coded right it won't make a huge difference.
     '''
+    # For convenience during float-precision rotation co-ordinates, we consider the center of the
+    # top-left cell to be at (0,0), and hence the top-left reactor corner is (-0.5, -0.5).
+    # Further, treat the walls as being one atom radius closer, so that we can efficiently check if an atom will collide
+    # with them given only the atom's center co-ordinates
+    walls = {Direction.UP: -0.5 + ATOM_RADIUS, Direction.DOWN: 7.5 - ATOM_RADIUS,
+             Direction.LEFT: -0.5 + ATOM_RADIUS, Direction.RIGHT: 9.5 - ATOM_RADIUS}
+
     __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'flipflop_states',
                  'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts')
 
@@ -91,7 +126,7 @@ class Reactor:
         self.flipflop_states = []
 
     def __hash__(self):
-        '''Hash of the current run state. Ignores cycle/output counts.'''
+        '''Hash of the current reactor state. Ignores cycle/output counts.'''
         return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
                      tuple(self.waldos),
                      tuple(self.flipflop_states)))
@@ -107,6 +142,8 @@ class Reactor:
         # Map out the molecules in the reactor
         for molecule in self.molecules:
             for (r, c), atom in molecule.atom_map.items():
+                # Round co-ordinates in case we are mid-rotate
+                r, c = round(r), round(c)
                 if grid[r][c] != '   ':
                     grid[r][c] = ' XX'  # Colliding atoms
                 else:
@@ -131,13 +168,35 @@ class Reactor:
 
         return result
 
+    def check_molecule_collisions(self, molecule):
+        '''Raise an exception if the given molecule collides with any other molecules.
+        Assumes integer co-ordinates in all molecules.
+        '''
+        for other_molecule in self.molecules.keys():
+            molecule.check_collisions(other_molecule)  # Implicitly ignores self
+
+    def check_wall_collisions(self, molecule):
+        '''Raise an exception if the given molecule collides with any walls.'''
+        if not all(self.walls[Direction.UP] < p.row < self.walls[Direction.DOWN]
+                   and self.walls[Direction.LEFT] < p.col < self.walls[Direction.RIGHT]
+                   for p in molecule.atom_map):
+            raise Exception("A molecule has collided with a wall")
+
     def check_collisions(self, molecule):
-        '''Check that the given molecule doesn't collide with any existing molecules in the grid
-        (that aren't itself).
+        '''Raise an exception if the given molecule collides with any other molecules or walls.
+        Assumes integer co-ordinates in all molecules.
+        '''
+        self.check_molecule_collisions(molecule)
+        self.check_wall_collisions(molecule)
+
+    def check_collisions_fine(self, molecule):
+        '''Check that the given molecule isn't colliding with any walls or other molecules.
         Raise an exception if it does.
         '''
         for other_molecule in self.molecules:
             molecule.check_collisions(other_molecule)  # Implicitly ignores self
+
+        self.check_wall_collisions(molecule)
 
     def exec_instrs(self, waldo):
         if waldo.position not in waldo.instr_map:
@@ -194,8 +253,8 @@ class Reactor:
             return
 
         new_molecule = self.level.get_input_molecule(input_idx)
-        self.molecules[new_molecule] = None # Dummy value
-        self.check_collisions(new_molecule)
+        self.molecules[new_molecule] = None  # Dummy value
+        self.check_molecule_collisions(new_molecule)
 
     def output(self, waldo, output_idx):
         # If the output is disabled, do nothing
@@ -244,47 +303,96 @@ class Reactor:
     def drop(self, waldo):
         waldo.molecule = None  # Remove the reference to the molecule
 
-    def move(self, waldo):
-        # Check that we're not pulling our molecule apart (note that for some reason spacechem
-        # disallows rotating a doubly-held molecule even if both waldos are in the same position)
-        # TODO: Not sure this code accounts for wall-stalled waldos since they won't have
-        #       'is_stalled' marked but shouldn't rip apart if the other waldo is stalled.
-        if waldo.molecule is not None:
-            other_waldo = self.waldos[1 - waldo.idx]
-            if (waldo.molecule is other_waldo.molecule
-                and (waldo.is_stalled != other_waldo.is_stalled
-                     or waldo.direction != other_waldo.direction
-                     or (waldo.cur_cmd() is not None and waldo.cur_cmd().type == InstructionType.ROTATE))):
+    def move_contents(self):
+        '''Move all waldos in this reactor and any molecules they are holding.'''
+        # If any waldo is about to rotate a molecule, don't skimp on collision checks
+        if any(waldo.is_rotating() for waldo in self.waldos):
+            # If both waldos are holding the same molecule and either of them is rotating, a crash occurs
+            # (even if they're in the same position and rotating the same direction)
+            if self.waldos[0].molecule is self.waldos[1].molecule:
                 raise Exception("Molecule pulled apart")
 
-        if waldo.is_stalled:
-            # Rotate the molecule if it's stalled on a rotate cmd (hasn't rotated yet)
-            if waldo.molecule is not None and (waldo.cur_cmd() is not None
-                                               and waldo.cur_cmd().type == InstructionType.ROTATE):
-                waldo.molecule.rotate(waldo.position, waldo.cur_cmd().direction)
-                self.check_collisions(waldo.molecule)
-            else:
-                # Un-stall the waldo (unless it just rotated, in which case we leave it marked as
-                # stalled so we know not to rotate it again next cycle). It is indeed true that
-                # waldos stalled against a wall on a rotate command only rotate every second cycle.
-                waldo.is_stalled = False  # TODO: avoid re-execing syncs for performance?
-        elif not ((waldo.direction == Direction.UP and waldo.position.row == 0)
-                  or (waldo.direction == Direction.DOWN and waldo.position.row == 8)
-                  or (waldo.direction == Direction.LEFT and waldo.position.col == 0)
-                  or (waldo.direction == Direction.RIGHT and waldo.position.col == 10)):
-            # If the waldo is not wall-stalled, move it and its molecule
-            waldo.position += waldo.direction
-            if waldo.molecule is not None:
-                waldo.molecule.move(waldo.direction)
-                self.check_collisions(waldo.molecule)
+            # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
+            step_radians = math.pi / (2 * NUM_MOVE_CHECKS)
+            step_distance = 1 / NUM_MOVE_CHECKS
+            for i in range(NUM_MOVE_CHECKS):
+                # Move all molecules currently being held by a waldo forward a step
+                for waldo in self.waldos:
+                    if waldo.molecule is not None and waldo.is_moving():
+                        waldo.molecule.move_fine(waldo.direction, distance=step_distance)
+                    elif waldo.is_rotating():
+                        waldo.molecule.rotate_fine(pivot_pos=waldo.position,
+                                                   direction=waldo.cur_cmd().direction,
+                                                   radians=step_radians)
+                    else:
+                        continue
+
+                # After moving all molecules, check each moved molecule for collisions with walls or other molecules
+                # TODO: This duplicates the collision check between two molecules if they both moved
+                for waldo in self.waldos:
+                    if waldo.molecule is not None and (waldo.is_moving() or waldo.is_rotating()):
+                        self.check_collisions_fine(waldo.molecule)
+
+                        # After the last collision check, convert molecules back to integer co-ordinates and rotate
+                        # molecule bonds
+                        if i == NUM_MOVE_CHECKS - 1:
+                            waldo.molecule.round_posns()
+
+                            if waldo.is_rotating():
+                                waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
+
+        elif any(waldo.molecule is not None and waldo.is_moving() for waldo in self.waldos):
+            # If we are not doing any rotates, we can skip the full collision checks
+            # Non-rotating molecules can cause collisions if:
+            # * The waldos are pulling a molecule apart
+            # * OR The final destination of a moved molecule overlaps any other molecule after the move
+            # * OR The final destination of a moved molecule overlaps the initial position of another moving molecule, and the
+            #      offending waldos were not moving in the same direction
+
+            # Given that at least one waldo is moving, if the waldos share a molecule they must move in the same direction
+            if (self.waldos[0].molecule is self.waldos[1].molecule
+                    and (any(waldo.is_stalled for waldo in self.waldos)
+                         or self.waldos[0].direction != self.waldos[1].direction)):
+                raise ReactionError("A molecule has been grabbed by both waldos and pulled apart.")
+
+            # Check if any molecule being moved will bump into the back of another moving molecule
+            if (all(waldo.molecule is not None and waldo.is_moving()
+                    for waldo in self.waldos)
+                    and self.waldos[0].direction != self.waldos[1].direction):
+                for waldo in self.waldos:
+                    # Intersect the target positions of this waldo's molecule with the current positions of the other
+                    # waldo's molecules
+                    other_waldo = self.waldos[1 - waldo.idx]
+                    target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map.keys())
+                    if not target_posns.isdisjoint(other_waldo.molecule.atom_map.keys()):
+                        raise ReactionError("Molecule collision")
+
+            # Move all molecules
+            for waldo in self.waldos:
+                if waldo.molecule is not None and waldo.is_moving():
+                    waldo.molecule.move(waldo.direction)
+
+            # Perform collision checks against the moved molecules
+            for waldo in self.waldos:
+                if waldo.molecule is not None and waldo.is_moving():
+                    self.check_collisions(waldo.molecule)
+
+        # Move waldos and mark them as no longer stalled, unless they just rotated (to ensure the rotate command knows
+        # not to rotate again next cycle)
+        for waldo in self.waldos:
+            if waldo.is_moving():
+                waldo.position += waldo.direction
+            elif not waldo.is_rotating():
+                waldo.is_stalled = False
 
     def bond_plus(self):
         for position in self.solution.bonders:
             bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
                                              (Direction.DOWN, position + Direction.DOWN)]
             # Bond to higher priority (lower index) bonders first
-            bond_dirns_and_neighbor_posns.sort(key=lambda x: 0 if x[1] not in self.solution.bonders
-                                                               else self.solution.bonders[x[1]])
+            bond_dirns_and_neighbor_posns.sort(key=lambda x:
+                                               0 if x[1] not in self.solution.bonders
+                                               else self.solution.bonders[x[1]])
             for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
                 if neighbor_posn not in self.solution.bonders:
                     continue
@@ -348,8 +456,9 @@ class Reactor:
             bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
                                              (Direction.DOWN, position + Direction.DOWN)]
             # Debond with higher priority (lower index) bonders first
-            bond_dirns_and_neighbor_posns.sort(key=lambda x: 0 if x[1] not in self.solution.bonders
-                                                               else self.solution.bonders[x[1]])
+            bond_dirns_and_neighbor_posns.sort(key=lambda x:
+                                               0 if x[1] not in self.solution.bonders
+                                               else self.solution.bonders[x[1]])
             for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
                 if neighbor_posn not in self.solution.bonders:
                     continue
@@ -365,11 +474,11 @@ class Reactor:
 
                 # Mark the molecule as modified
                 del self.molecules[molecule]
-                self.molecules[molecule] = None # Dummy value
+                self.molecules[molecule] = None  # Dummy value
 
                 # If a new molecule broke off, add it to the reactor list
                 if split_off_molecule is not None:
-                    self.molecules[split_off_molecule] = None # Dummy value
+                    self.molecules[split_off_molecule] = None  # Dummy value
 
                     # If the molecule got split apart, ensure any waldos holding it are now holding
                     # the correct split piece of it
@@ -381,7 +490,9 @@ class Reactor:
         # Hash the current reactor state and check if it matches a past reactor state
         # TODO: Maybe only hash on cycles when either output count incremented?
         #       But then we can't detect infinite loops, which is pretty important to have for
-        #       various applications (self-play, auto-solution-verifier).
+        #       various applications (self-play, auto-solution-verifier). And hashing every Nth cycle will just make the
+        #       solver slower if N happens to be coprime with the solution's loop size. Hashing 2/3 cycles + outputs
+        #       might work but probably isn't worth the headache
         # TODO: To handle random input levels, in addition to cycle/output counts, store whether any
         #       inputs were called this cycle, and whenever we encounter a matching hash, only skip
         #       ahead to one cycle before another input will be called. Eventually, we'll have all possible states
@@ -395,7 +506,8 @@ class Reactor:
             # TODO: Implement memory limit
             self.prior_states[cur_state_hash] = (self.cycle,
                                                  # Store tuples rather than dict copies to reduce memory bloat
-                                                 tuple(self.completed_output_counts[i] if i in self.completed_output_counts
+                                                 tuple(self.completed_output_counts[
+                                                           i] if i in self.completed_output_counts
                                                        else None
                                                        for i in range(2)))
         else:
@@ -430,8 +542,9 @@ class Reactor:
                                             for i in self.level.output_counts.keys()}
 
             future_cycle = self.cycle + future_loops * loop_size
-            future_completed_output_counts = {i: self.completed_output_counts[i] + future_loops * loop_completed_output_counts[i]
-                                              for i in self.level.output_counts.keys()}
+            future_completed_output_counts = {
+                i: self.completed_output_counts[i] + future_loops * loop_completed_output_counts[i]
+                for i in self.level.output_counts.keys()}
 
             # We now know that one more loop will win us the game: walk through the prior states
             # until we identify the winning cycle
@@ -482,10 +595,8 @@ class Reactor:
         if debug:
             self.debug_print(duration=0.25)
 
-        # Move the waldos and their molecules (we know our start tiles only have Start commands
-        # and don't need to be executed).
-        for waldo in self.waldos:
-            self.move(waldo)
+        # Move waldos/molecules
+        self.move_contents()
 
         if debug:
             self.debug_print(duration=0.25)

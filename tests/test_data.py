@@ -5,6 +5,7 @@ valid_levels_and_solutions = {
 # level_code: tuple(solution_codes)
 
 # 1-1 Of Pancakes and Spaceships
+# TODO: Add valid test of rotating into a cell as an atom moves out of it
 '''H4sIAD7sal4A/5WPy2rEMAxFfyVonYCT1ZB8xBS6a+lCdeTE1CMby4amIf322jOl9LHqRnAPl8
 vRDpZDTt2bZxIYd1D1XFmJjztcvCOdHcEI59dtIZ7O72qY+v40qGnoT0pBC9pnTjD2w/F0HC34
 nP5u/mtI1ZkVpXMYF+pugzAadEItPHueKXafZXVrCrH4+NWpyGShn0SCsyn9gokcBR+/47SFKh
@@ -308,4 +309,13 @@ MEMBER:'instr-grab',-1,2,128,8,1,0,0
 MEMBER:'instr-output',-1,0,128,7,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2'''),
+)
+
+collisions = (
+# TODO: Add tests for:
+#     * move-collision with each wall
+#     * rotate-collision with each wall
+#     * move-collision with atoms moving into cell of moving atom
+#     * rotate-collision between rotating and static molecules
+#     * rotate-collision between two rotating molecules (that wouldn't collide if rotates weren't at once)
 )
