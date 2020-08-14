@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import cProfile
-from timeit import timeit
-
 from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import Molecule
@@ -376,6 +373,7 @@ class Reactor:
         cur_state_hash = hash(self)
         if cur_state_hash not in self.prior_states:
             # If this is a new state, store it
+            # TODO: Implement memory limit
             self.prior_states[cur_state_hash] = (self.cycle,
                                                  # Store tuples rather than dict copies to reduce memory bloat
                                                  tuple(self.completed_output_counts[i] if i in self.completed_output_counts
@@ -448,7 +446,7 @@ def score_solution(soln):
     return Reactor(soln).run()
 
 
-if __name__ == '__main__':
+def main():
     level_code = '''H4sIAMa7aV4A/3WPQWvDMAyF/0rQaYME7FIYc07rIdDzbh07eImSGFwr2HKhC/nvs5sxtoZdBP
 p47+lpBuOmyNUnOQygZhB53Fha32Y4k8U2WgQFr8Ze0NcvQy3l/kkIKKGl6BiU3C3vSwnyf29j
 I3njsG6S+XnjTWaKvC2yuV48HB+LNazDVKW5dZGi3t2lipw56lBZ7Qes1nRQvbYBS/gg16Gvvs
@@ -510,5 +508,8 @@ MEMBER:'instr-rotate',-1,1,32,2,2,0,0
 MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2'''
-    cProfile.run('score_solution(Solution(ResearchLevel(level_code), solution_code))', sort='cumtime')
-    #score_solution(Solution(ResearchLevel(level_code), solution_code))
+    print(score_solution(Solution(ResearchLevel(level_code), solution_code)))
+
+
+if __name__ == '__main__':
+    main()
