@@ -9,6 +9,7 @@ from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import Molecule, ATOM_RADIUS
 from spacechem.solution import InstructionType, Solution
+from spacechem.tests import test_data
 
 NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
 
@@ -65,11 +66,11 @@ class RunSuccess(Exception):
     pass
 
 
-class InfiniteLoopException(Exception):
+class InfiniteLoopError(Exception):
     pass
 
 
-class InvalidOutputException(Exception):
+class InvalidOutputError(Exception):
     pass
 
 
@@ -180,7 +181,7 @@ class Reactor:
         if not all(self.walls[Direction.UP] < p.row < self.walls[Direction.DOWN]
                    and self.walls[Direction.LEFT] < p.col < self.walls[Direction.RIGHT]
                    for p in molecule.atom_map):
-            raise Exception("A molecule has collided with a wall")
+            raise ReactionError("A molecule has collided with a wall")
 
     def check_collisions(self, molecule):
         '''Raise an exception if the given molecule collides with any other molecules or walls.
@@ -272,7 +273,7 @@ class Reactor:
                 #         got fucked
                 if molecule.output_zone_idx() == output_idx:
                     if not molecule.isomorphic(self.level.get_output_molecule(output_idx)):
-                        raise InvalidOutputException("Invalid output molecule.")
+                        raise InvalidOutputError("Invalid output molecule.")
 
                     self.completed_output_counts[output_idx] += 1
 
@@ -310,7 +311,7 @@ class Reactor:
             # If both waldos are holding the same molecule and either of them is rotating, a crash occurs
             # (even if they're in the same position and rotating the same direction)
             if self.waldos[0].molecule is self.waldos[1].molecule:
-                raise Exception("Molecule pulled apart")
+                raise ReactionError("Molecule pulled apart")
 
             # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
             step_radians = math.pi / (2 * NUM_MOVE_CHECKS)
@@ -521,7 +522,7 @@ class Reactor:
                 # We're in the same state as before but at least one required output hasn't been
                 # increased, therefore (TODO: assuming not random level) this solution is stuck
                 # in an infinite loop that will never win
-                raise InfiniteLoopException()
+                raise InfiniteLoopError()
 
             if debug:
                 print(f"Found a loop between cycles {prior_cycle} and {self.cycle}, fast-forwarding")
@@ -633,67 +634,8 @@ def main():
                         help="Print an updating view of the reactor while it runs.")
     args = parser.parse_args()
 
-    level_code = '''H4sIAMa7aV4A/3WPQWvDMAyF/0rQaYME7FIYc07rIdDzbh07eImSGFwr2HKhC/nvs5sxtoZdBP
-p47+lpBuOmyNUnOQygZhB53Fha32Y4k8U2WgQFr8Ze0NcvQy3l/kkIKKGl6BiU3C3vSwnyf29j
-I3njsG6S+XnjTWaKvC2yuV48HB+LNazDVKW5dZGi3t2lipw56lBZ7Qes1nRQvbYBS/gg16Gvvs
-X7VRnQBfI/moz6GPAvCZM1zHeQ0eJE/jfm65RbewyofTumZk6fMzk69tTFlg25gqk4pCrGDUmg
-I4/5PpxMXjvT9yY9z1dQYvkCUjns8KkBAAA=
-'''
-    solution_code = '''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
-COMPONENT:'tutorial-research-reactor-2',2,0,''
-MEMBER:'instr-start',90,0,128,2,3,0,0
-MEMBER:'instr-start',0,0,32,0,5,0,0
-MEMBER:'feature-bonder',-1,0,1,1,1,0,0
-MEMBER:'feature-bonder',-1,0,1,2,1,0,0
-MEMBER:'feature-bonder',-1,0,1,5,1,0,0
-MEMBER:'feature-bonder',-1,0,1,6,1,0,0
-MEMBER:'instr-input',-1,1,128,2,4,0,0
-MEMBER:'instr-arrow',-90,0,64,2,5,0,0
-MEMBER:'instr-grab',-1,1,128,2,5,0,0
-MEMBER:'instr-arrow',180,0,64,2,1,0,0
-MEMBER:'instr-grab',-1,2,128,2,1,0,0
-MEMBER:'instr-arrow',90,0,64,1,1,0,0
-MEMBER:'instr-grab',-1,0,128,1,1,0,0
-MEMBER:'instr-arrow',180,0,64,1,5,0,0
-MEMBER:'instr-arrow',-90,0,64,0,5,0,0
-MEMBER:'instr-arrow',0,0,64,0,1,0,0
-MEMBER:'instr-bond',-1,0,128,1,2,0,0
-MEMBER:'instr-grab',-1,2,128,1,3,0,0
-MEMBER:'instr-bond',-1,1,128,1,4,0,0
-MEMBER:'instr-grab',-1,1,128,1,5,0,0
-MEMBER:'instr-input',-1,1,128,0,5,0,0
-MEMBER:'instr-sync',-1,0,128,0,4,0,0
-MEMBER:'instr-input',-1,0,128,0,3,0,0
-MEMBER:'instr-bond',-1,1,128,0,2,0,0
-MEMBER:'instr-grab',-1,1,32,1,5,0,0
-MEMBER:'instr-grab',-1,2,32,2,5,0,0
-MEMBER:'instr-arrow',-90,0,16,3,5,0,0
-MEMBER:'instr-input',-1,0,32,3,5,0,0
-MEMBER:'instr-arrow',180,0,16,3,4,0,0
-MEMBER:'instr-bond',-1,0,32,1,4,0,0
-MEMBER:'instr-arrow',-90,0,16,0,4,0,0
-MEMBER:'instr-arrow',0,0,16,0,3,0,0
-MEMBER:'instr-arrow',-90,0,16,1,3,0,0
-MEMBER:'instr-arrow',180,0,16,1,2,0,0
-MEMBER:'instr-arrow',-90,0,16,0,2,0,0
-MEMBER:'instr-arrow',0,0,16,0,0,0,0
-MEMBER:'instr-arrow',90,0,16,1,0,0,0
-MEMBER:'instr-arrow',0,0,16,1,1,0,0
-MEMBER:'instr-arrow',90,0,16,3,1,0,0
-MEMBER:'instr-arrow',180,0,16,3,2,0,0
-MEMBER:'instr-arrow',-90,0,16,2,2,0,0
-MEMBER:'instr-arrow',180,0,16,2,0,0,0
-MEMBER:'instr-grab',-1,1,32,1,3,0,0
-MEMBER:'instr-rotate',-1,0,32,0,1,0,0
-MEMBER:'instr-grab',-1,1,32,1,0,0,0
-MEMBER:'instr-grab',-1,2,32,2,0,0,0
-MEMBER:'instr-sync',-1,0,32,1,1,0,0
-MEMBER:'instr-bond',-1,0,32,2,1,0,0
-MEMBER:'instr-output',-1,0,32,3,1,0,0
-MEMBER:'instr-rotate',-1,1,32,2,2,0,0
-MEMBER:'instr-rotate',-1,0,32,3,2,0,0
-PIPE:0,4,1
-PIPE:1,4,2'''
+    level_code = next(iter(test_data.collisions))
+    solution_code = test_data.collisions[level_code][0]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 

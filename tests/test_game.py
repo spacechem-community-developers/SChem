@@ -4,49 +4,47 @@
 from timeit import timeit
 import unittest
 
-from spacechem import level, solution, game
+import spacechem
 import test_data
+
+
+def iter_test_data(data_dict):
+    for level_code in data_dict:
+        level = spacechem.level.ResearchLevel(level_code)
+
+        for solution_code in data_dict[level_code]:
+            solution = spacechem.solution.Solution(level, solution_code)
+            yield level, solution
 
 class TestGame(unittest.TestCase):
     def test_valid_solutions(self):
-        for level_code in test_data.valid_levels_and_solutions:
-            level_obj = level.ResearchLevel(level_code)
+        for level, solution in iter_test_data(test_data.valid_levels_and_solutions):
+            with self.subTest(msg=f'{level.get_name()} {solution.name}'):
+                self.assertEqual(spacechem.game.score_solution(solution),
+                                 solution.expected_score)
 
-            for solution_code in test_data.valid_levels_and_solutions[level_code]:
-                solution_obj = solution.Solution(level_obj, solution_code)
-
-                with self.subTest(msg=f'{level_obj.get_name()} {solution_obj.name}'):
-                    self.assertEqual(game.score_solution(solution_obj),
-                                     solution_obj.expected_score)
-
-                    # Check the time performance of the solver
-                    avg_time = timeit(lambda: game.score_solution(solution_obj),
-                                      number=100, globals=globals()) / 100
-                    print(f'Avg {avg_time} seconds to run {level_obj.get_name()} {solution_obj.name}')
+                # Check the time performance of the solver
+                avg_time = timeit(lambda: spacechem.game.score_solution(solution),
+                                  number=100, globals=globals()) / 100
+                print(f'Avg {avg_time:.6f} seconds to run {level.get_name()} {solution.name}')
 
     def test_infinite_loops(self):
-        for level_code, solution_code in test_data.infinite_loops:
-            level_obj = level.ResearchLevel(level_code)
-            solution_obj = solution.Solution(level_obj, solution_code)
-            with self.subTest(msg=f'{level_obj.get_name()}'):
-                with self.assertRaises(game.InfiniteLoopException):
-                    game.score_solution(solution_obj)
+        for level, solution in iter_test_data(test_data.infinite_loops):
+            with self.subTest(msg=f'{level.get_name()} {solution.name}'):
+                with self.assertRaises(spacechem.game.InfiniteLoopError):
+                    spacechem.game.score_solution(solution)
 
     def test_invalid_outputs(self):
-        for level_code, solution_code in test_data.invalid_outputs:
-            level_obj = level.ResearchLevel(level_code)
-            solution_obj = solution.Solution(level_obj, solution_code)
-            with self.subTest(msg=f'{level_obj.get_name()}'):
-                with self.assertRaises(game.InvalidOutputException):
-                    game.score_solution(solution_obj)
+        for level, solution in iter_test_data(test_data.invalid_outputs):
+            with self.subTest(msg=f'{level.get_name()} {solution.name}'):
+                with self.assertRaises(spacechem.game.InvalidOutputError):
+                    spacechem.game.score_solution(solution)
 
     def test_collisions(self):
-        for level_code, solution_code in test_data.collisions:
-            level_obj = level.ResearchLevel(level_code)
-            solution_obj = solution.Solution(level_obj, solution_code)
-            with self.subTest(msg=f'{level_obj.get_name()}'):
-                with self.assertRaises(game.ReactionError):
-                    game.score_solution(solution_obj)
+        for level, solution in iter_test_data(test_data.collisions):
+            with self.subTest(msg=f'{level.get_name()} {solution.name}'):
+                with self.assertRaises(spacechem.game.ReactionError):
+                    spacechem.game.score_solution(solution)
 
 
 if __name__ == '__main__':
