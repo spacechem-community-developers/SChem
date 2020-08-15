@@ -89,7 +89,7 @@ class Reactor:
 
     def __hash__(self):
         '''Hash of the current run state. Ignores cycle/output counts.'''
-        return hash((tuple(molecule.hashable_repr() for molecule in self.molecules.keys()),
+        return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
                      tuple(self.waldos),
                      tuple(self.flipflop_states)))
 
@@ -113,7 +113,7 @@ class Reactor:
         (that aren't itself).
         Raise an exception if it does.
         '''
-        for other_molecule in self.molecules.keys():
+        for other_molecule in self.molecules:
             molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
     def exec_instrs(self, waldo):
@@ -181,7 +181,7 @@ class Reactor:
 
         if not self.did_output_this_cycle[output_idx]:
             # Output the first molecule in the given output zone
-            for molecule in self.molecules.keys():
+            for molecule in self.molecules:
                 # TODO: It'd be nice to only have to calculate this for molecules that have been
                 #       debonded or dropped, etc. However, the cost of pre-computing it every time
                 #       we do such an action is probably not worth the cost of just doing it once
@@ -205,7 +205,7 @@ class Reactor:
                     break
 
         # If there are still outputs remaining in this zone, stall this waldo
-        if any(molecule.output_zone_idx() == output_idx for molecule in self.molecules.keys()):
+        if any(molecule.output_zone_idx() == output_idx for molecule in self.molecules):
             waldo.is_stalled = True
 
     def grab(self, waldo):
@@ -216,9 +216,7 @@ class Reactor:
         '''Select the molecule at the given grid position, or None if no such molecule.
         Used by Grab, Bond+/-, Fuse, etc.
         '''
-        for molecule in self.molecules.keys():
-            if position in molecule:
-                return molecule
+        return next((molecule for molecule in self.molecules if position in molecule), None)
 
     def drop(self, waldo):
         waldo.molecule = None  # Remove the reference to the molecule
@@ -269,14 +267,12 @@ class Reactor:
                     continue
 
                 # Identify the molecule on each bonder (may be same, doesn't matter for now)
-                molecule_A = molecule_B = None
-                for molecule in self.molecules:
-                    if position in molecule:
-                        molecule_A = molecule
-                    if position + direction in molecule:
-                        molecule_B = molecule
+                molecule_A = self.get_molecule(position)
+                if molecule_A is None:
+                    continue
 
-                if molecule_A is None or molecule_B is None:
+                molecule_B = self.get_molecule(neighbor_posn)
+                if molecule_B is None:
                     continue
 
                 atom_A = molecule_A[position]

@@ -223,11 +223,11 @@ class Molecule:
         if not self:
             return None
 
-        if any(posn.col < 6 for posn in self.atom_map.keys()):
+        if any(posn.col < 6 for posn in self.atom_map):
             return None
 
         # Check if any atom doesn't match the output zone of the first atom
-        posns = iter(self.atom_map.keys())  # Keep a ref to the generator so we avoid re-checking the first position
+        posns = iter(self.atom_map)  # Keep a ref to the generator so we avoid re-checking the first position
         is_psi = next(posns).row <= 4
         if any((posn.row <= 4) != is_psi for posn in posns):
             return None
