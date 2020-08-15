@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
+import time
+
 from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import Molecule
@@ -93,20 +96,40 @@ class Reactor:
                      tuple(self.waldos),
                      tuple(self.flipflop_states)))
 
-    def do_cycle(self):
-        '''Raises RunSuccess (before the end of the cycle) if the solution completed this cycle.'''
+    def __str__(self):
+        '''Pretty-print this reactor.'''
+        num_cols = 10
+        num_rows = 8
+
+        # 2 characters per atom + 1 space between atoms/walls (we'll use that space to show waldos)
+        grid = [['   ' for _ in range(num_cols)] + [' '] for _ in range(num_rows)]
+
+        # Map out the molecules in the reactor
+        for molecule in self.molecules:
+            for (r, c), atom in molecule.atom_map.items():
+                if grid[r][c] != '   ':
+                    grid[r][c] = ' XX'  # Colliding atoms
+                else:
+                    grid[r][c] = f' {atom.element.symbol.rjust(2)}'
+
+        # Represent waldos as |  | when not grabbing and (  ) when grabbing. Distinguishing red/blue isn't too important
         for waldo in self.waldos:
-            self.exec_instrs(waldo)
+            r, c = waldo.position
+            # This will overwrite the previous waldo sometimes but its not a noticeable issue
+            if waldo.molecule is None:
+                grid[r][c] = f'|{grid[r][c][1:]}'
+                grid[r][c + 1] = f'|{grid[r][c + 1][1:]}'
+            else:
+                grid[r][c] = f'({grid[r][c][1:]}'
+                grid[r][c + 1] = f'){grid[r][c + 1][1:]}'
 
-        # Move the waldos and their molecules (we know our start tiles only have Start commands
-        # and don't need to be executed).
-        for waldo in self.waldos:
-            self.move(waldo)
+        result = f" {num_cols * '___'}_ \n"
+        for row in grid:
+            result += f"|{''.join(row)}|\n"
+        result += f" {num_cols * '‾‾‾'}‾ \n"
+        result += f"Cycle {self.cycle}"
 
-        self.hash_state_and_check()
-
-        self.end_cycle()
-        self.cycle += 1
+        return result
 
     def check_collisions(self, molecule):
         '''Check that the given molecule doesn't collide with any existing molecules in the grid
@@ -354,7 +377,7 @@ class Reactor:
                         if waldo.molecule is molecule and waldo.position in split_off_molecule:
                             waldo.molecule = split_off_molecule
 
-    def hash_state_and_check(self):
+    def hash_state_and_check(self, debug=False):
         # Hash the current reactor state and check if it matches a past reactor state
         # TODO: Maybe only hash on cycles when either output count incremented?
         #       But then we can't detect infinite loops, which is pretty important to have for
@@ -387,6 +410,9 @@ class Reactor:
                 # increased, therefore (TODO: assuming not random level) this solution is stuck
                 # in an infinite loop that will never win
                 raise InfiniteLoopException()
+
+            if debug:
+                print(f"Found a loop between cycles {prior_cycle} and {self.cycle}, fast-forwarding")
 
             # Figure out how many times we could repeat this state loop to get as close to
             # winning as possible without looping past the winning cycle
@@ -425,24 +451,77 @@ class Reactor:
             self.cycle = future_cycle + (self.cycle - prior_cycle)
             raise RunSuccess()
 
+    def debug_print(self, duration=0.5):
+        '''Print the current reactor state then clear it from the terminal.
+        Args:
+            duration: Seconds before clearing the printout from the screen. Default 0.5.
+        '''
+        # Print the current state
+        output = str(self)
+        print(output)  # Could use end='' but that makes keyboard interrupt output ugly
+
+        time.sleep(duration)
+
+        # Using the ANSI for moving to the start of the previous line, move the terminal cursor back to where we started
+        cursor_reset = (output.count('\n') + 1) * "\033[F"  # +1 for the implicit newline print() appends
+        print(cursor_reset, end='')
+
+        # In order to play nice with any other print statements that may occur between debug prints, instead of just
+        # moving the terminal cursor back, overwrite the existing output with whitespace then move the cursor back again
+        # Note: This probably cries if str(self) contains characters like '\r', but uh it doesn't
+        # TODO: This makes the output kind of flashy which isn't as nice to look at... not really any way around that
+        #       that I can see if I don't want it to crap on regular print() statements
+        print('\n'.join(len(s) * ' ' for s in output.split('\n')))
+        print(cursor_reset, end='')  # Move terminal cursor back again
+
+    def do_cycle(self, debug=False):
+        '''Raises RunSuccess (before the end of the cycle) if the solution completed this cycle.'''
+        for waldo in self.waldos:
+            self.exec_instrs(waldo)
+
+        if debug:
+            self.debug_print(duration=0.25)
+
+        # Move the waldos and their molecules (we know our start tiles only have Start commands
+        # and don't need to be executed).
+        for waldo in self.waldos:
+            self.move(waldo)
+
+        if debug:
+            self.debug_print(duration=0.25)
+
+        self.hash_state_and_check(debug=debug)
+
+        self.end_cycle()
+        self.cycle += 1
+
     def end_cycle(self):
         for i in range(2):
             self.did_input_this_cycle[i] = False
             self.did_output_this_cycle[i] = False
 
-    def run(self):
+    def run(self, debug=False):
         try:
             while True:
-                self.do_cycle()
+                self.do_cycle(debug=debug)
         except RunSuccess:
             return self.cycle, 1, self.solution.symbols
+        finally:
+            # Persist the last debug printout
+            if debug:
+                print(str(self))
 
 
-def score_solution(soln):
-    return Reactor(soln).run()
+def score_solution(soln, debug=False):
+    return Reactor(soln).run(debug=debug)
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', action='store_true',
+                        help="Print an updating view of the reactor while it runs.")
+    args = parser.parse_args()
+
     level_code = '''H4sIAMa7aV4A/3WPQWvDMAyF/0rQaYME7FIYc07rIdDzbh07eImSGFwr2HKhC/nvs5sxtoZdBP
 p47+lpBuOmyNUnOQygZhB53Fha32Y4k8U2WgQFr8Ze0NcvQy3l/kkIKKGl6BiU3C3vSwnyf29j
 I3njsG6S+XnjTWaKvC2yuV48HB+LNazDVKW5dZGi3t2lipw56lBZ7Qes1nRQvbYBS/gg16Gvvs
@@ -504,7 +583,7 @@ MEMBER:'instr-rotate',-1,1,32,2,2,0,0
 MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2'''
-    print(score_solution(Solution(ResearchLevel(level_code), solution_code)))
+    print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 
 if __name__ == '__main__':
