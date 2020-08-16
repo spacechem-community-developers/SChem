@@ -78,7 +78,7 @@ class Reactor:
              Direction.LEFT: -0.5 + ATOM_RADIUS, Direction.RIGHT: 9.5 - ATOM_RADIUS}
 
     __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'flipflop_states',
-                 'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts')
+                 'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts', 'bonder_pairs')
 
     def __init__(self, solution):
         self.level = solution.level
@@ -110,6 +110,16 @@ class Reactor:
                              solution.waldo_instr_maps[i])
                        for i in range(len(solution.waldo_starts))]
         self.flipflop_states = []
+
+        # For convenience/performance, pre-compute a list of (bonder_A, bonder_B, direction) triplets, sorted in the
+        # order that bonds or debonds should occur in
+        self.bonder_pairs = tuple((posn, neighbor_posn, direction)
+                                  for posn in solution.bonders
+                                  for neighbor_posn, direction in
+                                  sorted([(posn + direction, direction)
+                                          for direction in (Direction.RIGHT, Direction.DOWN)
+                                          if posn + direction in solution.bonders],
+                                         key=lambda x: solution.bonders[x[0]]))
 
     def __hash__(self):
         '''Hash of the current reactor state. Ignores cycle/output counts.'''
@@ -376,105 +386,84 @@ class Reactor:
                 waldo.is_stalled = False
 
     def bond_plus(self):
-        for position in self.solution.bonders:
-            bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
-                                             (Direction.DOWN, position + Direction.DOWN)]
-            # Bond to higher priority (lower index) bonders first
-            bond_dirns_and_neighbor_posns.sort(key=lambda x:
-                                               0 if x[1] not in self.solution.bonders
-                                               else self.solution.bonders[x[1]])
-            for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
-                if neighbor_posn not in self.solution.bonders:
+        for position, neighbor_posn, direction in self.bonder_pairs:
+            # Identify the molecule on each bonder (may be same, doesn't matter for now)
+            molecule_A = self.get_molecule(position)
+            if molecule_A is None:
+                continue
+
+            molecule_B = self.get_molecule(neighbor_posn)
+            if molecule_B is None:
+                continue
+
+            atom_A = molecule_A[position]
+
+            # If the bond being increased is already at the max bond size of 3, don't do
+            # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
+            # mark the molecule as modified below
+            if direction not in atom_A.bonds or atom_A.bonds[direction] != 3:
+                atom_B = molecule_B[neighbor_posn]
+
+                # Do nothing if either atom is at its bond limit (spacechem does not mark
+                # any molecules as modified in this case unless the bond was size 3)
+                if (sum(atom_A.bonds.values()) == atom_A.element.max_bonds
+                        or sum(atom_B.bonds.values()) == atom_B.element.max_bonds):
                     continue
 
-                # Identify the molecule on each bonder (may be same, doesn't matter for now)
-                molecule_A = self.get_molecule(position)
-                if molecule_A is None:
-                    continue
+                direction_B = direction.opposite()
 
-                molecule_B = self.get_molecule(neighbor_posn)
-                if molecule_B is None:
-                    continue
+                if direction not in atom_A.bonds:
+                    atom_A.bonds[direction] = 0
+                atom_A.bonds[direction] += 1
+                if direction_B not in atom_B.bonds:
+                    atom_B.bonds[direction_B] = 0
+                atom_B.bonds[direction_B] += 1
 
-                atom_A = molecule_A[position]
+            if molecule_A is molecule_B:
+                # Mark molecule as modified by popping it to the back of the reactor's queue
+                del self.molecules[molecule_A]
+                self.molecules[molecule_A] = None  # dummy value
+            else:
+                # Add the smaller molecule to the larger one (faster), then delete the smaller
+                # and mark the larger as modified
+                molecules = [molecule_A, molecule_B]
+                molecules.sort(key=lambda x: len(x))
+                molecules[1] += molecules[0]
 
-                # If the bond being increased is already at the max bond size of 3, don't do
-                # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
-                # mark the molecule as modified below
-                if (direction not in atom_A.bonds
-                    or atom_A.bonds[direction]) != 3:
-                    atom_B = molecule_B[neighbor_posn]
+                # Also make sure that any waldos holding the to-be-deleted molecule are updated
+                # to point at the combined molecule
+                for waldo in self.waldos:
+                    if waldo.molecule is molecules[0]:
+                        waldo.molecule = molecules[1]
 
-                    # Do nothing if either atom is at its bond limit (spacechem does not mark
-                    # any molecules as modified in this case unless the bond was size 3)
-                    if (sum(atom_A.bonds.values()) == atom_A.element.max_bonds
-                            or sum(atom_B.bonds.values()) == atom_B.element.max_bonds):
-                        continue
-
-                    direction_B = direction.opposite()
-
-                    if direction not in atom_A.bonds:
-                        atom_A.bonds[direction] = 0
-                    atom_A.bonds[direction] += 1
-                    if direction_B not in atom_B.bonds:
-                        atom_B.bonds[direction_B] = 0
-                    atom_B.bonds[direction_B] += 1
-
-                if molecule_A is molecule_B:
-                    # Mark molecule as modified by popping it to the back of the reactor's queue
-                    del self.molecules[molecule_A]
-                    self.molecules[molecule_A] = None  # dummy value
-                else:
-                    # Add the smaller molecule to the larger one (faster), then delete the smaller
-                    # and mark the larger as modified
-                    molecules = [molecule_A, molecule_B]
-                    molecules.sort(key=lambda x: len(x))
-                    molecules[1] += molecules[0]
-
-                    # Also make sure that any waldos holding the to-be-deleted molecule are updated
-                    # to point at the combined molecule
-                    for waldo in self.waldos:
-                        if waldo.molecule is molecules[0]:
-                            waldo.molecule = molecules[1]
-
-                    del self.molecules[molecules[0]]
-                    del self.molecules[molecules[1]]
-                    self.molecules[molecules[1]] = None  # dummy value
+                del self.molecules[molecules[0]]
+                del self.molecules[molecules[1]]
+                self.molecules[molecules[1]] = None  # dummy value
 
     def bond_minus(self):
-        for position in self.solution.bonders:
-            bond_dirns_and_neighbor_posns = [(Direction.RIGHT, position + Direction.RIGHT),
-                                             (Direction.DOWN, position + Direction.DOWN)]
-            # Debond with higher priority (lower index) bonders first
-            bond_dirns_and_neighbor_posns.sort(key=lambda x:
-                                               0 if x[1] not in self.solution.bonders
-                                               else self.solution.bonders[x[1]])
-            for direction, neighbor_posn in bond_dirns_and_neighbor_posns:
-                if neighbor_posn not in self.solution.bonders:
-                    continue
+        for position, neighbor_posn, direction in self.bonder_pairs:
+            # Continue if there isn't a molecule with a bond over this pair
+            molecule = self.get_molecule(position)
+            if molecule is None or direction not in molecule[position].bonds:
+                continue
 
-                # Continue if there isn't a molecule with a bond over this pair
-                molecule = self.get_molecule(position)
-                if molecule is None or direction not in molecule[position].bonds:
-                    continue
+            # Now that we know for sure the molecule will be mutated, debond the molecule
+            # and check if this broke the molecule in two
+            split_off_molecule = molecule.debond(position, direction)
 
-                # Now that we know for sure the molecule will be mutated, debond the molecule
-                # and check if this broke the molecule in two
-                split_off_molecule = molecule.debond(position, direction)
+            # Mark the molecule as modified
+            del self.molecules[molecule]
+            self.molecules[molecule] = None  # Dummy value
 
-                # Mark the molecule as modified
-                del self.molecules[molecule]
-                self.molecules[molecule] = None  # Dummy value
+            # If a new molecule broke off, add it to the reactor list
+            if split_off_molecule is not None:
+                self.molecules[split_off_molecule] = None  # Dummy value
 
-                # If a new molecule broke off, add it to the reactor list
-                if split_off_molecule is not None:
-                    self.molecules[split_off_molecule] = None  # Dummy value
-
-                    # If the molecule got split apart, ensure any waldos holding it are now holding
-                    # the correct split piece of it
-                    for waldo in self.waldos:
-                        if waldo.molecule is molecule and waldo.position in split_off_molecule:
-                            waldo.molecule = split_off_molecule
+                # If the molecule got split apart, ensure any waldos holding it are now holding
+                # the correct split piece of it
+                for waldo in self.waldos:
+                    if waldo.molecule is molecule and waldo.position in split_off_molecule:
+                        waldo.molecule = split_off_molecule
 
     def hash_state_and_check(self, debug=False):
         # Hash the current reactor state and check if it matches a past reactor state
@@ -623,8 +612,8 @@ def main():
                         help="Print an updating view of the reactor while it runs.")
     args = parser.parse_args()
 
-    level_code = next(iter(test_data.valid_levels_and_solutions))
-    solution_code = test_data.valid_levels_and_solutions[level_code][-1]
+    level_code = tuple(test_data.valid_levels_and_solutions.keys())[1]
+    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[2]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 
