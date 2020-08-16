@@ -4,11 +4,13 @@
 from collections import Counter
 import math
 
+from spacechem.exceptions import ReactionError
 from spacechem.grid import Position, Direction
 from spacechem.elements_data import elements_dict
 
 
-ATOM_DIAMETER = 0.772  # Diameter of an atom relative to a grid cell, per the gamemechanics wiki
+# Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
+ATOM_DIAMETER = 0.772
 ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
 
 # TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
@@ -202,7 +204,7 @@ class Molecule:
         if other is not self:
             for posn in self.atom_map:
                 if posn in other:
-                    raise Exception("Collision between molecules.")
+                    raise ReactionError("Collision between molecules.")
 
     def check_collisions_fine(self, other):
         '''Check for collisions with another molecule while accounting for fine positions.
@@ -213,7 +215,7 @@ class Molecule:
                 for other_posn in other.atom_map:
                     if (math.sqrt((posn.row - other_posn.row)**2
                                   + (posn.col - other_posn.col)**2) < ATOM_DIAMETER):
-                        raise Exception("Collision between molecules.")
+                        raise ReactionError("Collision between molecules.")
 
     def debond(self, posn, direction):
         '''Decrement the specified bond in this molecule. If doing so disconnects this molecule,

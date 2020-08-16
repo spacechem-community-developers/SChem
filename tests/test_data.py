@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-valid_levels_and_solutions = {
-# level_code: tuple(solution_codes)
+'''Spacechem test data. Structured as dicts of level_code:tuple(solution_codes).'''
 
-# 1-1 Of Pancakes and Spaceships
-# TODO: Add valid test of rotating into a cell as an atom moves out of it
-'''H4sIAD7sal4A/5WPy2rEMAxFfyVonYCT1ZB8xBS6a+lCdeTE1CMby4amIf322jOl9LHqRnAPl8
+valid_levels_and_solutions = {
+    # 1-1 Of Pancakes and Spaceships
+    '''H4sIAD7sal4A/5WPy2rEMAxFfyVonYCT1ZB8xBS6a+lCdeTE1CMby4amIf322jOl9LHqRnAPl8
 vRDpZDTt2bZxIYd1D1XFmJjztcvCOdHcEI59dtIZ7O72qY+v40qGnoT0pBC9pnTjD2w/F0HC34
 nP5u/mtI1ZkVpXMYF+pugzAadEItPHueKXafZXVrCrH4+NWpyGShn0SCsyn9gokcBR+/47SFKh
 pJCKNeixnj5apumjtkjS8kDfLc3AfUJKsNUjqY01oV4MEuJc7WGFteTluRPD4A+MBbU2oBAAA=''':
-(
-'''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,Basic
+    ('''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,Basic
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -24,7 +22,7 @@ MEMBER:'instr-output',-1,0,128,5,1,0,0
 MEMBER:'instr-rotate',-1,0,128,4,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-'''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
+     '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,2,5,0,0
 MEMBER:'instr-start',-90,0,32,2,2,0,0
@@ -44,16 +42,37 @@ MEMBER:'instr-rotate',-1,0,128,4,1,0,0
 MEMBER:'instr-output',-1,0,128,5,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-),
-
-# 1-4 An Introduction to Bonding
-'''H4sIAMa7aV4A/3WPQWvDMAyF/0rQaYME7FIYc07rIdDzbh07eImSGFwr2HKhC/nvs5sxtoZdBP
+     '''SOLUTION:Of Pancakes and Spaceships,Zig,69-1-18,rotate_out_of_way
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,3,1,0,0
+MEMBER:'instr-start',180,0,32,6,2,0,0
+MEMBER:'instr-input',-1,0,128,2,1,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,0,0,0
+MEMBER:'instr-input',-1,0,32,1,2,0,0
+MEMBER:'instr-grab',-1,1,32,1,1,0,0
+MEMBER:'instr-rotate',-1,0,128,3,0,0,0
+MEMBER:'instr-arrow',0,0,16,1,1,0,0
+MEMBER:'instr-rotate',-1,1,128,4,0,0,0
+MEMBER:'instr-grab',-1,2,128,6,0,0,0
+MEMBER:'instr-grab',-1,2,32,7,1,0,0
+MEMBER:'instr-output',-1,0,128,6,1,0,0
+MEMBER:'instr-arrow',90,0,64,6,0,0,0
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-arrow',-90,0,64,1,1,0,0
+MEMBER:'instr-arrow',90,0,16,7,1,0,0
+MEMBER:'instr-arrow',180,0,16,7,2,0,0
+MEMBER:'instr-arrow',-90,0,16,1,2,0,0
+MEMBER:'instr-output',-1,0,32,7,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',),
+    # 1-4 An Introduction to Bonding
+    '''H4sIAMa7aV4A/3WPQWvDMAyF/0rQaYME7FIYc07rIdDzbh07eImSGFwr2HKhC/nvs5sxtoZdBP
 p47+lpBuOmyNUnOQygZhB53Fha32Y4k8U2WgQFr8Ze0NcvQy3l/kkIKKGl6BiU3C3vSwnyf29j
 I3njsG6S+XnjTWaKvC2yuV48HB+LNazDVKW5dZGi3t2lipw56lBZ7Qes1nRQvbYBS/gg16Gvvs
 X7VRnQBfI/moz6GPAvCZM1zHeQ0eJE/jfm65RbewyofTumZk6fMzk69tTFlg25gqk4pCrGDUmg
 I4/5PpxMXjvT9yY9z1dQYvkCUjns8KkBAAA=''':
-(
-'''SOLUTION:An Introduction to Bonding,Zig,154-1-10,Symbols
+    ('''SOLUTION:An Introduction to Bonding,Zig,154-1-10,Symbols
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',180,0,128,3,5,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -73,7 +92,7 @@ MEMBER:'instr-output',-1,0,32,0,6,0,0
 MEMBER:'instr-grab',-1,2,128,6,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-'''SOLUTION:An Introduction to Bonding,Zig,74-1-40,Cycles
+     '''SOLUTION:An Introduction to Bonding,Zig,74-1-40,Cycles
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',-90,0,128,1,7,0,0
 MEMBER:'instr-start',0,0,32,0,0,0,0
@@ -123,7 +142,7 @@ MEMBER:'instr-input',-1,0,128,4,2,0,0
 MEMBER:'instr-output',-1,0,32,2,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-'''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
+     '''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',90,0,128,2,3,0,0
 MEMBER:'instr-start',0,0,32,0,5,0,0
@@ -177,16 +196,13 @@ MEMBER:'instr-output',-1,0,32,3,1,0,0
 MEMBER:'instr-rotate',-1,1,32,2,2,0,0
 MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
-PIPE:1,4,2''',
-),
-
-# 2-1 Double Bonds
-'''H4sIAHDCal4A/22PywrCMBBFf0Vm3UJaXEi6E/fuFRdpnbaBmJTMBKylfruJivjaDMzh5szNBN
+PIPE:1,4,2''',),
+    # 2-1 Double Bonds
+    '''H4sIAHDCal4A/22PywrCMBBFf0Vm3UJaXEi6E/fuFRdpnbaBmJTMBKylfruJivjaDMzh5szNBN
 oOgfOLs0ggJxBp3Flc9xOcnMEmGAQJ2/PYoa22VVGshIAMGhcsgyzK+TDPGbjAv6o/76+iTIpS
 VOWXSCRNryg3yneYP4QgW2UIM6idPaLPn+HlI0loyflXJqE2EH4SGoxm/oKMBgfn3zGPQyrqkV
 D5po/NrDolsnGhNrhYxwYUqQrcp6Ow011cj7ptdfwkjyDFfANdd2FNUwEAAA==''':
-(
-'''SOLUTION:Double Bonds,Zig,60-1-20,Cycles
+    ('''SOLUTION:Double Bonds,Zig,60-1-20,Cycles
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,6,0,0
 MEMBER:'instr-start',0,0,32,0,1,0,0
@@ -215,17 +231,15 @@ MEMBER:'instr-bond',-1,0,32,5,1,0,0
 MEMBER:'instr-bond',-1,0,128,1,3,0,0
 MEMBER:'instr-bond',-1,0,128,3,1,0,0
 PIPE:0,4,1
-PIPE:1,4,2''',
-),
+PIPE:1,4,2''',),
 
-# 3-3 Split Before Bonding
-'''H4sIAD8ObF4A/3WQzWrDMBCEX8Xs2QZJ9BDkW065pdBbSw6qvbIFimT0A3GM++zVxqWkTavDwo
+    # 3-3 Split Before Bonding
+    '''H4sIAD8ObF4A/3WQzWrDMBCEX8Xs2QZJ9BDkW065pdBbSw6qvbIFimT0A3GM++zVxqWkTavDwo
 6Gb0ZawLgpp+bqHUaQCzAaN62sbwucvcUuWwQJh7kPfkDXHj6YaHk5rBVlMKih89klkFysp7UG
 /j/keJkJcdwQO0GI3QOiMHxOj8X+aFM9Y/AX0+Ot1sYVpRTROd/orWCc8bsMRgmjio1VYcBmyw
 KplY1Yw7t3PYbmy/y0OSO66MO3hySdI/5U4mRNSr/EhBYnH+7lNE/0hoARVejG0sypMykvBKj2
 qH3Aal96GDeUW5XTSOHwamjtjdam/EOaQbL1EwCzJ/3EAQAA''':
-(
-'''SOLUTION:Split Before Bonding,Zig,73-1-24,Cycles
+    ('''SOLUTION:Split Before Bonding,Zig,73-1-24,Cycles
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,6,4,0,0
 MEMBER:'instr-start',180,0,32,3,5,0,0
@@ -258,18 +272,16 @@ MEMBER:'instr-bond',-1,0,32,5,2,0,0
 MEMBER:'instr-rotate',-1,0,32,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,4,2,0,0
 PIPE:0,4,1
-PIPE:1,4,2''',
-),
-# Positive wall collisions check
-'''H4sIAJHvNl8A/42PwWrDMBBE/2XPNkg2mCIf/QM9FAopPajOOhYoWqNdFVLjf6/klNKkPfQysM
+PIPE:1,4,2''',),
+    '''H4sIAJHvNl8A/42PwWrDMBBE/2XPNkg2mCIf/QM9FAopPajOOhYoWqNdFVLjf6/klNKkPfQysM
 O8YXYFF5Yk9QcFZDArqCK7l8+XFc7kcUwewcBg4xuFfuhb3Sndt2rXZte2U6pvVKcVVDBSCgJG
 N9vrVoH+T2PuuiczSkl+j/uL1/qWV4WeLdfexhPW1x4wk/WMFWTmiLH+Cj9ck4yBKX5nijUlxl
 uHF+9E7kxBjwvFn7ZclrIvIqON45yXBXsuzhOyPFvvB/LesaPAj8RO3DvmjE0ylwlwcKd8Ht00
 ufypXMCo7RN/jMGDqgEAAA==''':
-('''SOLUTION:TestWallCollisionsPositive,Zig,57-1-25,no_wall_collision
+    ('''SOLUTION:TestWallCollisionsPositive,Zig,57-1-28,no_wall_collisions
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,2,0,0,0
-MEMBER:'instr-start',180,0,32,1,0,0,0
+MEMBER:'instr-start',90,0,32,3,2,0,0
 MEMBER:'feature-bonder',-1,0,1,3,3,0,0
 MEMBER:'feature-bonder',-1,0,1,3,4,0,0
 MEMBER:'feature-bonder',-1,0,1,6,1,0,0
@@ -279,11 +291,11 @@ MEMBER:'feature-bonder',-1,0,1,5,7,0,0
 MEMBER:'feature-bonder',-1,0,1,7,7,0,0
 MEMBER:'feature-bonder',-1,0,1,9,7,0,0
 MEMBER:'instr-input',-1,0,128,2,1,0,0
-MEMBER:'instr-input',-1,1,128,2,2,0,0
+MEMBER:'instr-input',-1,1,128,2,3,0,0
 MEMBER:'instr-arrow',0,0,64,2,4,0,0
 MEMBER:'instr-grab',-1,1,128,3,4,0,0
 MEMBER:'instr-rotate',-1,0,128,4,4,0,0
-MEMBER:'instr-output',-1,0,32,0,0,0,0
+MEMBER:'instr-output',-1,0,32,0,7,0,0
 MEMBER:'instr-arrow',90,0,64,5,2,0,0
 MEMBER:'instr-rotate',-1,0,128,5,2,0,0
 MEMBER:'instr-arrow',180,0,64,5,5,0,0
@@ -295,7 +307,7 @@ MEMBER:'instr-bond',-1,1,128,7,1,0,0
 MEMBER:'instr-grab',-1,2,128,7,0,0,0
 MEMBER:'instr-arrow',180,0,64,7,0,0,0
 MEMBER:'instr-arrow',90,0,64,2,0,0,0
-MEMBER:'instr-bond',-1,0,128,2,3,0,0
+MEMBER:'instr-bond',-1,0,128,2,4,0,0
 MEMBER:'instr-arrow',-90,0,64,4,4,0,0
 MEMBER:'instr-arrow',0,0,64,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,5,3,0,0
@@ -303,17 +315,20 @@ MEMBER:'instr-rotate',-1,0,128,4,5,0,0
 MEMBER:'instr-arrow',90,0,64,4,5,0,0
 MEMBER:'instr-arrow',0,0,64,4,6,0,0
 MEMBER:'instr-arrow',-90,0,64,7,6,0,0
+MEMBER:'instr-grab',-1,1,32,3,4,0,0
+MEMBER:'instr-input',-1,1,32,3,3,0,0
+MEMBER:'instr-arrow',180,0,16,3,7,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',)
 }
 
 infinite_loops = {
-'''H4sIAG36Zl4A/5WPzQqDMBCEX6XsWSF6En0Ie27pIdWNhsZEkg3Uin32JlpKf069LMzHMDszg9
+    '''H4sIAG36Zl4A/5WPzQqDMBCEX6XsWSF6En0Ie27pIdWNhsZEkg3Uin32JlpKf069LMzHMDszg9
 Sjp/RmNDooZ2DxrCzI4wyDUdh4hVBCfZ061FV9Z3mVZUXOqjwrGIMEGuM1QZnly2lZEjCefjP/
 CmIxpucuVdx2mG6BUAquHCZwNrpFmz7NbHM61M7Ylyci4R1+EjcqSfQFCRWOxr5jmsZY1KJDbp
 s+NNN8WKuL3Z7rhl/CsgS4pz7+hIPsgmylEDJspCm0Wh4gLNOZWwEAAA==''':
-    ('''SOLUTION:Of Pancakes,Zig,107-1-7
-COMPONENT:'custom-research-reactor',2,0,simple_infinite_loop
+    ('''SOLUTION:Of Pancakes,Zig,107-1-7,simple_infinite_loop
+COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'instr-arrow',0,0,64,2,1,0,0
@@ -326,14 +341,14 @@ PIPE:1,4,2''',)
 }
 
 invalid_outputs = {
-# R-2-11-1 Swapite (isomorphism false positive check)
-'''H4sIAEoXbF4A/5WQy07DMBBF/2XWieSZQEHxZ3QHYmHSSWvJjSM/hEqUf2fsFKQWNmx8dY9m5G
+    # R-2-11-1 Swapite (isomorphism false positive check)
+    '''H4sIAEoXbF4A/5WQy07DMBBF/2XWieSZQEHxZ3QHYmHSSWvJjSM/hEqUf2fsFKQWNmx8dY9m5G
 MvYKc5p/bTTxyhX0CVozKprwucveMhO4Ye9tmNOei9Vgp3RFoh7pA0loZakYTSSBVSV1snoSQE
 KtId1iCsC6TwURp2T2VNtgQRPiBCA4PPU4IeaX1b1wZ8Tr8l/zL7drkR/LfZpnT1IypmiHdmqn
 idTGydCUduN0PoR+MiN/DupwOH9jr8vE1GnqIPPzMFjTnyLYmzsyndwcSOZx8qTiELTZe5PDxw
 ZBOGk4hN5ly/4sPMNrEAk9OpXAcv9ij1YMfRyn+lC/Rq/QLaJVeK+AEAAA==''':
-     ('''SOLUTION:,Zig,0-0-0
-COMPONENT:'custom-research-reactor',2,0,invalid_isomorphism
+    ('''SOLUTION:,Zig,0-0-0,invalid_isomorphism
+COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'feature-bonder',-1,0,1,4,2,0,0
@@ -356,13 +371,81 @@ PIPE:0,4,1
 PIPE:1,4,2''',)
 }
 
-collisions = {
 # TODO: Add tests for:
 #     * move-collision with each wall
 #     * move-collision with atoms moving into cell of moving atom
 #     * rotate-collision between rotating and static molecules
 #     * rotate-collision between two rotating molecules (that wouldn't collide if rotates weren't at once)
-'''H4sIADc8OF8A/22QzWqFMBBG32XWCkkEF7p031Wh0NJF6h01MDeRzKRwK757Ey3l9mczMIcvZz
+collisions = {
+    '''H4sIAD7sal4A/5WPy2rEMAxFfyVonYCT1ZB8xBS6a+lCdeTE1CMby4amIf322jOl9LHqRnAPl8
+vRDpZDTt2bZxIYd1D1XFmJjztcvCOdHcEI59dtIZ7O72qY+v40qGnoT0pBC9pnTjD2w/F0HC34
+nP5u/mtI1ZkVpXMYF+pugzAadEItPHueKXafZXVrCrH4+NWpyGShn0SCsyn9gokcBR+/47SFKh
+pJCKNeixnj5apumjtkjS8kDfLc3AfUJKsNUjqY01oV4MEuJc7WGFteTluRPD4A+MBbU2oBAAA=''':
+    ('''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,top_wall_move_collision
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,2,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-input',-1,0,128,1,2,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,1,0,0
+MEMBER:'instr-arrow',90,0,64,6,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,2,0,0
+MEMBER:'instr-rotate',-1,1,128,2,1,0,0
+MEMBER:'instr-arrow',-90,0,64,2,1,0,0
+MEMBER:'instr-arrow',0,0,64,2,0,0,0
+MEMBER:'instr-arrow',90,0,64,3,0,0,0
+MEMBER:'instr-arrow',0,0,64,3,1,0,0
+MEMBER:'instr-output',-1,0,128,6,2,0,0
+MEMBER:'instr-arrow',-90,0,64,1,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,right_wall_move_collision
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,2,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-input',-1,0,128,1,2,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-arrow',90,0,64,9,1,0,0
+MEMBER:'instr-grab',-1,2,128,8,2,0,0
+MEMBER:'instr-arrow',180,0,64,9,2,0,0
+MEMBER:'instr-arrow',-90,0,64,1,2,0,0
+MEMBER:'instr-output',-1,0,128,7,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,bottom_wall_move_collision
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,4,1,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-input',-1,0,128,3,1,0,0
+MEMBER:'instr-arrow',90,0,64,2,1,0,0
+MEMBER:'instr-rotate',-1,1,128,2,2,0,0
+MEMBER:'instr-arrow',0,0,64,2,7,0,0
+MEMBER:'instr-arrow',-90,0,64,3,7,0,0
+MEMBER:'instr-arrow',0,0,64,3,6,0,0
+MEMBER:'instr-arrow',-90,0,64,6,6,0,0
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,2,0,0
+MEMBER:'instr-output',-1,0,128,6,1,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,left_wall_move_collision
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,4,1,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-input',-1,0,128,3,1,0,0
+MEMBER:'instr-arrow',90,0,64,0,1,0,0
+MEMBER:'instr-arrow',0,0,64,0,2,0,0
+MEMBER:'instr-grab',-1,2,128,7,2,0,0
+MEMBER:'instr-arrow',-90,0,64,7,2,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-output',-1,0,128,7,1,0,0
+PIPE:0,4,1
+PIPE:1,4,2'''),
+    '''H4sIADc8OF8A/22QzWqFMBBG32XWCkkEF7p031Wh0NJF6h01MDeRzKRwK757Ey3l9mczMIcvZz
 6ygfNrkvojeGToNlBlHCyvLxtcA+GYCKGDwca34Puhb3SrdN+oY5pjNq1SvVGtVlDBGJIX6LTZ
 X/e9gpDk74n/vLq8L5ZsNIfXnN5y786rinWxXJONM9anH7rJEmMF2XXBWH+F1Zlk9Bzid6agKT
 H+JLySE/kFBQnXEO+x3NbSOyKjjeOSm3l7LeQRWZ4s0RCIHLvg+QFnK+4dc8YmWUoFeHZzXi9u
@@ -380,7 +463,7 @@ MEMBER:'instr-rotate',-1,0,128,4,3,0,0
 MEMBER:'instr-output',-1,0,128,5,3,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_right_wall
+     '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_right_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -395,9 +478,8 @@ MEMBER:'instr-rotate',-1,0,128,6,3,0,0
 MEMBER:'instr-arrow',-90,0,64,6,4,0,0
 MEMBER:'instr-arrow',90,0,64,3,0,0,0
 PIPE:0,4,1
-PIPE:1,4,2
-''',
-'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_bottom_wall
+PIPE:1,4,2''',
+     '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_bottom_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -413,9 +495,8 @@ MEMBER:'instr-arrow',-90,0,64,9,4,0,0
 MEMBER:'instr-arrow',90,0,64,3,2,0,0
 MEMBER:'instr-rotate',-1,0,128,5,4,0,0
 PIPE:0,4,1
-PIPE:1,4,2
-''',
-'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_left_wall
+PIPE:1,4,2''',
+     '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_left_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -434,5 +515,5 @@ MEMBER:'instr-arrow',90,0,64,3,2,0,0
 MEMBER:'instr-arrow',0,0,64,3,3,0,0
 MEMBER:'instr-arrow',180,0,64,7,2,0,0
 PIPE:0,4,1
-PIPE:1,4,2'''),
+PIPE:1,4,2''',)
 }

@@ -5,9 +5,10 @@ import argparse
 import math
 import time
 
-from spacechem.grid import Position, Direction
+from spacechem.exceptions import *
+from spacechem.grid import Direction
 from spacechem.level import ResearchLevel
-from spacechem.molecule import Molecule, ATOM_RADIUS
+from spacechem.molecule import ATOM_RADIUS
 from spacechem.solution import InstructionType, Solution
 from spacechem.tests import test_data
 
@@ -60,22 +61,6 @@ class Waldo:
                 and self.molecule is not None
                 and self.cur_cmd() is not None
                 and self.cur_cmd().type == InstructionType.ROTATE)
-
-
-class RunSuccess(Exception):
-    pass
-
-
-class InfiniteLoopError(Exception):
-    pass
-
-
-class InvalidOutputError(Exception):
-    pass
-
-
-class ReactionError(Exception):
-    pass
 
 
 class Reactor:
@@ -262,34 +247,38 @@ class Reactor:
         if self.level.output_counts[output_idx] is None:
             return
 
-        if not self.did_output_this_cycle[output_idx]:
-            # Output the first molecule in the given output zone
-            for molecule in self.molecules:
-                # TODO: It'd be nice to only have to calculate this for molecules that have been
-                #       debonded or dropped, etc. However, the cost of pre-computing it every time
-                #       we do such an action is probably not worth the cost of just doing it once
-                #       over all molecules whenever output is called.
-                # TODO 2: On the other hand, solutions with a waldo wall-stalling on output just
-                #         got fucked
-                if molecule.output_zone_idx() == output_idx:
-                    if not molecule.isomorphic(self.level.get_output_molecule(output_idx)):
-                        raise InvalidOutputError("Invalid output molecule.")
+        # TODO: It'd be nice to only have to calculate this for molecules that have been
+        #       debonded or dropped, etc. However, the cost of pre-computing it every time
+        #       we do such an action is probably not worth the cost of just doing it once
+        #       over all molecules whenever output is called.
+        # TODO 2: On the other hand, solutions with a waldo wall-stalling on output just
+        #         got fucked
+        molecules_in_zone = iter(molecule for molecule in self.molecules
+                                 # Ignore grabbed molecules
+                                 if not any(waldo.molecule is molecule for waldo in self.waldos)
+                                 and molecule.output_zone_idx() == output_idx)
+        molecule = next(molecules_in_zone, None)
 
-                    self.completed_output_counts[output_idx] += 1
+        # Try to output the first molecule in the zone if an output hasn't already been done this cycle
+        if not self.did_output_this_cycle[output_idx] and molecule is not None:
+            if not molecule.isomorphic(self.level.get_output_molecule(output_idx)):
+                raise InvalidOutputError("Invalid output molecule.")
 
-                    # Check if we've won
-                    if all(self.completed_output_counts[i] >= self.level.output_counts[i]
-                           for i in self.level.output_counts.keys()):
-                        raise RunSuccess()
+            self.completed_output_counts[output_idx] += 1
+            self.did_output_this_cycle[output_idx] = True
 
-                    # Remove the molecule from the reactor
-                    del self.molecules[molecule]
-                    self.did_output_this_cycle[output_idx] = True
-                    break
+            # Check if we've won
+            if all(self.completed_output_counts[i] >= self.level.output_counts[i]
+                   for i in self.level.output_counts):
+                raise RunSuccess()
 
-        # If there are still outputs remaining in this zone, stall this waldo
-        if any(molecule.output_zone_idx() == output_idx for molecule in self.molecules):
-            waldo.is_stalled = True
+            # Delete the molecule and check if there's another molecule in the zone (so we know whether to stall)
+            outputted_molecule = molecule  # This awkward shuffle is to avoid deleting from the dict while iterating it
+            molecule = next(molecules_in_zone, None)
+            del self.molecules[outputted_molecule]
+
+        # If there is any output(s) remaining in this zone, stall this waldo, else un-stall it
+        waldo.is_stalled = molecule is not None
 
     def grab(self, waldo):
         if waldo.molecule is None:
@@ -364,8 +353,8 @@ class Reactor:
                     # Intersect the target positions of this waldo's molecule with the current positions of the other
                     # waldo's molecules
                     other_waldo = self.waldos[1 - waldo.idx]
-                    target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map.keys())
-                    if not target_posns.isdisjoint(other_waldo.molecule.atom_map.keys()):
+                    target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map)
+                    if not target_posns.isdisjoint(other_waldo.molecule.atom_map):
                         raise ReactionError("Molecule collision")
 
             # Move all molecules
@@ -576,7 +565,7 @@ class Reactor:
 
         time.sleep(duration)
 
-        # Using the ANSI for moving to the start of the previous line, move the terminal cursor back to where we started
+        # Use the ANSI escape code for moving to the start of the previous line to reset the terminal cursor
         cursor_reset = (output.count('\n') + 1) * "\033[F"  # +1 for the implicit newline print() appends
         print(cursor_reset, end='')
 
@@ -584,7 +573,7 @@ class Reactor:
         # moving the terminal cursor back, overwrite the existing output with whitespace then move the cursor back again
         # Note: This probably cries if str(self) contains characters like '\r', but uh it doesn't
         # TODO: This makes the output kind of flashy which isn't as nice to look at... not really any way around that
-        #       that I can see if I don't want it to crap on regular print() statements
+        #       if I don't want it to crap on regular print() statements. Could maybe have a pretty-but-rude option
         print('\n'.join(len(s) * ' ' for s in output.split('\n')))
         print(cursor_reset, end='')  # Move terminal cursor back again
 
@@ -634,8 +623,8 @@ def main():
                         help="Print an updating view of the reactor while it runs.")
     args = parser.parse_args()
 
-    level_code = next(iter(test_data.collisions))
-    solution_code = test_data.collisions[level_code][0]
+    level_code = next(iter(test_data.valid_levels_and_solutions))
+    solution_code = test_data.valid_levels_and_solutions[level_code][-1]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 
