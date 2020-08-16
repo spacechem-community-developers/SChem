@@ -10,7 +10,7 @@ from spacechem.elements_data import elements_dict
 
 
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
-ATOM_DIAMETER = 0.772
+ATOM_DIAMETER = 0.762
 ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
 
 # TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
@@ -265,12 +265,14 @@ class Molecule:
             del self.atom_map[posn]
         return Molecule(atom_map=new_atom_map)
 
-    def output_zone_idx(self):
+    def output_zone_idx(self, large_output=False):
         if not self:
             return None
 
         if any(posn.col < 6 for posn in self.atom_map):
             return None
+        elif large_output:
+            return 0
 
         # Check if any atom doesn't match the output zone of the first atom
         posns = iter(self.atom_map)  # Keep a ref to the generator so we avoid re-checking the first position

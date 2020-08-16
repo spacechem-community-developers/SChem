@@ -16,11 +16,13 @@ NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule 
 
 
 class Waldo:
-    __slots__ = 'idx', 'instr_map', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
+    __slots__ = 'idx', 'instr_map', 'flipflop_states', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
 
     def __init__(self, idx, position, direction, instr_map):
         self.idx = idx
         self.instr_map = instr_map  # Position map of tuples containing arrow and 'command' (non-arrow) instructions
+        self.flipflop_states = {posn: False for posn, (_, cmd) in instr_map.items()
+                                if cmd is not None and cmd.type == InstructionType.FLIP_FLOP}
         self.position = position
         self.direction = direction
         self.molecule = None
@@ -29,9 +31,10 @@ class Waldo:
 
     def __hash__(self):
         '''A waldo's run state is uniquely identified by its position, direction,
-        whether it's holding a molecule, and whether it's rotating.
+        whether it's holding a molecule, whether it's rotating, and its flip-flop states.
         '''
-        return hash((self.position, self.direction, self.molecule is None, self.is_rotating))
+        return hash((self.position, self.direction, self.molecule is None, self.is_rotating,
+                     tuple(self.flipflop_states.values())))
 
     def __repr__(self):
         return f'Waldo({self.idx}, pos={self.position}, dir={self.direction}, is_stalled={self.is_stalled})'
@@ -55,10 +58,12 @@ class Reactor:
     walls = {Direction.UP: -0.5 + ATOM_RADIUS, Direction.DOWN: 7.5 - ATOM_RADIUS,
              Direction.LEFT: -0.5 + ATOM_RADIUS, Direction.RIGHT: 9.5 - ATOM_RADIUS}
 
-    __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'flipflop_states',
-                 'did_input_this_cycle', 'did_output_this_cycle', 'completed_output_counts', 'bonder_pairs')
+    __slots__ = ('level', 'solution', 'cycle', 'prior_states', 'waldos', 'molecules', 'did_input_this_cycle',
+                 'did_output_this_cycle', 'completed_output_counts', 'bonder_pairs', 'debug')
 
-    def __init__(self, solution):
+    def __init__(self, solution, debug=None):
+        self.debug = debug  # For convenience
+
         self.level = solution.level
         self.solution = solution
         self.cycle = 0
@@ -87,7 +92,6 @@ class Reactor:
                              solution.waldo_starts[i][1],
                              solution.waldo_instr_maps[i])
                        for i in range(len(solution.waldo_starts))]
-        self.flipflop_states = []
 
         # For convenience/performance, pre-compute a list of (bonder_A, bonder_B, direction) triplets, sorted in the
         # order that bonds or debonds should occur in
@@ -102,8 +106,7 @@ class Reactor:
     def __hash__(self):
         '''Hash of the current reactor state. Ignores cycle/output counts.'''
         return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
-                     tuple(self.waldos),
-                     tuple(self.flipflop_states)))
+                     tuple(self.waldos)))
 
     def __str__(self):
         '''Pretty-print this reactor.'''
@@ -215,8 +218,18 @@ class Reactor:
             pass
         elif cmd.type == InstructionType.SPLIT:
             pass
+        elif cmd.type == InstructionType.SENSE:
+            for posn in self.solution.sensors:
+                molecule = self.get_molecule(posn)
+                if molecule is not None and molecule.atom_map[posn].element.atomic_num == cmd.target_idx:
+                    waldo.direction = cmd.direction
+                    break
         elif cmd.type == InstructionType.FLIP_FLOP:
-            pass
+            # Update the waldo's direction if the flip-flop is on
+            if waldo.flipflop_states[waldo.position]:
+                waldo.direction = cmd.direction
+
+            waldo.flipflop_states[waldo.position] = not waldo.flipflop_states[waldo.position]  # ...flip it
         elif cmd.type == InstructionType.SWAP:
             pass
 
@@ -245,7 +258,7 @@ class Reactor:
         molecules_in_zone = iter(molecule for molecule in self.molecules
                                  # Ignore grabbed molecules
                                  if not any(waldo.molecule is molecule for waldo in self.waldos)
-                                 and molecule.output_zone_idx() == output_idx)
+                                 and molecule.output_zone_idx(large_output=self.level['has-large-output']) == output_idx)
         molecule = next(molecules_in_zone, None)
 
         # Try to output the first molecule in the zone if an output hasn't already been done this cycle
@@ -455,7 +468,7 @@ class Reactor:
                     if waldo.molecule is molecule and waldo.position in split_off_molecule:
                         waldo.molecule = split_off_molecule
 
-    def hash_state_and_check(self, debug=False):
+    def hash_state_and_check(self):
         # Hash the current reactor state and check if it matches a past reactor state
         # TODO: Maybe only hash on cycles when either output count incremented?
         #       But then we can't detect infinite loops, which is pretty important to have for
@@ -492,7 +505,7 @@ class Reactor:
                 # in an infinite loop that will never win
                 raise InfiniteLoopError()
 
-            if debug:
+            if self.debug:
                 print(f"Found a loop between cycles {prior_cycle} and {self.cycle}, fast-forwarding")
 
             # Figure out how many times we could repeat this state loop to get as close to
@@ -556,21 +569,21 @@ class Reactor:
         print('\n'.join(len(s) * ' ' for s in output.split('\n')))
         print(cursor_reset, end='')  # Move terminal cursor back again
 
-    def do_cycle(self, debug=False):
+    def do_cycle(self):
         '''Raises RunSuccess (before the end of the cycle) if the solution completed this cycle.'''
         for waldo in self.waldos:
             self.exec_instrs(waldo)
 
-        if debug:
+        if self.debug and self.cycle >= self.debug:
             self.debug_print(duration=0.25)
 
         # Move waldos/molecules
         self.move_contents()
 
-        if debug:
+        if self.debug and self.cycle >= self.debug:
             self.debug_print(duration=0.25)
 
-        self.hash_state_and_check(debug=debug)
+        self.hash_state_and_check()
 
         self.end_cycle()
         self.cycle += 1
@@ -580,29 +593,31 @@ class Reactor:
             self.did_input_this_cycle[i] = False
             self.did_output_this_cycle[i] = False
 
-    def run(self, debug=False):
+    def run(self):
         try:
             while True:
-                self.do_cycle(debug=debug)
+                self.do_cycle()
         except RunSuccess:
             return self.cycle, 1, self.solution.symbols
         finally:
             # Persist the last debug printout
-            if debug:
+            if self.debug:
                 print(str(self))
 
 
-def score_solution(soln, debug=False):
-    return Reactor(soln).run(debug=debug)
+def score_solution(soln, debug=None):
+    return Reactor(soln, debug=debug).run()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--debug', action='store_true',
-                        help="Print an updating view of the reactor while it runs.")
+    parser.add_argument('--debug', nargs='?', const=1, type=int,
+                        help="Print an updating view of the reactor while it runs. If a value is provided, it is taken"
+                             + " as the cycle to start debugging on.")
+
     args = parser.parse_args()
 
-    level_code = tuple(test_data.valid_levels_and_solutions.keys())[1]
+    level_code = tuple(test_data.valid_levels_and_solutions.keys())[4]
     solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[2]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 

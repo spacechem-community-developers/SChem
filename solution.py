@@ -5,6 +5,7 @@ from collections import namedtuple
 from enum import Enum
 
 from spacechem.grid import Position, Direction
+from spacechem.elements_data import elements_dict
 
 
 # Solution (NN output) bits:
@@ -102,14 +103,18 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
 
 
 class Solution:
-    __slots__ = 'level', 'name', 'symbols', 'bonders', 'waldo_starts', 'waldo_instr_maps', 'expected_score'
+    __slots__ = ('level', 'author', 'name', 'symbols', 'bonders', 'sensors', 'waldo_starts', 'waldo_instr_maps',
+                 'expected_score')
 
     def __init__(self, level, soln_export_string=None):
         self.level = level
         self.name = ''
         self.symbols = 0
         # Level Features
-        self.bonders = {}
+        # TODO: Now that we pre-compute bond firing orders in Reactor.__init__, just using a list here might be fine
+        #       performance-wise and saves on index-handling code
+        self.bonders = {}  # posn:idx dict for quick lookups
+        self.sensors = []  # posns
         # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
         self.waldo_starts = [None, None]
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
@@ -119,12 +124,20 @@ class Solution:
         if soln_export_string is None:
             return
 
-        bonder_count = 0
+        feature_posns = set()  # for verifying features were not placed illegally
+        bonder_count = 0  # Track bonder priorities
+
         for line in soln_export_string.split('\n'):
             if line.startswith('MEMBER'):
                 csv_values = line.split(',')
                 if len(csv_values) != 8:
                     raise Exception(f"Unrecognized solution string line format:\n{line}")
+
+                member_name = csv_values[0].split(':')[1].strip("'")
+
+                # Game stores directions in degrees, with right = 0, up = -90 (reversed so sin math works on
+                # the reversed vertical axis)
+                direction = None if int(csv_values[1]) == -1 else Direction(1 + int(csv_values[1]) // 90)
 
                 # Red has a field which is 64 for arrows, 128 for instructions
                 # The same field in Blue is 16 for arrows, 32 for instructions
@@ -132,22 +145,24 @@ class Solution:
 
                 position = Position(int(csv_values[5]), int(csv_values[4]))
 
-                # Game stores directions in degrees, with right = 0... but with up = -90? Should
-                # really have been 90 if zach was going with math-defined...
-                direction = None if int(csv_values[1]) == -1 else Direction(1 + int(csv_values[1]) // 90)
-
-                member_name = csv_values[0].split(':')[1].strip("'")
-
-                if member_name == 'feature-bonder':
-                    bonder_count += 1
-                    self.bonders[position] = bonder_count
-                    continue
-                elif member_name == 'instr-start':
+                if member_name == 'instr-start':
                     self.add_instruction(waldo_idx=waldo_idx, posn=position,
                                          instr=Instruction(InstructionType.START, direction=direction))
                     continue
+                elif member_name.startswith('feature-'):
+                    if position in feature_posns:
+                        raise Exception(f"Solution contains overlapping features at {position}")
+                    feature_posns.add(position)
 
-                # If this isn't a start instruction, increment total symbols
+                    if member_name == 'feature-bonder':
+                        bonder_count += 1
+                        self.bonders[position] = bonder_count
+                    elif member_name == 'feature-sensor':
+                        self.sensors.append(position)
+
+                    continue
+
+                # Given that this isn't a start instruction/feature, increment total symbols
                 self.symbols += 1
 
                 # All commands except start instructions get added to the instruction map
@@ -186,12 +201,41 @@ class Solution:
                         self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_PLUS)
                     else:
                         self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_MINUS)
+                elif member_name == 'instr-sensor':
+                    # The last CSV field is used by the sensor for the target atomic number
+                    atomic_num = int(csv_values[7])
+                    if atomic_num not in elements_dict:
+                        raise Exception(f"Invalid atomic number {atomic_num} on sensor command.")
+                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SENSE,
+                                                                                direction=direction,
+                                                                                target_idx=atomic_num)
+                elif member_name == 'instr-toggle':
+                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP,
+                                                                                direction=direction)
             elif line.startswith('SOLUTION'):
                 csv_values = line.split(',')
+                soln_level_name = csv_values[0][len('SOLUTION:'):]
+                if soln_level_name != level['name']:
+                    print(f"Warning: Solution level name {repr(soln_level_name)} doesn't match expected name"
+                          + f" {repr(level['name'])}.")
+                self.author = csv_values[1]
                 self.expected_score = tuple(int(i) for i in csv_values[2].split('-'))
 
                 if len(csv_values) >= 4:
-                    self.name = csv_values[3]
+                    self.name = ','.join(csv_values[3:])  # Remainder is the soln name and may include commas
+
+        # Sanity checks
+        assert len(self.bonders) == level['bonder-count']
+
+        # TODO: ('fuser', self.fusers, 1), ('splitter', self.splitters, 1), ('teleporter', self.swappers, 2)
+        for feature, container, default_count in (('sensor', self.sensors, 1),):
+            assert not container or level[f'has-{feature}']
+
+            # Regular vs Community Edition sanity checks
+            if f'{feature}-count' in level:
+                assert len(container) == level[f'{feature}-count']
+            elif level[f'has-{feature}']:
+                assert len(container) == default_count
 
     def __repr__(self):
         return f'Solution(bonders={self.bonders}, starts={self.waldo_starts}, instrs={self.waldo_instr_maps})'

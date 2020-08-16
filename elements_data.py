@@ -3,12 +3,11 @@
 
 from collections import namedtuple
 
-'''Immutable class representing a SpaceChemical element.'''
-Element = namedtuple('Element', ('atomic_num', 'symbol', 'max_bonds'))
-
 
 class Element(namedtuple("Element", ('atomic_num', 'symbol', 'max_bonds'))):
-    __slots__ = () # Apparently necessary for preserving namedtuple performance in a subclass
+    '''Immutable class representing a SpaceChemical element.'''
+    __slots__ = ()  # Apparently necessary for preserving namedtuple performance in a subclass
+
     def __str__(self):
         return self.symbol
     __repr__ = __str__
@@ -151,6 +150,9 @@ class ElementDict:
         for element in elements:
             self.atomic_num_element_dict[element.atomic_num] = element
             self.symbol_element_dict[element.symbol] = element
+
+    def __contains__(self, key):
+        return key in self.atomic_num_element_dict or key in self.symbol_element_dict
 
     def __getitem__(self, key):
         if isinstance(key, int):

@@ -31,9 +31,9 @@ from spacechem.molecule import Molecule
 # Total level bits: 988 bits
 
 class Level:
+    '''Parent class for Research and Production levels.'''
     __slots__ = 'dict', 'input_molecules', 'output_molecules', 'output_counts'
 
-    '''Parent class for Research and Production levels.'''
     def __init__(self):
         self.dict = {}
 
@@ -47,6 +47,9 @@ class Level:
 
     def __setitem__(self, item, val):
         self.dict[item] = val
+
+    def __contains__(self, item):
+        return item in self.dict
 
     def __str__(self):
         return json.dumps(self.dict)
