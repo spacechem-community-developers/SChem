@@ -16,25 +16,22 @@ NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule 
 
 
 class Waldo:
-    __slots__ = 'idx', 'position', 'direction', 'is_stalled', 'instr_map', 'molecule'
+    __slots__ = 'idx', 'instr_map', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
 
     def __init__(self, idx, position, direction, instr_map):
         self.idx = idx
+        self.instr_map = instr_map  # Position map of tuples containing arrow and 'command' (non-arrow) instructions
         self.position = position
         self.direction = direction
-        self.is_stalled = False
-        self.instr_map = instr_map  # Position map of tuples containing arrow and 'command' (non-arrow) instructions
         self.molecule = None
+        self.is_stalled = False  # Updated if the waldo is currently stalled on a sync, output, wall, etc.
+        self.is_rotating = False  # Used to distinguish the first vs second cycle on a rotate command
 
     def __hash__(self):
         '''A waldo's run state is uniquely identified by its position, direction,
-        whether it's stalled (to distinguish start vs end cycle of a rotate), and whether it's
-        holding a molecule.
+        whether it's holding a molecule, and whether it's rotating.
         '''
-        # TODO: Maybe (self.is_stalled and self.cur_cmd().type == ROTATE)) instead, to
-        #       avoid worrying about sync states? (since whether we just reached or were already on
-        #       Sync doesn't affect future run state, unlike with Rotate)
-        return hash((self.position, self.direction, self.is_stalled, self.molecule is None))
+        return hash((self.position, self.direction, self.molecule is None, self.is_rotating))
 
     def __repr__(self):
         return f'Waldo({self.idx}, pos={self.position}, dir={self.direction}, is_stalled={self.is_stalled})'
@@ -42,25 +39,6 @@ class Waldo:
     def cur_cmd(self):
         '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
         return None if self.position not in self.instr_map else self.instr_map[self.position][1]
-
-    def is_moving(self):
-        '''Return True if this waldo is about to move to a different grid cell.
-        Should not be called until after executing all instantaneous instructions in a cycle.
-        '''
-        return not (self.is_stalled
-                    or (self.direction == Direction.UP and self.position.row == 0)
-                    or (self.direction == Direction.DOWN and self.position.row == 7)
-                    or (self.direction == Direction.LEFT and self.position.col == 0)
-                    or (self.direction == Direction.RIGHT and self.position.col == 9))
-
-    def is_rotating(self):
-        '''Return True if this waldo is rotating a molecule.
-        Should not be called until after executing all instantaneous instructions in a cycle.
-        '''
-        return (self.is_stalled
-                and self.molecule is not None
-                and self.cur_cmd() is not None
-                and self.cur_cmd().type == InstructionType.ROTATE)
 
 
 class Reactor:
@@ -190,7 +168,7 @@ class Reactor:
         Raise an exception if it does.
         '''
         for other_molecule in self.molecules:
-            molecule.check_collisions(other_molecule)  # Implicitly ignores self
+            molecule.check_collisions_fine(other_molecule)  # Implicitly ignores self
 
         self.check_wall_collisions(molecule)
 
@@ -221,9 +199,10 @@ class Reactor:
             else:
                 self.drop(waldo)
         elif cmd.type == InstructionType.ROTATE:
-            # If we are holding a molecule and didn't just finish a stall, stall the waldo
-            # In all other cases, unstall the waldo
-            waldo.is_stalled = waldo.molecule is not None and not waldo.is_stalled
+            # If we are holding a molecule and weren't just rotating, start rotating
+            # In all other cases, stop rotating
+            waldo.is_rotating = waldo.molecule is not None and not waldo.is_rotating
+            waldo.is_stalled = waldo.is_rotating
         elif cmd.type == InstructionType.BOND_PLUS:
             self.bond_plus()
         elif cmd.type == InstructionType.BOND_MINUS:
@@ -242,7 +221,7 @@ class Reactor:
             pass
 
     def input(self, waldo, input_idx):
-        # If an input has already been called this cycle (i.e. blue inputs after red), stall this
+        # If this input has already been called this cycle (i.e. blue inputs after red), stall this
         # waldo and do nothing
         if self.did_input_this_cycle[input_idx]:
             waldo.is_stalled = True
@@ -287,7 +266,7 @@ class Reactor:
             molecule = next(molecules_in_zone, None)
             del self.molecules[outputted_molecule]
 
-        # If there is any output(s) remaining in this zone, stall this waldo, else un-stall it
+        # If there is any output(s) remaining in this zone, stall this waldo
         waldo.is_stalled = molecule is not None
 
     def grab(self, waldo):
@@ -305,8 +284,16 @@ class Reactor:
 
     def move_contents(self):
         '''Move all waldos in this reactor and any molecules they are holding.'''
+        # If the waldo is facing a wall, mark it as stalled (may also be stalled due to sync, input, etc.)
+        for waldo in self.waldos:
+            if ((waldo.direction == Direction.UP and waldo.position.row == 0)
+                    or (waldo.direction == Direction.DOWN and waldo.position.row == 7)
+                    or (waldo.direction == Direction.LEFT and waldo.position.col == 0)
+                    or (waldo.direction == Direction.RIGHT and waldo.position.col == 9)):
+                waldo.is_stalled = True
+
         # If any waldo is about to rotate a molecule, don't skimp on collision checks
-        if any(waldo.is_rotating() for waldo in self.waldos):
+        if any(waldo.is_rotating for waldo in self.waldos):
             # If both waldos are holding the same molecule and either of them is rotating, a crash occurs
             # (even if they're in the same position and rotating the same direction)
             if self.waldos[0].molecule is self.waldos[1].molecule:
@@ -318,45 +305,49 @@ class Reactor:
             for i in range(NUM_MOVE_CHECKS):
                 # Move all molecules currently being held by a waldo forward a step
                 for waldo in self.waldos:
-                    if waldo.molecule is not None and waldo.is_moving():
+                    if waldo.molecule is not None and not waldo.is_stalled:
                         waldo.molecule.move_fine(waldo.direction, distance=step_distance)
-                    elif waldo.is_rotating():
+                    elif waldo.is_rotating:
                         waldo.molecule.rotate_fine(pivot_pos=waldo.position,
                                                    direction=waldo.cur_cmd().direction,
                                                    radians=step_radians)
-                    else:
-                        continue
 
-                # After moving all molecules, check each moved molecule for collisions with walls or other molecules
-                # TODO: This duplicates the collision check between two molecules if they both moved
+                # After moving all molecules, check each rotated molecule for collisions with walls or other molecules
+                # Though all molecules had to move, only the rotating one(s) needs to do checks at each step, since we
+                # know the other waldo will only have static molecules left to check against, and translation movements
+                # can't clip through a static atom without ending on top of it
+                # Note: This only holds true for <= 2 waldos and since we checked that at least one waldo is rotating
                 for waldo in self.waldos:
-                    if waldo.molecule is not None and (waldo.is_moving() or waldo.is_rotating()):
+                    if waldo.is_rotating:
                         self.check_collisions_fine(waldo.molecule)
 
-                        # After the last collision check, convert molecules back to integer co-ordinates and rotate
-                        # molecule bonds
-                        if i == NUM_MOVE_CHECKS - 1:
-                            waldo.molecule.round_posns()
-
-                            if waldo.is_rotating():
-                                waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
-
-        elif any(waldo.molecule is not None and waldo.is_moving() for waldo in self.waldos):
+            # After completing all steps of the movement, convert moved molecules back to integer co-ordinates and do
+            # any final checks/updates
+            for waldo in self.waldos:
+                if waldo.molecule is not None and not waldo.is_stalled:
+                    waldo.molecule.round_posns()
+                    # Do the final check we skipped for non-rotating molecules
+                    self.check_collisions(waldo.molecule)
+                elif waldo.is_rotating:
+                    waldo.molecule.round_posns()
+                    # Rotate atom bonds
+                    waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
+        elif any(waldo.molecule is not None and not waldo.is_stalled for waldo in self.waldos):
             # If we are not doing any rotates, we can skip the full collision checks
-            # Non-rotating molecules can cause collisions if:
+            # Non-rotating molecules can cause collisions/errors if:
             # * The waldos are pulling a molecule apart
             # * OR The final destination of a moved molecule overlaps any other molecule after the move
-            # * OR The final destination of a moved molecule overlaps the initial position of another moving molecule, and the
-            #      offending waldos were not moving in the same direction
+            # * OR The final destination of a moved molecule overlaps the initial position of another moving molecule,
+            #      and the offending waldos were not moving in the same direction
 
-            # Given that at least one waldo is moving, if the waldos share a molecule they must move in the same direction
+            # Given that either is moving, if the waldos share a molecule they must move in the same direction
             if (self.waldos[0].molecule is self.waldos[1].molecule
                     and (any(waldo.is_stalled for waldo in self.waldos)
                          or self.waldos[0].direction != self.waldos[1].direction)):
                 raise ReactionError("A molecule has been grabbed by both waldos and pulled apart.")
 
             # Check if any molecule being moved will bump into the back of another moving molecule
-            if (all(waldo.molecule is not None and waldo.is_moving()
+            if (all(waldo.molecule is not None and not waldo.is_stalled
                     for waldo in self.waldos)
                     and self.waldos[0].direction != self.waldos[1].direction):
                 for waldo in self.waldos:
@@ -369,21 +360,20 @@ class Reactor:
 
             # Move all molecules
             for waldo in self.waldos:
-                if waldo.molecule is not None and waldo.is_moving():
+                if waldo.molecule is not None and not waldo.is_stalled:
                     waldo.molecule.move(waldo.direction)
 
             # Perform collision checks against the moved molecules
             for waldo in self.waldos:
-                if waldo.molecule is not None and waldo.is_moving():
+                if waldo.molecule is not None and not waldo.is_stalled:
                     self.check_collisions(waldo.molecule)
 
-        # Move waldos and mark them as no longer stalled, unless they just rotated (to ensure the rotate command knows
-        # not to rotate again next cycle)
+        # Move waldos and mark them as no longer stalled. Note that is_rotated must be left alone to tell it not to
+        # rotate twice
         for waldo in self.waldos:
-            if waldo.is_moving():
+            if not waldo.is_stalled:
                 waldo.position += waldo.direction
-            elif not waldo.is_rotating():
-                waldo.is_stalled = False
+            waldo.is_stalled = False
 
     def bond_plus(self):
         for position, neighbor_posn, direction in self.bonder_pairs:
