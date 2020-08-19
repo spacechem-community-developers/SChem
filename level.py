@@ -8,31 +8,14 @@ import io
 import json
 import zlib
 
-from spacechem.grid import Position
 from spacechem.molecule import Molecule
+from spacechem.spacechem_random import SpacechemRandom
 
-# Level (NN input) bits:
-# Features: 7 bits
-#   Allowed instrs: 1 bit for each disable-able instruction (sensor, FF, fuse, split, swap): 5 bits
-#      Also double as flags for whether sensor, fuser, splitter, and/or swappers are present.
-#   0-3: 0, 2, 4, or 8 bonders (2 bits)
-# Inputs: 480 bits
-# 32 x Cell bits:
-#    0-109 element or 0 if no atom = 7 bits
-#    0-12: element's max bond count = 4 bits
-#    0-3: rightward bonds = 2 bits
-#    0-3: downward bonds = 2 bits
-# Outputs: 501 bits
-#   large_output bit: 1 bit for if it's a large output zone (cell def's unchanged if so)
-#   each:
-#       16 x cell bits = 240 bits
-#       num outputs bits = 10 bits (allow up to 1024 outputs)
-
-# Total level bits: 988 bits
 
 class Level:
     '''Parent class for Research and Production levels.'''
-    __slots__ = 'dict', 'input_molecules', 'output_molecules', 'output_counts'
+    __slots__ = ('dict', 'input_molecules', 'output_molecules', 'output_counts', 'input_random_generators',
+                 'input_random_buckets')
 
     def __init__(self):
         self.dict = {}
@@ -54,22 +37,6 @@ class Level:
     def __str__(self):
         return json.dumps(self.dict)
 
-    # def __init__(self, input_molecules, output_molecules,
-    #              num_bonders=0,
-    #              has_sensor=False,
-    #              has_fuser=False, has_splitter=False,
-    #              has_swapper=False,
-    #              has_flip_flops=True):
-    #     self.input_molecules = input_molecules # None as needed
-    #     self.output_molecules = output_molecules
-    #
-    #     self.num_bonders = num_bonders
-    #     self.has_sensor = has_sensor
-    #     self.has_fuser = has_fuser
-    #     self.has_splitter = has_splitter
-    #     self.has_swapper = has_swapper
-    #     self.has_flip_flops = has_flip_flops
-
     def get_code(self):
         '''Export to mission code string; gzip then b64 the level json.'''
         out = io.BytesIO()
@@ -81,8 +48,24 @@ class Level:
         return self.dict['name']
 
     def get_input_molecule(self, input_idx):
-        '''Return a new copy of the given input index's molecule, or None if the input is unused.'''
-        return copy.deepcopy(self.input_molecules[input_idx])
+        '''Return a new copy of the given input index's molecule, or None if the input is unused.
+        Randomly choose from the input's molecules if there are multiple.
+        '''
+        if len(self.input_molecules[input_idx]) > 1:
+            # Create the next balance bucket if we've run out.
+            # The bucket stores an index identifying one of the 2-3 molecules
+            if not self.input_random_buckets[input_idx]:
+                for mol_idx, mol_dict in enumerate(self['input-zones'][str(input_idx)]['inputs']):
+                    self.input_random_buckets[input_idx].extend(mol_dict['count'] * [mol_idx])
+
+            # Randomly draw one entry from the bucket and delete it
+            bucket_idx = self.input_random_generators[input_idx].next(len(self.input_random_buckets[input_idx]))
+            mol_idx = self.input_random_buckets[input_idx].pop(bucket_idx)
+
+            # Return a copy of the selected molecule
+            return copy.deepcopy(self.input_molecules[input_idx][mol_idx])
+        else:
+            return copy.deepcopy(self.input_molecules[input_idx][0])
 
     def get_output_molecule(self, output_idx):
         '''Return the given output index's molecule, or None if the output is unused.'''
@@ -117,13 +100,21 @@ class ResearchLevel(Level):
         assert self['type'] == 'research'
 
         self.input_molecules = {}
-        for i, input_dict in self['input-zones'].items():
+        self.input_random_generators = {}
+        self.input_random_buckets = {}
+        for i, input_zone_dict in self['input-zones'].items():
             i = int(i)
-            # TODO: Assuming non-random level for now (only one input molecule)
 
+            if len(input_zone_dict['inputs']) > 1:
+                # Create a random generator for this zone (note that all zones use the same seed and thus sequence)
+                self.input_random_generators[i] = SpacechemRandom()
+                self.input_random_buckets[i] = []  # Bucket of indices for the molecules in the current balancing bucket
+
+            # Construct one of each molecule from the input JSON
             # Input molecules have relative indices to within their zones, so let the ctor know if this is a beta input
             # zone molecule (will be initialized 4 rows downward)
-            self.input_molecules[i] = Molecule.from_json_string(input_dict['inputs'][0]['molecule'], zone_idx=i)
+            self.input_molecules[i] = [Molecule.from_json_string(input_dict['molecule'], zone_idx=i)
+                                       for input_dict in input_zone_dict['inputs']]
 
         self.output_molecules = {}
         self.output_counts = {}

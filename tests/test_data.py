@@ -66,7 +66,7 @@ MEMBER:'instr-arrow',-90,0,16,1,2,0,0
 MEMBER:'instr-output',-1,0,32,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-    # 1-4 An Introduction to Bonding
+    # 1-4 An Introduction to Bonding (bonding)
     '''H4sIAEPcOV8A/3WPwWrDMBBEf8XsqQEb5BAotU/pwZBzby09qPbaFii7RloFUuN/rxSX0sb0It
 BjZvQ0g6EpSPHJhB6qGVQ6bixe32Y4s8U2WIQKXoy9oKuPQ12Wh0elIIeWAwlU5X55X3Io/+82
 NrAzhHUTy0+bbixzkK3I5vXs4bTL1rEOo0pzcylVvb9bVWlz1L6w2g1YrOtQ9dp6zOGDqUNXfI
@@ -232,8 +232,7 @@ MEMBER:'instr-bond',-1,0,128,1,3,0,0
 MEMBER:'instr-bond',-1,0,128,3,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-
-    # 3-3 Split Before Bonding
+    # 3-3 Split Before Bonding (bonder priority)
     '''H4sIAD8ObF4A/3WQzWrDMBCEX8Xs2QZJ9BDkW065pdBbSw6qvbIFimT0A3GM++zVxqWkTavDwo
 6Gb0ZawLgpp+bqHUaQCzAaN62sbwucvcUuWwQJh7kPfkDXHj6YaHk5rBVlMKih89klkFysp7UG
 /j/keJkJcdwQO0GI3QOiMHxOj8X+aFM9Y/AX0+Ot1sYVpRTROd/orWCc8bsMRgmjio1VYcBmyw
@@ -273,7 +272,56 @@ MEMBER:'instr-rotate',-1,0,32,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,4,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-    # 6-3 The Plot Thickens (large output, sensor)
+    # 4-1 An Introduction to Sensing (random input, sensor)
+    '''H4sIAGguPF8A/42PsWrEMAyGXyVoTsCmHYpvurHLLd2udHATJTH4pCDLwzXk3eskpfSuFLoI9P
+OJ79cMgaaszQcTJnAzmHVsWVlfZ7hwxDZHBAcnZDqc8GCtNcZADS1nUnAPS33DHWUo4FFW8OkW
+fFuWGjjrb+U/PNaUY3sH/ykrdMFHn5roZcBmt4LrfUxYwztTh9J8wY87mZASCziVjHvS54Tyfb
+QxUwyqd6FixInlZ6zXae0nmNBLO5Zi5C9bY6qeSYW73GpgqpSrl+INNBTGZx3XBnAO69qFvg/l
+U72CM8snU0B+7a0BAAA=''':
+    ('''SOLUTION:An Introduction to Sensing,Zig,136-1-32,Cycles
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,0,3,0,0
+MEMBER:'instr-start',0,0,32,0,1,0,0
+MEMBER:'feature-bonder',-1,0,1,6,7,0,0
+MEMBER:'feature-bonder',-1,0,1,7,7,0,0
+MEMBER:'feature-bonder',-1,0,1,8,7,0,0
+MEMBER:'feature-bonder',-1,0,1,9,7,0,0
+MEMBER:'feature-sensor',-1,0,1,2,1,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,0,2,0,0
+MEMBER:'instr-input',-1,0,128,0,2,0,0
+MEMBER:'instr-output',-1,0,32,6,2,0,0
+MEMBER:'instr-arrow',-90,0,64,1,2,0,0
+MEMBER:'instr-input',-1,0,128,1,2,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-sensor',90,0,128,2,1,0,18
+MEMBER:'instr-arrow',0,0,64,2,3,0,0
+MEMBER:'instr-arrow',90,0,64,6,3,0,0
+MEMBER:'instr-arrow',180,0,64,6,4,0,0
+MEMBER:'instr-arrow',-90,0,64,1,4,0,0
+MEMBER:'instr-grab',-1,2,128,6,4,0,0
+MEMBER:'instr-output',-1,1,128,5,4,0,0
+MEMBER:'instr-grab',-1,1,32,1,1,0,0
+MEMBER:'instr-arrow',90,0,16,6,1,0,0
+MEMBER:'instr-arrow',180,0,16,6,2,0,0
+MEMBER:'instr-arrow',-90,0,16,1,2,0,0
+MEMBER:'instr-arrow',0,0,16,1,1,0,0
+MEMBER:'instr-sensor',90,0,32,2,1,0,18
+MEMBER:'instr-arrow',0,0,16,2,3,0,0
+MEMBER:'instr-arrow',90,0,16,6,3,0,0
+MEMBER:'instr-arrow',180,0,16,6,4,0,0
+MEMBER:'instr-arrow',-90,0,16,1,4,0,0
+MEMBER:'instr-output',-1,1,32,5,4,0,0
+MEMBER:'instr-grab',-1,2,32,6,4,0,0
+MEMBER:'instr-grab',-1,2,32,6,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,1,0,0
+MEMBER:'instr-arrow',90,0,64,6,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,2,0,0
+MEMBER:'instr-output',-1,0,128,6,2,0,0
+MEMBER:'instr-input',-1,0,32,1,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',),
+    # 6-3 The Plot Thickens (sensor, large output)
     '''H4sIAKE2OV8A/3WQuW7DMBBEf8XYKgEkgNRViKUalS5cJUjBSKsDpkmBR6EI8reHpB3AiZHmAT
 uc5Qx2g1kuzqZfSqKBegMSEDU/vm9wUQI7JxBqaLj+VJI1jNKKEEigU05aqGm2f+wJ0P8327XX
 akTJWr9Ln3b9snL2ucbDD0clVrTTKlAie2muJGuvpHiVoQuljGaReWQRWUZWFSWMhFCWhWSWZY
@@ -434,7 +482,7 @@ MEMBER:'instr-arrow',-90,0,64,1,4,0,0
 MEMBER:'instr-output',-1,0,128,2,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-    # 7-4 Right All Along (sensors, large output, flip-flops)
+    # 7-4 Right All Along (sensor, large output, flip-flops)
     '''H4sIAJ7kOV8A/3WRT2vDMAzFv8rQaYMGZDdNaXwahZ7Hjhs7eK3SBFw7+M8hK+1nn6120K3skB
 /xy5Oe5BxhsGOK1ZezFKA9Ahawlo/vRzg4Q9tkCFpYa//prForIRpEmMHWJRuhFfL0cZqB+L9y
 Y5LzgyW1ybWru9pc7FK8H+Omw4szU6TodVdaOYr9ZMiqx/UZ5eaM9ZNVAhshFOJKoJKYU5QsWW

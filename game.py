@@ -583,7 +583,8 @@ class Reactor:
         if self.debug and self.cycle >= self.debug:
             self.debug_print(duration=0.25)
 
-        self.hash_state_and_check()
+        if all(len(molecules) <= 1 for molecules in self.level.input_molecules.values()):
+            self.hash_state_and_check()
 
         self.end_cycle()
         self.cycle += 1
@@ -618,7 +619,7 @@ def main():
     args = parser.parse_args()
 
     level_code = tuple(test_data.valid_levels_and_solutions.keys())[4]
-    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[2]
+    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[0]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 

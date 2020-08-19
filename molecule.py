@@ -276,8 +276,8 @@ class Molecule:
 
         # Check if any atom doesn't match the output zone of the first atom
         posns = iter(self.atom_map)  # Keep a ref to the generator so we avoid re-checking the first position
-        is_psi = next(posns).row <= 4
-        if any((posn.row <= 4) != is_psi for posn in posns):
+        is_psi = next(posns).row < 4
+        if any((posn.row < 4) != is_psi for posn in posns):
             return None
 
         # If we haven't returned yet, all atoms were in the same output zone
