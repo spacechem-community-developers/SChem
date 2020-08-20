@@ -9,6 +9,7 @@ from spacechem.exceptions import *
 from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import ATOM_RADIUS
+from spacechem.spacechem_random import SpacechemRandom
 from spacechem.solution import InstructionType, Solution
 from spacechem.tests import test_data
 
@@ -621,8 +622,8 @@ def main():
 
     args = parser.parse_args()
 
-    level_code = tuple(test_data.valid_levels_and_solutions.keys())[5]
-    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[2]
+    level_code = tuple(test_data.valid_levels_and_solutions.keys())[4]
+    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[0]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 
