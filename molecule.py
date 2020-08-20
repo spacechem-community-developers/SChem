@@ -169,11 +169,6 @@ class Molecule:
         self.atom_map = {posn.move(direction, distance=distance): atom for posn, atom in self.atom_map.items()}
         return self
 
-    def rotate(self, pivot_pos, direction):
-        self.atom_map = {posn.rotate(pivot_pos, direction): atom.rotate(direction)
-                         for posn, atom in self.atom_map.items()}
-        return self
-
     def rotate_fine(self, pivot_pos, direction, radians):
         '''Rotate the positions in the molecule a certain number of radians, but don't change bonds yet.
         Used for step-wise rotation collision checks.

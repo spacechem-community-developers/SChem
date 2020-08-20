@@ -38,6 +38,11 @@ class Direction(Enum):
 class Position(namedtuple("Position", ('row', 'col'))):
     '''Grid position, with row and column 0-indexed from the top left of the reactor.'''
 
+    dirn_to_delta = {Direction.UP: (-1, 0),
+                     Direction.RIGHT: (0, 1),
+                     Direction.DOWN: (1, 0),
+                     Direction.LEFT: (0, -1)}
+
     __slots__ = ()  # Apparently necessary for preserving namedtuple performance in a subclass
 
     def __str__(self):
@@ -45,26 +50,12 @@ class Position(namedtuple("Position", ('row', 'col'))):
     __repr__ = __str__
 
     def __add__(self, direction):
-        return self.move(direction, distance=1)
+        r_delta, c_delta = self.dirn_to_delta[direction]
+        return Position(self.row + r_delta, self.col + c_delta)
 
-    def move(self, direction, distance=1):
-        if direction == Direction.UP:
-            return Position(self.row - distance, self.col)
-        elif direction == Direction.RIGHT:
-            return Position(self.row, self.col + distance)
-        elif direction == Direction.DOWN:
-            return Position(self.row + distance, self.col)
-        elif direction == Direction.LEFT:
-            return Position(self.row, self.col - distance)
-
-    def rotate(self, pivot_pos, direction):
-        '''Return the position obtained by rotating this position around a pivot point.'''
-        if direction == Direction.CLOCKWISE:
-            return Position(pivot_pos.row + (self.col - pivot_pos.col),
-                            pivot_pos.col - (self.row - pivot_pos.row))
-        else:
-            return Position(pivot_pos.row - (self.col - pivot_pos.col),
-                            pivot_pos.col + (self.row - pivot_pos.row))
+    def move(self, direction, distance):
+        r_delta, c_delta = self.dirn_to_delta[direction]
+        return Position(self.row + distance * r_delta, self.col + distance * c_delta)
 
     def rotate_fine(self, pivot_pos, direction, radians):
         '''Rotate in sub-quarter-turn increments.'''
@@ -79,14 +70,3 @@ class Position(namedtuple("Position", ('row', 'col'))):
     def round(self):
         '''Return from float-precision co-ordinates to the integer grid.'''
         return Position(round(self.row), round(self.col))
-
-
-
-# class FinePosition(namedtuple("FinePosition", ('row', 'col'))):
-#     '''Fine co-ordinates used for calculating collisions during molecule rotations.'''
-#
-#     __slots__ = ()
-#
-#     def __new__(cls, posn):
-#         return super().__new__(cls, (posn.row + 0.5, posn.col + 0.5))
-

@@ -6,7 +6,7 @@ import math
 import time
 
 from spacechem.exceptions import *
-from spacechem.grid import Direction
+from spacechem.grid import Position, Direction
 from spacechem.level import ResearchLevel
 from spacechem.molecule import ATOM_RADIUS
 from spacechem.solution import InstructionType, Solution
@@ -470,11 +470,6 @@ class Reactor:
 
     def hash_state_and_check(self):
         # Hash the current reactor state and check if it matches a past reactor state
-        # TODO: Maybe only hash on cycles when either output count incremented?
-        #       But then we can't detect infinite loops, which is pretty important to have for
-        #       various applications (self-play, auto-solution-verifier). And hashing every Nth cycle will just make the
-        #       solver slower if N happens to be coprime with the solution's loop size. Hashing 2/3 cycles + outputs
-        #       might work but probably isn't worth the headache
         # TODO: To handle random input levels, in addition to cycle/output counts, store whether any
         #       inputs were called this cycle, and whenever we encounter a matching hash, only skip
         #       ahead to one cycle before another input will be called. Eventually, we'll have all possible states
@@ -482,14 +477,22 @@ class Reactor:
         # TODO: If we implement that, how do we know when we're in an infinite loop?
         #       Answer: TreeDict of past hashes and wait for the tree to be self-looping over all
         #               possible inputs (where branches split whenever a cycle does an input)
+        # TODO: Is it worth copying and storing the reactor state before each input cycle in a random level?
+        #       If we did that we could do skip-aheads in cases beyond just those where every prior input's branches
+        #       are fully mapped out (our 'skip' is currently just incrementing the cycle count if we find a loop back
+        #       to our current state. If we find a loop back to a prior non-fully-explored input branch, we still have
+        #       to manually walk the reactor through each of the states to reach there).
         cur_state_hash = hash(self)
         if cur_state_hash not in self.prior_states:
             # If this is a new state, store it
             # TODO: Implement memory limit
+            # TODO: If we stick with 1 hash per cycle, do we really need to store the cycle here?
+            # TODO: What about storing only the indices of any output zones that did an output this cycle?, else None?
+            #       Maybe wouldn't save as much memory.
             self.prior_states[cur_state_hash] = (self.cycle,
                                                  # Store tuples rather than dict copies to reduce memory bloat
-                                                 tuple(self.completed_output_counts[
-                                                           i] if i in self.completed_output_counts
+                                                 tuple(self.completed_output_counts[i]
+                                                       if i in self.completed_output_counts
                                                        else None
                                                        for i in range(2)))
         else:
@@ -618,8 +621,8 @@ def main():
 
     args = parser.parse_args()
 
-    level_code = tuple(test_data.valid_levels_and_solutions.keys())[4]
-    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[0]
+    level_code = tuple(test_data.valid_levels_and_solutions.keys())[5]
+    solution_code = tuple(test_data.valid_levels_and_solutions[level_code])[2]
     print(score_solution(Solution(ResearchLevel(level_code), solution_code), debug=args.debug))
 
 
