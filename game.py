@@ -3,7 +3,6 @@
 
 import argparse
 import copy
-import itertools
 import math
 import time
 
@@ -14,7 +13,6 @@ from spacechem.molecule import ATOM_RADIUS
 from spacechem.spacechem_random import SpacechemRandom
 from spacechem.solution import InstructionType, Solution
 from spacechem.tests import test_data
-import sys
 
 NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
 
@@ -58,6 +56,15 @@ class Waldo:
     def cur_cmd(self):
         '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
         return None if self.position not in self.instr_map else self.instr_map[self.position][1]
+
+
+class StateTreeSegment:
+    __slots__ = 'cycles', 'output_cycles', 'next_node'
+
+    def __init__(self):
+        self.cycles = 0
+        self.output_cycles = [[], []]
+        self.next_node = None
 
 
 class Reactor:
@@ -121,7 +128,7 @@ class Reactor:
 
         # State fast-forwarding related vars
         self.prior_states = {}
-        self.state_tree_segments = [{'cycles': 0, 'output_cycles': [[], []]}]  # Tree starts with one segment
+        self.state_tree_segments = [StateTreeSegment()]  # Tree starts with one segment
         self.cur_state_tree_segment_idx = 0
         self.state_tree_nodes = []
         self.last_random_molecule_indices = [None, None]
@@ -525,15 +532,14 @@ class Reactor:
                for i, did_input in enumerate(self.did_input_this_cycle)):
             last_segment = self.state_tree_segments[self.cur_state_tree_segment_idx]
 
-            if 'next_node' not in last_segment:  # next_node should only be present if we previously fast-forwarded
+            if last_segment.next_node is None:  # next_node should only be present if we previously fast-forwarded
                 self.state_tree_nodes.append({})
-                last_segment['next_node'] = len(self.state_tree_nodes) - 1
+                last_segment.next_node = len(self.state_tree_nodes) - 1
 
-            cur_node = self.state_tree_nodes[last_segment['next_node']]
+            cur_node = self.state_tree_nodes[last_segment.next_node]
 
             # Add a new segment and link to it from the node
-            # TODO: Use a __slots__ class for segments to save space (and time?)
-            self.state_tree_segments.append({'cycles': 0, 'output_cycles': [[], []]})
+            self.state_tree_segments.append(StateTreeSegment())
             self.cur_state_tree_segment_idx = len(self.state_tree_segments) - 1
 
             input_branch_key = tuple(self.last_random_molecule_indices[i] if did_input else None
@@ -545,8 +551,8 @@ class Reactor:
         cur_segment = self.state_tree_segments[self.cur_state_tree_segment_idx]
         for output_idx, did_output in enumerate(self.did_output_this_cycle):
             if did_output:
-                cur_segment['output_cycles'][output_idx].append(cur_segment['cycles'])  # Cycle relative to segment start
-        cur_segment['cycles'] += 1
+                cur_segment.output_cycles[output_idx].append(cur_segment.cycles)  # Cycle relative to segment start
+        cur_segment.cycles += 1
 
         cur_state = hash(self)
         if cur_state not in self.prior_states:
@@ -580,7 +586,7 @@ class Reactor:
                     continue
 
                 # Identify the outputs that are contained in the part of the segment we're looping over
-                loop_outputs = [c for c in cur_segment['output_cycles'][i] if c >= skipped_cycles]
+                loop_outputs = [c for c in cur_segment.output_cycles[i] if c >= skipped_cycles]
                 if not loop_outputs:
                     # If this loop doesn't output any molecules into an incomplete output, we will never win
                     raise InfiniteLoopError()
@@ -593,7 +599,7 @@ class Reactor:
                     # +1 since it's 0-indexed
                     cycles_remainder = loop_outputs[outputs_remainder - 1] - skipped_cycles + 1
                 remaining_cycles = max(remaining_cycles,
-                                       full_loops * (cur_segment['cycles'] - skipped_cycles) + cycles_remainder)
+                                       full_loops * (cur_segment.cycles - skipped_cycles) + cycles_remainder)
             self.cycle += remaining_cycles
 
             raise RunSuccess()
@@ -602,16 +608,16 @@ class Reactor:
         # We will also initialize some incoming_<measure> vars that will be used in the lookahead after this
         other_segment = self.state_tree_segments[other_segment_idx]
 
-        incoming_cycles = other_segment['cycles'] - skipped_cycles
+        incoming_cycles = other_segment.cycles - skipped_cycles
         incoming_outputs = [0, 0]
         for i in range(2):
-            other_outputs = [cur_segment['cycles'] + c - skipped_cycles
-                             for c in other_segment['output_cycles'][i]
+            other_outputs = [cur_segment.cycles + c - skipped_cycles
+                             for c in other_segment.output_cycles[i]
                              if c >= skipped_cycles]
             incoming_outputs[i] += len(other_outputs)
-            cur_segment['output_cycles'][i].extend(other_outputs)
-        cur_segment['cycles'] += incoming_cycles
-        cur_segment['next_node'] = other_segment['next_node']
+            cur_segment.output_cycles[i].extend(other_outputs)
+        cur_segment.cycles += incoming_cycles
+        cur_segment.next_node = other_segment.next_node
         incoming_cycles += 1  # I think the above had an off-by-1 error?
 
         # At this point we must have finished exploring a branch and have at least one loopback; look for another
@@ -646,13 +652,13 @@ class Reactor:
                 for i in self.level.output_counts.keys():
                     output_diff = self.completed_output_counts[i] - self.level.output_counts[i]
                     assert output_diff >= 0  # Sanity check that we actually won
-                    if output_diff < len(segment['output_cycles'][i]):
-                        winning_cycle = max(winning_cycle, segment['output_cycles'][i][-output_diff - 1])
-                self.cycle += incoming_cycles - (segment['cycles'] - winning_cycle)
+                    if output_diff < len(segment.output_cycles[i]):
+                        winning_cycle = max(winning_cycle, segment.output_cycles[i][-output_diff - 1])
+                self.cycle += incoming_cycles - (segment.cycles - winning_cycle)
 
                 raise RunSuccess()
 
-            node_idx = segment['next_node']
+            node_idx = segment.next_node
             node = self.state_tree_nodes[node_idx]
             # If this node is already in our visit path, we found a loop; pre-emptively increase our cycle/outputs
             # and remove the loop from our visit history (i.e. its random inputs will not be re-added to a queue
@@ -692,8 +698,8 @@ class Reactor:
                 # Fast-forward through the explored segment we found, updating our accumulation of cycles/outputs
                 segment_idx = node[new_input_key]
                 segment = self.state_tree_segments[segment_idx]
-                incoming_cycles += segment['cycles']
-                for output_idx, output_cycles in enumerate(segment['output_cycles']):
+                incoming_cycles += segment.cycles
+                for output_idx, output_cycles in enumerate(segment.output_cycles):
                     incoming_outputs[output_idx] += len(output_cycles)
             else:
                 # Add the random inputs we forecasted to queues to be drawn from before the PRNG
