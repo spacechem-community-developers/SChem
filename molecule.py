@@ -8,10 +8,10 @@ from spacechem.exceptions import ReactionError
 from spacechem.grid import Position, Direction
 from spacechem.elements_data import elements_dict
 
-
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
 ATOM_DIAMETER = 0.762
 ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
+
 
 # TODO: I'm seriously reconsidering the value of keeping all bonds on each atom given that it'll
 #       cut atom sizes significantly and parsing the game's level data (which only stores right and

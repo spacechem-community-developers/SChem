@@ -6,7 +6,7 @@ from enum import IntEnum
 import math
 
 
-class Direction(IntEnum):  # TODO: Need to research Enum vs IntEnum more... Enum lacked a consistent __hash__
+class Direction(IntEnum):
     UP = 0
     RIGHT = 1
     DOWN = 2
@@ -44,7 +44,7 @@ class Position(namedtuple("Position", ('row', 'col'))):
                      Direction.DOWN: (1, 0),
                      Direction.LEFT: (0, -1)}
 
-    __slots__ = ()  # Apparently necessary for preserving namedtuple performance in a subclass
+    __slots__ = ()
 
     def __str__(self):
         return f'({self.row}, {self.col})'

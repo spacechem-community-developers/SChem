@@ -738,8 +738,7 @@ class Reactor:
         # In order to play nice with any other print statements that may occur between debug prints, instead of just
         # moving the terminal cursor back, overwrite the existing output with whitespace then move the cursor back again
         # Note: This probably cries if str(self) contains characters like '\r', but uh it doesn't
-        # TODO: This makes the output kind of flashy which isn't as nice to look at... not really any way around that
-        #       if I don't want it to crap on regular print() statements. Could maybe have a pretty-but-rude option
+        # TODO: This is pretty ugly, may not be worth the trouble of not crapping on debug print statements
         #print('\n'.join(len(s) * ' ' for s in output.split('\n')))
         #print(cursor_reset, end='')  # Move terminal cursor back again
 
