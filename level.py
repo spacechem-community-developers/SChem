@@ -47,9 +47,9 @@ class Level:
     def get_name(self):
         return self.dict['name']
 
-    def get_input_molecule(self, input_idx):
-        '''Return a new copy of the given input index's molecule, or None if the input is unused.
-        Randomly choose from the input's molecules if there are multiple.
+    def get_input_molecule_idx(self, input_idx):
+        '''Given an input zone index, get the next input molecule's index. Exposed to allow for tracking branches in
+        random level states.
         '''
         if len(self.input_molecules[input_idx]) > 1:
             # Create the next balance bucket if we've run out.
@@ -58,14 +58,17 @@ class Level:
                 for mol_idx, mol_dict in enumerate(self['input-zones'][str(input_idx)]['inputs']):
                     self.input_random_buckets[input_idx].extend(mol_dict['count'] * [mol_idx])
 
-            # Randomly draw one entry from the bucket and delete it
+            # Randomly remove one entry from the bucket and return it
             bucket_idx = self.input_random_generators[input_idx].next(len(self.input_random_buckets[input_idx]))
-            mol_idx = self.input_random_buckets[input_idx].pop(bucket_idx)
-
-            # Return a copy of the selected molecule
-            return copy.deepcopy(self.input_molecules[input_idx][mol_idx])
+            return self.input_random_buckets[input_idx].pop(bucket_idx)
         else:
-            return copy.deepcopy(self.input_molecules[input_idx][0])
+            return 0
+
+    def get_input_molecule(self, input_idx):
+        '''Return a new copy of the given input index's molecule, or None if the input is unused.
+        Randomly choose from the input's molecules if there are multiple.
+        '''
+        return copy.deepcopy(self.input_molecules[input_idx][self.get_input_molecule_idx(input_idx)])
 
     def get_output_molecule(self, output_idx):
         '''Return the given output index's molecule, or None if the output is unused.'''

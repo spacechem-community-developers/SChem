@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from collections import namedtuple
-from enum import Enum
+from enum import IntEnum
 import math
 
-class Direction(Enum):
+
+class Direction(IntEnum):  # TODO: Need to research Enum vs IntEnum more... Enum lacked a consistent __hash__
     UP = 0
     RIGHT = 1
     DOWN = 2

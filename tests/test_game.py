@@ -22,7 +22,7 @@ def iter_test_data(data_dict):
 
 class TestGame(unittest.TestCase):
     def test_valid_solutions(self):
-        for level_code, solution_code in iter_test_data(test_data.valid_levels_and_solutions):
+        for level_code, solution_code in iter_test_data(test_data.valid):
             level = spacechem.level.ResearchLevel(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
             test_id = f'{level.get_name()} {solution.name}'
