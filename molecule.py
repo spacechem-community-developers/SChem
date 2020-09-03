@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from collections import Counter
-import math
 
 from spacechem.exceptions import ReactionError
 from spacechem.grid import Position, Direction
@@ -10,6 +9,7 @@ from spacechem.elements_data import elements_dict
 
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
 ATOM_DIAMETER = 0.762
+ATOM_DIAMETER_SQUARED = ATOM_DIAMETER**2
 ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
 
 
@@ -208,8 +208,8 @@ class Molecule:
         if other is not self:
             for posn in self.atom_map:
                 for other_posn in other.atom_map:
-                    if (math.sqrt((posn.row - other_posn.row)**2
-                                  + (posn.col - other_posn.col)**2) < ATOM_DIAMETER):
+                    if ((posn.row - other_posn.row)**2 + (posn.col - other_posn.col)**2
+                            < ATOM_DIAMETER_SQUARED):
                         raise ReactionError("Collision between molecules.")
 
     def debond(self, posn, direction):

@@ -516,7 +516,7 @@ class Reactor:
                     if waldo.molecule is molecule and waldo.position in split_off_molecule:
                         waldo.molecule = split_off_molecule
 
-    def hash_state_and_check_random(self):
+    def hash_state_and_check(self):
         '''Hash the current reactor state and check if it matches a past state, fast-forwarding cycles when possible.'''
         # If we previously did a lookahead to the next unexplored branch, we can remember how many cycles
         # we are from an unknown state and skip calculating the hash while we're advancing the reactor to that state.
@@ -758,7 +758,7 @@ class Reactor:
         if self.debug and self.cycle >= self.debug:
             self.debug_print(duration=0.0625)
 
-        self.hash_state_and_check_random()
+        self.hash_state_and_check()
 
         self.end_cycle()
 
