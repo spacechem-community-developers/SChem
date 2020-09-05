@@ -50,9 +50,12 @@ class Position(namedtuple("Position", ('row', 'col'))):
         return f'({self.row}, {self.col})'
     __repr__ = __str__
 
-    def __add__(self, direction):
-        r_delta, c_delta = self.dirn_to_delta[direction]
-        return Position(self.row + r_delta, self.col + c_delta)
+    def __add__(self, other):
+        if isinstance(other, Direction):
+            r_delta, c_delta = self.dirn_to_delta[other]
+            return Position(self.row + r_delta, self.col + c_delta)
+        else:
+            return Position(self.row + other.row, self.col + other.col)
 
     def move(self, direction, distance):
         r_delta, c_delta = self.dirn_to_delta[direction]

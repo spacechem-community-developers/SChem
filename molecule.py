@@ -56,8 +56,9 @@ class Atom:
 # Molecule internal struct candidates:
 # * direct grid pos-atom dict: O(1) lookup by pos
 # * internal positions, with one map from an internal atom's position/direction to a grid
-#   position/direction for reference
-# * Only need to update one position and direction on move/rotate
+#   position/direction for reference: O(1) lookup, but a lot of overhead. Seemed to be
+#   slower in practice.
+#   * Only need to update one position and direction on move/rotate
 
 # Reactor.molecules:
 # * Molecules are ordered by last creation/modification
@@ -68,10 +69,12 @@ class Atom:
 # * molecules can be quickly looked up by a single grid position
 #   Used By: grab, bond+, bond-, fuse, etc.
 
-# Molecules container candidates:
+# Reactor molecules container candidates:
 # * dict + a posn to molecule dict: adds more memory than single dict, but allows O(1) lookup by pos
+#   * moving a molecule now has overhead equal to it size... but if it speeds up collision checks it's
+#     probably worth it, not to mention commands like bond+, fuse.
 # * dict +: ordered, O(1) add/delete, O(N) lookup by pos (assuming O(1) pos lookup on Molecule)
-# * list -: ordered, O(1) add, O(N) delete, O(N) lookup by pos
+# * list -: ordered, saves memory, O(1) add, O(N) delete, O(N) lookup by pos
 class Molecule:
     '''Class used for representing a molecule in a level's input/output zones and for evaluating
     solutions during runtime.
@@ -83,20 +86,15 @@ class Molecule:
         self.atom_map = atom_map if atom_map is not None else {}
 
     @classmethod
-    def from_json_string(cls, json_string, zone_idx=0, is_output=False):
+    def from_json_string(cls, json_string):
         parts = json_string.split(';')
         name = parts[0]
         atom_map = {}
         # The second field is the atomic formula which we can ignore (TODO: do something with it)
         for atom_str in parts[2:]:
             # formatted as: {col}{row}{atomic_num}{right_bonds}{down_bonds}
-            # Note that atomic_num is from 1-3 characters long so we reference the values after it
-            # via negative indices
-            # Initialize the position, adding 4 to the row value if this is the beta or omega zone,
-            # and 6 to the column value if this is an output molecule (our output-checking algorithm is agnostic
-            # of this so it doesn't much matter, but mapping to grid co-ordinates is more precise for the convenience
-            # of users of this library).
-            position = Position(int(atom_str[1]) + 4 * zone_idx, int(atom_str[0]) + 6 * is_output)
+            # Note that atomic_num is variable length (1-3 chars) so we use negative indices for values after it
+            position = Position(int(atom_str[1]), int(atom_str[0]))  # TODO: Fix when we make Positions (col, row)
             atom = Atom(elements_dict[int(atom_str[2:-2])])
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
@@ -155,7 +153,7 @@ class Molecule:
 
     def get_json_str(self):
         '''Return a string representing this molecule in the level json's format.'''
-        # TODO: formula
+        # TODO: formula?
         result = f'{self.name};{self.formula.get_json_str()}'
         for pos, atom in self.atom_map.items():
             result += ';' + f'{pos.col}{pos.row}' + atom.get_json_str()

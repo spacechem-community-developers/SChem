@@ -6,7 +6,7 @@ from collections import namedtuple
 
 class Element(namedtuple("Element", ('atomic_num', 'symbol', 'max_bonds'))):
     '''Immutable class representing a SpaceChemical element.'''
-    __slots__ = ()  # Apparently necessary for preserving namedtuple performance in a subclass
+    __slots__ = ()
 
     def __str__(self):
         return self.symbol

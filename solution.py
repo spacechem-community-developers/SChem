@@ -2,289 +2,463 @@
 # -*- coding: utf-8 -*-
 
 from collections import namedtuple
-from enum import Enum
+import copy
+from itertools import product
+import time
 
-from spacechem.grid import Position, Direction
-from spacechem.elements_data import elements_dict
-
-
-# Solution (NN output) bits:
-# 80 x Cell bits:
-#    Red: 10 bits
-#       Arrow Instruction: 3 bits
-#           0 = None
-#           1-4 = clockwise from 1 = Up.
-#       Cmd Instruction: 7 bits
-#       0 = None
-#       1-109: Sensor
-#       110 = Start
-#       111 = Input Alpha
-#       112 = Input Beta
-#       113 = Output Psi
-#       114 = Output Omega
-#       115 = Grab
-#       116 = Drop
-#       117 = Grab-Drop
-#       118 = Rotate clockwise
-#       119 = Rotate C-Clockwise
-#       120 = Bond+
-#       121 = Bond-
-#       122 = Sync
-#       123 = Flip-Flop
-#       124 = Fuse
-#       125 = Split
-#       126 = Swap
-#   Blue (ditto): 10 bits
-# = 20 bits per grid pos = 1600 bits
-# Feature bits: 91 bits
-#    8 x Bonder locations (0-7 row + 0-9 col = 7 bits) = 56 bits
-#    1 x Sensor location = 7 bits
-#    1 x Fuser location = 7 bits
-#    1 x Splitter location = 7 bits
-#    2 x Swapper locations = 14 bits
-# Total: 1691 output bits
-
-# If we choose to skip sensor levels, the cmd instruction can be reduced from 7 to 4 bits
-# 0 = None
-# 1 = Start
-# 2, 3 = Input, Ouput
-# 4, 5, 6 = Grab, Drop, Grab-Drop
-# 7, 8 = Rotate c-wise / cc-wise
-# 9, 10 = Bond+, Bond-
-# 11 = Sync
-# 12 = FF
-# 13, 14 = Fuse, Split
-# 15 = Swap
-
-class InstructionType(Enum):
-    '''Represents the various types of SpaceChem instruction.'''
-    START = 'S'
-    INPUT = 'i'
-    OUTPUT = 'o'
-    GRAB = 'g'
-    DROP = 'd'
-    GRAB_DROP = 'gd'
-    ROTATE = 'r'
-    SYNC = 'sy'
-    BOND_PLUS = 'b+'
-    BOND_MINUS = 'b-'
-    SENSE = '?'
-    FLIP_FLOP = 'f'
-    FUSE = 'fus'
-    SPLIT = 'spl'
-    SWAP = 'swp'
-
-    def __repr__(self):
-        return self.name
-
-    def __str__(self):
-        return self.value
+from spacechem.components import COMPONENT_SHAPES, Pipe, Input, Output, Recycler, StorageTank
+from spacechem.exceptions import RunSuccess
+from spacechem.grid import Direction
+from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS, TERRAIN_MAPS
+from spacechem.reactor import Reactor
 
 
-class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
-                             # Default direction and target_idx if unneeded
-                             defaults=(None, None))):
-    '''Represents a non-arrow SpaceChem instruction and any associated properties.
-    Direction is used by rotates, flip-flops and sensor cmds. Target index represents either the zone idx for an input
-    or output instruction, or an element's atomic # in the case of a sensor cmd.
-    '''
+class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
+    '''Immutable class representing a SpaceChem solution score.'''
     __slots__ = ()
 
     def __str__(self):
-        return (f'{self.type}'
-                f'{self.target_idx if self.target_idx is not None else ""}'
-                f'{self.direction if self.direction is not None else ""}')
-
-    def __repr__(self):
-        return (f'Instruction({repr(self.type)}'
-                + (f', target_idx={self.target_idx}' if self.target_idx is not None else '')
-                + (f', direction={repr(self.direction)}' if self.direction is not None else '')
-                + ')')
+        '''Convert to the community-accepted format for displaying a score.'''
+        return '-'.join(str(i) for i in self)
 
 
 class Solution:
-    __slots__ = ('level', 'author', 'name', 'symbols', 'bonders', 'sensors', 'waldo_starts', 'waldo_instr_maps',
-                 'expected_score')
+    '''Class for constructing and running game entities from a given level object and solution code.'''
+    __slots__ = ('level_name', 'author', 'expected_score', 'name',
+                 'level', 'components')
 
-    def __init__(self, level, soln_export_string=None):
+    def __init__(self, level, soln_export_str=None):
         self.level = level
+        self.level_name = ''  # Note that the level name is vestigial; a solution can run in any compatible level
         self.name = ''
-        self.symbols = 0
-        # Level Features
-        # TODO: Now that we pre-compute bond firing orders in Reactor.__init__, just using a list here might be fine
-        #       performance-wise and saves on index-handling code
-        self.bonders = {}  # posn:idx dict for quick lookups
-        self.sensors = []  # posns
-        # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
-        self.waldo_starts = [None, None]
-        # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
-        # TODO: usage might be cleaner if separate arrow_maps and instr_maps
-        self.waldo_instr_maps = [{}, {}]
 
-        if soln_export_string is None:
+        if soln_export_str is None:
+            # TODO: Should only skip the solution entities but still create level entities
             return
 
-        feature_posns = set()  # for verifying features were not placed illegally
-        bonder_count = 0  # Track bonder priorities
+        # Parse solution metadata from the first line
+        soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
+        assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
 
-        for line in soln_export_string.split('\n'):
-            if line.startswith('MEMBER'):
-                csv_values = line.split(',')
-                if len(csv_values) != 8:
-                    raise Exception(f"Unrecognized solution string line format:\n{line}")
+        fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
+        assert len(fields) >= 3, 'SOLUTION line missing fields'
 
-                member_name = csv_values[0].split(':')[1].strip("'")
+        self.level_name = fields[0][len('SOLUTION:'):]
+        self.author = fields[1]
+        # The game stores unsolved solutions as '0-0-0'
+        self.expected_score = Score(*(int(i) for i in fields[2].split('-'))) if fields[2] != '0-0-0' else None
+        self.name = fields[3] if len(fields) == 4 else None  # Optional field
 
-                # Game stores directions in degrees, with right = 0, up = -90 (reversed so sin math works on
-                # the reversed vertical axis)
-                direction = None if int(csv_values[1]) == -1 else Direction(1 + int(csv_values[1]) // 90)
+        # Store components by posn for now, for convenience. We'll re-order and store them in self.components later
+        posn_to_component = {}  # Note that components are referenced by their top-left corner posn
 
-                # Red has a field which is 64 for arrows, 128 for instructions
-                # The same field in Blue is 16 for arrows, 32 for instructions
-                waldo_idx = 0 if int(csv_values[3]) >= 64 else 1
+        # Set up the level terrain so we can look up input/output positions and any blocked terrain
+        if self.level['type'] == 'production':
+            # Main game levels have unique terrain which we have to hardcode D:
+            # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
+            # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
+            terrain_id = level['name'] if ('terrain' not in level
+                                           and level['name'] in TERRAIN_MAPS) else level['terrain']
+        else:
+            terrain_id = 'research'  # BIG HACKS
 
-                position = Position(int(csv_values[5]), int(csv_values[4]))
+        # Add level-defined entities - including any fixed-position reactors/pipes
 
-                if member_name == 'instr-start':
-                    self.add_instruction(waldo_idx=waldo_idx, posn=position,
-                                         instr=Instruction(InstructionType.START, direction=direction))
+        # Inputs
+        input_zone_types = ('random-input-zones', 'fixed-input-zones') if self.level['type'] == 'production' else ('input-zones',)
+        input_rate = 10 if self.level['type'] == 'production' else 1  # TODO Support CE variable input rates
+        for input_zone_type in input_zone_types:
+            for i, input_dict in self.level[input_zone_type].items():
+                i = int(i)
+                # For some reason production fixed inputs are defined less flexibly than in researches
+                # TODO: Input class should probably accept raw molecule string instead of having to stuff it into a dict
+                #       One does wonder why Zach separated random from fixed inputs in productions but not researches...
+                if isinstance(input_dict, str):
+                    # Convert from molecule string to input zone dict format
+                    input_dict = {'inputs': [{'molecule': input_dict, 'count': 12}]}
+
+                # Due to a bug in SpaceChem, the random-input-zones may end up populated with an empty input
+                # entry. Skip it if that's the case
+                # TODO: Make CE issue on github for this
+                if not input_dict['inputs']:
                     continue
-                elif member_name.startswith('feature-'):
-                    if position in feature_posns:
-                        raise Exception(f"Solution contains overlapping features at {position}")
-                    feature_posns.add(position)
 
-                    if member_name == 'feature-bonder':
-                        bonder_count += 1
-                        self.bonders[position] = bonder_count
-                    elif member_name == 'feature-sensor':
-                        self.sensors.append(position)
+                component_type, component_posn = TERRAIN_MAPS[terrain_id][input_zone_type][i]
+                posn_to_component[component_posn] = Input(component_type=component_type, posn=component_posn,
+                                                          input_dict=input_dict, input_rate=input_rate)
 
+        # Outputs
+        for i, output_dict in self.level['output-zones'].items():
+            i = int(i)
+
+            # Zach pls
+            if self.level['type'] == 'production':
+                output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
+                output_dict['count'] *= 4
+
+            component_type, component_posn = TERRAIN_MAPS[terrain_id]['output-zones'][i]
+            posn_to_component[component_posn] = Output(component_type=component_type, posn=component_posn,
+                                                       output_dict=output_dict)
+
+        # Recycler
+        if self.level['type'] == 'production' and self.level['has-recycler']:
+            component_type, component_posn = TERRAIN_MAPS[terrain_id]['recycler']
+            posn_to_component[component_posn] = Recycler(component_type=component_type, posn=component_posn)
+
+        # TODO: Preset reactors - note that research levels behave like a production with a single preset reactor
+
+        # Add solution-defined entities and update preset level components (e.g. pipe inputs, preset reactor contents)
+        # TODO: Disallow mutating pipes in research levels or on preset reactors, and preset input pipes
+        for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
+            component_metadata = component_str.split('\n', maxsplit=1)[0]
+            fields = component_metadata.split(',')
+            component_type = fields[0].strip('COMPONENT:').strip("'")
+            component_posn = (int(fields[1]), int(fields[2]))
+
+            # Check that this component is either an existing one added by the level or is a new component that the
+            # level allows
+            if component_posn in posn_to_component:
+                cur_component = posn_to_component[component_posn]
+                assert component_type == cur_component.type, \
+                    (f'Built-in draggable of type "{cur_component.type}" cannot be overwritten with draggable'
+                     + f' of type "{component_type}"')
+
+                # Generate the new component and update or overwrite the existing component
+                if isinstance(cur_component, Reactor):
+                    if self.level['type'] == 'research':
+                        new_component = Reactor.from_export_str(component_str, features_dict=self.level.dict)
+                    else:
+                        # In this case, the constructor will self-verify the features based on its component ID
+                        new_component = Reactor.from_export_str(component_str)
+
+                    # Reactor contents can be overwritten but not their pipes (any pipe changes are silently ignored)
+                    new_component.out_pipes = cur_component.out_pipes
+
+                    # Overwrite the existing component
+                    posn_to_component[component_posn] = new_component
+                elif isinstance(cur_component, Input):
+                    # TODO: For levels like e.g. PseudoEthyne, input pipes shouldn't be overwritable
+                    # Drop the COMPONENT line and expect the remaining lines to construct a pipe
+                    cur_component.out_pipe = Pipe.from_export_str(component_str[component_str.find('\n') + 1:])
+                else:
+                    raise Exception(f"Unexpected modification to immutable level component {component_type}")
+            else:
+                # Component is new; create and add it
+                if 'reactor' in component_type.split('-'):
+                    if self.level['type'] == 'research':
+                        posn_to_component[component_posn] = Reactor.from_export_str(component_str,
+                                                                                    features_dict=self.level.dict)
+                    else:
+                        # Ensure this is a legal reactor type for the level (e.g. drag-starter-reactor -> has-starter)
+                        assert f'has-{component_type.split("-")[1]}' in self.level, f"Unknown reactor type {component_type}"
+                        assert self.level[f'has-{component_type.split("-")[1]}'], f"Illegal reactor type {component_type}"
+
+                        # In this case, the constructor will self-verify the features based on its component type
+                        posn_to_component[component_posn] = Reactor.from_export_str(component_str)
+                # TODO: Storage tanks are only available in defense levels
+                elif component_type == 'drag-storage-tank':
+                    if self.level['type'] != 'defense':
+                        raise Exception(f"Component {component_type} cannot be used outside Defense levels")
+                    posn_to_component[component_posn] = StorageTank.from_export_str(component_str)
+                elif 'input' in component_type.split('-'):
+                    raise Exception(f"Could not find level input at position {component_posn}.")
+                else:
+                    raise Exception(f"Solution places unexpected component {component_type}")
+
+        # Now that we're done updating components, check that all components/pipes are validly placed
+        # TODO: Should probably just be a method validating self.components, and also called at start of run()
+        blocked_posns = set()
+        # Tracks which directions pipes may cross through each other, and implicitly also which cells contain pipes
+        pipe_posns_to_dirns = {}
+
+        # Add impassable terrain
+        if self.level['type'] == 'production':
+            blocked_posns.update(TERRAIN_MAPS[terrain_id]['obstructed'])
+
+        # Check for component/pipe collisions
+        for component in posn_to_component.values():
+            # Add this component's cells to the blacklist
+            if 'reactor' in component.type.split('-'):
+                component_dimensions = COMPONENT_SHAPES['reactor']  # TODO: this is hacky but I'm lazy
+            else:
+                component_dimensions = COMPONENT_SHAPES[component.type]
+
+            # Check for collisions and add this component's main body (non-pipe) posns to the blacklist
+            component_posns = set(product(range(component.posn[0], component.posn[0] + component_dimensions[0]),
+                                          range(component.posn[1], component.posn[1] + component_dimensions[1])))
+            assert (component_posns.isdisjoint(blocked_posns)
+                    and component_posns.isdisjoint(pipe_posns_to_dirns.keys())), \
+                f"Component at {component.posn} colliding with terrain or another component"
+            blocked_posns.update(component_posns)
+
+            # Check pipes are valid
+            for i, pipe in enumerate(component.out_pipes):
+                if not pipe:  # TODO: Should maybe yell if the pipe is empty instead of None
                     continue
 
-                # Given that this isn't a start instruction/feature, increment total symbols
-                self.symbols += 1
+                assert len(pipe.posns) == len(set(pipe.posns)), "Pipe overlaps with itself"
 
-                # All commands except start instructions get added to the instruction map
-                if position not in self.waldo_instr_maps[waldo_idx]:
-                    self.waldo_instr_maps[waldo_idx][position] = [None, None]
+                # Make sure the pipe is properly connected to this component
+                # Note: this code would break if any component had 3 output pipes but none do
+                assert pipe.posns[0] == (component_dimensions[0], ((component_dimensions[1] - 1) // 2) + i), \
+                    f"Pipe {i} is not connected to parent component {component.type} at {component.posn}"
 
-                # Note: Some similar instructions have the same name but are sub-typed by the
-                #       second integer field
-                instr_sub_type = int(csv_values[2])
-                if member_name == 'instr-arrow':
-                    self.waldo_instr_maps[waldo_idx][position][0] = direction
-                elif member_name == 'instr-input':
-                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT,
-                                                                                target_idx=instr_sub_type)
-                elif member_name == 'instr-output':
-                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.OUTPUT,
-                                                                                target_idx=instr_sub_type)
-                elif member_name == 'instr-grab':
-                    if instr_sub_type == 0:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB_DROP)
-                    elif instr_sub_type == 1:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB)
-                    else:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.DROP)
-                elif member_name == 'instr-rotate':
-                    if instr_sub_type == 0:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
-                                                                                    direction=Direction.CLOCKWISE)
-                    else:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
-                                                                                    direction=Direction.COUNTER_CLOCKWISE)
-                elif member_name == 'instr-sync':
-                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SYNC)
-                elif member_name == 'instr-bond':
-                    if instr_sub_type == 0:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_PLUS)
-                    else:
-                        self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_MINUS)
-                elif member_name == 'instr-sensor':
-                    # The last CSV field is used by the sensor for the target atomic number
-                    atomic_num = int(csv_values[7])
-                    if atomic_num not in elements_dict:
-                        raise Exception(f"Invalid atomic number {atomic_num} on sensor command.")
-                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SENSE,
-                                                                                direction=direction,
-                                                                                target_idx=atomic_num)
-                elif member_name == 'instr-toggle':
-                    self.waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP,
-                                                                                direction=direction)
-            elif line.startswith('SOLUTION'):
-                csv_values = line.split(',')
-                soln_level_name = csv_values[0][len('SOLUTION:'):]
-                if soln_level_name != level['name']:
-                    print(f"Warning: Solution level name {repr(soln_level_name)} doesn't match expected name"
-                          + f" {repr(level['name'])}.")
-                self.author = csv_values[1]
-                self.expected_score = tuple(int(i) for i in csv_values[2].split('-'))
+                # Ensure this pipe doesn't collide with a component or terrain
+                # Recall that pipe posns are defined relative to their parent component's posn
+                cur_pipe_posns = set((component.posn[0] + pipe_posn[0], component.posn[1] + pipe_posn[1])
+                                     for pipe_posn in pipe.posns)
+                assert cur_pipe_posns.isdisjoint(blocked_posns), \
+                    f"Collision(s) between pipe and terrain/component at {cur_pipe_posns & blocked_posns}"
 
-                if len(csv_values) >= 4:
-                    self.name = ','.join(csv_values[3:])  # Remainder is the soln name and may include commas
+                # Identify each pipe segment as vertical, horizontal, or a turn, and ensure all overlaps are legal.
+                # We can do the latter by tracking which pipe directions have already been 'occupied' by a pipe in any
+                # given cell - with a turn occupying both directions.
 
-        # Sanity checks
-        assert len(self.bonders) == level['bonder-count']
+                # To find whether a pipe is straight or not, we need to iterate over each pipe posn with its neighbors
+                # Ugly edge case: When a pipe starts by moving vertically, it prevents a horizontal pipe from
+                #                 overlapping it because it 'turns' into its reactor.
+                #                 But when a vertical pipe ends next to a reactor, it does not prevent another
+                #                 pipe from crossing through horizontally - in fact, the horizontal pipe will be the
+                #                 one to connect to the reactor. Therefore, the 'neighbor' of the last posn should
+                #                 be itself, in order to count the pipe as straight either vertically or horizontally.
+                #                 However, the 'neighbor' of the first posn should be itself with 1 subtracted
+                #                 from the column (the connection to the reactor), to ensure it prevents horizontal
+                #                 crossovers (note that no components have pipes on their top/bottom edges so this is
+                #                 safe).
+                #                 This also ensures that a 1-long pipe will count as horizontal and not vertical.
+                for prev, cur, next_ in zip([(pipe.posns[0][0] - 1, pipe.posns[0][1])] + pipe.posns[:-1],
+                                            pipe.posns,
+                                            pipe.posns[1:] + [pipe.posns[-1]]):
+                    real_posn = (component.posn[0] + cur[0], component.posn[1] + cur[1])
 
-        # TODO: ('fuser', self.fusers, 1), ('splitter', self.splitters, 1), ('teleporter', self.swappers, 2)
-        for feature, container, default_count in (('sensor', self.sensors, 1),):
-            assert not container or level[f'has-{feature}']
+                    if real_posn not in pipe_posns_to_dirns:
+                        pipe_posns_to_dirns[real_posn] = set()
 
-            # Regular vs Community Edition sanity checks
-            if f'{feature}-count' in level:
-                assert len(container) == level[f'{feature}-count']
-            elif level[f'has-{feature}']:
-                assert len(container) == default_count
+                    # Pipe is not vertical (blocks the horizontal direction)
+                    if not (prev[0] == cur[0] == next_[0]):
+                        assert Direction.RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                        pipe_posns_to_dirns[real_posn].add(Direction.RIGHT)
 
-    def __repr__(self):
-        return f'Solution(bonders={self.bonders}, starts={self.waldo_starts}, instrs={self.waldo_instr_maps})'
+                    # Pipe is not horizontal (blocks the vertical direction)
+                    if not(prev[1] == cur[1] == next_[1]):
+                        assert Direction.UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                        pipe_posns_to_dirns[real_posn].add(Direction.UP)
+
+        # Store all components, sorting them left-to-right then top-to-bottom to ensure correct I/O priorities
+        # (since posns are col first then row, this is just a regular sort on the posn tuples)
+        self.components = [component for posn, component in sorted(posn_to_component.items())]
+
+        # Connect the ends of all pipes to available component inputs
+        for component in self.components:
+            for pipe in component.out_pipes:
+                if pipe is None:
+                    continue
+
+                # TODO: Standardize Position and add position + position operations in addition to position + direction
+                pipe_end = (component.posn[0] + pipe.posns[-1][0],
+                            component.posn[1] + pipe.posns[-1][1])
+
+                # Ugly edge case:
+                # If there are two pipe ends in the same spot, the vertical one should not connect to a component.
+                # We can tell when this is happening thanks to the posn_dirn dict we built up earlier while checking for
+                # pipe collisions. The end of a pipe is always 'straight', so if there are two directions occupied in
+                # the cell this pipe ends in, we must ignore this pipe if its second last segment is not to the left of
+                # its last segment.
+                if (pipe_posns_to_dirns[pipe_end] == {Direction.UP, Direction.RIGHT}
+                        and len(pipe) >= 2 and pipe.posns[-2] != (pipe.posns[-1][0] - 1,
+                                                                  pipe.posns[-1][1])):
+                    continue
+
+                # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of the
+                # component is always 1 up and right of the input pipe, plus one more row per extra input the object
+                # accepts (up to 3 for recycler). Blindly check the 3 possible positions for the components that
+                # could connect to this pipe
+                component_posn = (pipe_end[0] + 1, pipe_end[1] - 1)  # TODO: ditto to above, this should be cleaner
+
+                if component_posn in posn_to_component:
+                    other_component = posn_to_component[component_posn]
+                    if (isinstance(other_component, Output)
+                            or isinstance(other_component, StorageTank)
+                            or isinstance(other_component, Reactor)
+                            or isinstance(other_component, Recycler)):
+                        other_component.in_pipes[0] = pipe
+                    continue
+
+                component_posn = (pipe_end[0] + 1, pipe_end[1] - 2)
+                if component_posn in posn_to_component:
+                    other_component = posn_to_component[component_posn]
+                    if ((isinstance(other_component, Reactor) and other_component.type != 'drag-disassemby-reactor')
+                            or isinstance(other_component, Recycler)):
+                        other_component.in_pipes[1] = pipe
+                    continue
+
+                component_posn = (pipe_end[0] + 1, pipe_end[1] - 3)
+                if component_posn in posn_to_component:
+                    other_component = posn_to_component[component_posn]
+                    if isinstance(other_component, Recycler):
+                        other_component.in_pipes[2] = pipe
+
+    def export_str(self):
+        # Solution metadata
+        export_str = f"SOLUTION:{self.level['name']},{self.author},{self.expected_score}"
+        if self.name is not None:
+            export_str += f',{self.name}'
+
+        # Components
+        # Exclude inputs whose pipes are length 1 (unmodified), outputs, and the recycler.
+        # I'm probably forgetting another case.
+        # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
+        for component in self.components:
+            if not (isinstance(component, Output)
+                    or (isinstance(component, Input)
+                        and len(component.out_pipe) == 1)
+                    or isinstance(component, Recycler)):
+                export_str += '\n' + component.export_str()
+
+        return export_str
 
     def __str__(self):
-        s = f'inputs={self.level.input_molecules}'
-        s += f'\noutputs={self.level.output_molecules}'
+        ''''Return a string representing the overworld of this solution including all components and pipes.'''
+        # 2 characters per tile
+        grid = [['  ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
 
-        for waldo_idx, waldo_name in ((0, 'red'), (1, 'blue')):
-            s += f'\n{waldo_name}:'
+        # Display each component with #'s
+        for component in self.components:
+            if isinstance(component, Reactor):
+                dimensions = COMPONENT_SHAPES['reactor']
+            else:
+                dimensions = COMPONENT_SHAPES[component.type]
 
-            # Show col indices
-            s += '\n  '
-            for col in range(10):
-                s += f'  {col}  '
+            # Visual bounds set since components are allowed to hang outside the play area (e.g. in Going Green)
+            for posn in product(range(max(0, component.posn[0]), min(OVERWORLD_COLS,
+                                                                     component.posn[0] + dimensions[0])),
+                                range(max(0, component.posn[1]), min(OVERWORLD_ROWS,
+                                                                     component.posn[1] + dimensions[1]))):
+                grid[posn[1]][posn[0]] = '##'  # row, col
 
-            for row in range(8):
-                s += f'\n{row} '  # Show row index
-                for col in range(10):
-                    posn = Position(row, col)
-                    if posn in self.waldo_instr_maps[waldo_idx]:
-                        arrow, instr = self.waldo_instr_maps[waldo_idx][Position(row, col)]
-                        s += f'{str(instr).rjust(3) if instr is not None else "   "} {arrow if arrow is not None else " "}'
+            # Display each pipe with ==, \\, //, ||, or a . for tiles containing a molecule
+            for pipe in component.out_pipes:
+                for relative_posn, molecule in zip(pipe.posns, pipe):
+                    posn = (component.posn[0] + relative_posn[0], component.posn[1] + relative_posn[1])
+                    if molecule is None:
+                        grid[posn[1]][posn[0]] = '=='
                     else:
-                        s += 5 * ' '
+                        grid[posn[1]][posn[0]] = ' .'
 
-        return s
+        result = f"_{OVERWORLD_COLS * '__'}_\n"
+        for row in grid:
+            result += f"|{''.join(row)}|\n"
+        result += f"‾{OVERWORLD_COLS * '‾‾'}‾\n"
 
-    def get_export_string(self):
-        pass
+        return result
 
-    def add_instruction(self, waldo_idx, posn, instr):
-        # TODO: Raise exception if start instr already exists for this waldo? Or else return False for performance...
-        if instr.type == InstructionType.START:
-            self.waldo_starts[waldo_idx] = (posn, instr.direction)
-        else:
-            self.symbols += 1
+    def debug_print(self, cycle, duration=0.5):
+        # Print the current state
+        output = str(self)
+        output += f'\nCycle: {cycle}'
+        print(output)  # Could use end='' but that makes keyboard interrupt output ugly
 
-        if posn not in self.waldo_instr_maps[waldo_idx]:
-            self.waldo_instr_maps[waldo_idx][posn] = [None, None]
+        time.sleep(duration)
 
-        self.waldo_instr_maps[waldo_idx][posn][1] = instr
+        # Use the ANSI escape code for moving to the start of the previous line to reset the terminal cursor
+        cursor_reset = (output.count('\n') + 1) * "\033[F"  # +1 for the implicit newline print() appends
+        print(cursor_reset, end='')
 
-    def add_arrow(self, waldo_idx, posn, arrow_dirn):
-        if posn not in self.waldo_instr_maps[waldo_idx]:
-            self.waldo_instr_maps[waldo_idx][posn] = [None, None]
+    def validate_components(self):
+        '''Validate that this solution is legal (whether or not it can run to completion).
+        Called at the start of each run to ensure that no trickery was done on this object post-construction.
+        '''
+        # Make sure the reactor limit has been respected
+        if self.level['type'] == 'production':
+            assert sum(1 if isinstance(component, Reactor) else 0
+                       for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
-        self.waldo_instr_maps[waldo_idx][posn][0] = arrow_dirn
-        self.symbols += 1
+    def run(self, max_cycles=1000000, debug=False):
+        '''Run this solution, returning a score tuple or else raising an exception if the level was not solved.'''
+        # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
+        #       and waldo.position/waldo.direction before each run, or otherwise prevent these from persisting.
+        #       Otherwise a solution will only be safely runnable once.
 
-    def add_bonder(self, posn):
-        self.bonders[posn] = len(self.bonders) + 1  # Index the bonders by order of insertion
+        # TODO: Should re-check for component/pipe collisions every time we run it; run() should be a source of truth,
+        #       and shouldn't be confoundable by modifying the solution after the ctor validations
+
+        self.validate_components()
+
+        reactors = [component for component in self.components if isinstance(component, Reactor)]
+
+        # Set the maximum runtime to ensure a broken solution can't infinite loop forever
+        if self.expected_score is not None:
+            max_cycles = 2 * self.expected_score.cycles
+
+        # Run the level
+        symbols = sum(sum(len(waldo) for waldo in component.waldos)
+                      for component in self.components
+                      if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
+        cycle = 0
+        completed_outputs = 0
+        try:
+            while cycle < max_cycles:
+                # Move molecules/waldos
+                for component in self.components:
+                    component.move_contents()
+
+                if debug and cycle >= debug.cycle:
+                    if debug.reactor is None:
+                        self.debug_print(cycle, duration=0.0625)
+                    else:
+                        reactors[debug.reactor].debug_print(cycle, duration=0.0625)
+
+                # Execute instant actions (entity inputs/outputs, waldo instructions)
+                for component in self.components:
+                    if component.do_instant_actions(cycle):
+                        # Outputs return true the first time they reach their target count; count these occurrences and
+                        # raise success when they've all completed
+                        completed_outputs += 1
+                        if completed_outputs == len(self.level['output-zones']):
+                            raise RunSuccess()
+
+                if debug and cycle >= debug.cycle:
+                    if debug.reactor is None:
+                        self.debug_print(cycle, duration=0.0625)
+                    else:
+                        reactors[debug.reactor].debug_print(cycle, duration=0.0625)
+
+                cycle += 1
+
+            raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
+        except RunSuccess:
+            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
+            #       potentially misleading. Maybe run() and validate() should be the same thing.
+            # TODO: The cycle + 1 here is a hack since we're inconsistent with SC's displayed count. Given that
+            #       waldos move one tile before inputs populate their pipe (and the cycle is already displayed as 1
+            #       while they do that first move), I think the only way to match SC exactly is to do instant actions
+            #       before move actions, but to have inputs trigger when `(cycle - 1) % rate == 0` instead of
+            #       `cycle % rate == 0`, so that they don't input on cycle 0 (before the waldos have moved).
+            #       For now putting the +1 here looks less awkward...
+            return Score(cycle + 1, len(reactors), symbols)
+        finally:
+            # Persist the last debug printout
+            if debug:
+                if debug.reactor is None:
+                    print(str(self))
+                else:
+                    print(str(reactors[debug.reactor]))
+
+    def validate(self, verbose=True, debug=False):
+        '''Run this solution and assert that the resulting score matches the expected score that was included in its
+        solution code.
+        '''
+        if self.level_name != self.level['name']:
+            print(f"Warning: Validating solution against level {repr(self.level['name'])} that was originally"
+                  + f" constructed for level {repr(self.level_name)}.")
+
+        score = self.run(debug=debug)
+        assert score == self.expected_score, (f"Expected score {'-'.join(str(x) for x in self.expected_score)}"
+                                              f" but got {'-'.join(str(x) for x in score)}")
+        if verbose:
+            out_str = f"Validated [{self.level.get_name()}] {score}"
+            if self.name is not None:
+                out_str += f' "{self.name}"'
+            out_str += f" by {self.author}"
+
+            print(out_str)

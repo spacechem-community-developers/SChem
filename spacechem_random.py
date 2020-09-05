@@ -43,7 +43,7 @@ class SpacechemRandom:
 
     INT32_MAX = np.iinfo(np.int32).max
 
-    def __init__(self, seed: np.int32 = 0):
+    def __init__(self, seed: np.int32 = np.int32(0)):
         '''Uses Spacechem's default seed of 0 if seed not specified.'''
         mj = np.int32(161803398) - (abs(seed) if (seed != np.iinfo(np.int32).min) else np.iinfo(np.int32).max)
         self.SeedArray = 55 * [np.int32(0)]
