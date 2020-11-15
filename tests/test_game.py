@@ -12,10 +12,14 @@ from spacechem.tests import test_data
 
 LAST_TEST_RESULTS = {}
 
+num_subtests = 0
+
 
 def iter_test_data(data_dict):
+    global num_subtests
     for level_code in data_dict:
         for solution_code in data_dict[level_code]:
+            num_subtests += 1
             yield level_code, solution_code
 
 
@@ -41,7 +45,7 @@ class TestGame(unittest.TestCase):
         for level_code, solution_code in iter_test_data(test_data.valid):
             level = spacechem.level.ResearchLevel(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
-            test_id = f'{level.get_name()} {solution.name}'
+            test_id = f'{level.get_name()} - {solution.name}'
             with self.subTest(msg=test_id):
                 reactor = spacechem.game.Reactor(solution)
 
@@ -61,25 +65,29 @@ class TestGame(unittest.TestCase):
 
                 if test_id not in LAST_TEST_RESULTS:
                     # autorange() measures how many loops of the solver needed to exceed 0.2 seconds. Ensures the slower
-                    # solutions don't bloat the test times. We'll divide that down to 0.04s
+                    # solutions don't bloat the test times. We'll divide that down to 0.1s for expediency, or at least
+                    # 5 runs per test, whichever is higher.
                     # Pretty meta, but since this number will stick for the lifetime of the test, I'm also measuring it
                     # twice and maxing it to be sure that a randomly extra-slow solve can't force us to under-sample a
                     # test forever. Running tests for the first time will take about an extra half second per test.
-                    loops = max(max(timer.autorange()[0] for _ in range(2)) // 5, 1)
+                    loops = max(max(timer.autorange()[0] for _ in range(2)) // 2, 5)
                 else:
                     loops = LAST_TEST_RESULTS[test_id]['loops']
 
                 # repeat = # of timeit calls, number = # of code executions per timeit call
-                # Given our above loops measurement this should run in about 0.2s per test
-                min_time = min(timer.repeat(repeat=loops, number=5)) / 5
+                # I think they expect people to use autorange for `number` but the volatility seems to be better when
+                # it's used for `repeat`. Probably repeat is better for large times, while number may help avoid the
+                # measurement error of timeit outweighing short times.
+                # Given our above loops measurement this should run in about 0.1s for lightweight tests
+                min_time = min(timer.repeat(repeat=loops, number=1))
 
+                print(f"{test_id}:")
                 if test_id in LAST_TEST_RESULTS:
-                    print(f"Min {min_time:.5f}s ({get_percent_diff_str(LAST_TEST_RESULTS[test_id]['min_time'], min_time)}) to run {test_id}")
-                    print(f"Mem usage: {mem_usage} ({get_percent_diff_str(LAST_TEST_RESULTS[test_id]['mem_usage'], mem_usage)})")
+                    metrics_str = f"    {min_time:.4f}s (b. of {loops}) ({get_percent_diff_str(LAST_TEST_RESULTS[test_id]['min_time'], min_time)})"
+                    metrics_str += f" | Mem usage: {mem_usage} ({get_percent_diff_str(LAST_TEST_RESULTS[test_id]['mem_usage'], mem_usage)})"
                 else:
-                    print(f'Setting # of loops to: {loops * 5}')
-                    print(f'Min {min_time:.5f}s (NEW) to run {test_id}')
-                    print(f'Mem usage: {mem_usage} (NEW)')
+                    metrics_str = f'    {min_time:.4f}s (b. of {loops}) (NEW) | Mem usage: {mem_usage} (NEW)'
+                print(metrics_str)
 
                 LAST_TEST_RESULTS[test_id] = {'loops': loops,
                                               'min_time': min_time,
@@ -119,6 +127,7 @@ if __name__ == '__main__':
             LAST_TEST_RESULTS = pickle.load(f)
 
     unittest.main(verbosity=0, exit=False)
+    print(f"Ran {num_subtests} subtests")
 
     # Write the current times/mem usage to file
     with test_results_file.open('wb') as f:
