@@ -94,7 +94,7 @@ class Molecule:
         for atom_str in parts[2:]:
             # formatted as: {col}{row}{atomic_num}{right_bonds}{down_bonds}
             # Note that atomic_num is variable length (1-3 chars) so we use negative indices for values after it
-            position = Position(int(atom_str[1]), int(atom_str[0]))  # TODO: Fix when we make Positions (col, row)
+            position = Position(int(atom_str[0]), int(atom_str[1]))
             atom = Atom(elements_dict[int(atom_str[2:-2])])
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
@@ -206,7 +206,7 @@ class Molecule:
         if other is not self:
             for posn in self.atom_map:
                 for other_posn in other.atom_map:
-                    if ((posn.row - other_posn.row)**2 + (posn.col - other_posn.col)**2
+                    if ((posn.col - other_posn.col)**2 + (posn.row - other_posn.row)**2
                             < ATOM_DIAMETER_SQUARED):
                         raise ReactionError("Collision between molecules.")
 

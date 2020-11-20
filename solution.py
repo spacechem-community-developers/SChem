@@ -8,7 +8,7 @@ import time
 
 from spacechem.components import COMPONENT_SHAPES, Pipe, Input, Output, Recycler, StorageTank
 from spacechem.exceptions import RunSuccess
-from spacechem.grid import Direction
+from spacechem.grid import Direction, Position
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS, TERRAIN_MAPS
 from spacechem.reactor import Reactor
 
@@ -113,7 +113,7 @@ class Solution:
             component_metadata = component_str.split('\n', maxsplit=1)[0]
             fields = component_metadata.split(',')
             component_type = fields[0].strip('COMPONENT:').strip("'")
-            component_posn = (int(fields[1]), int(fields[2]))
+            component_posn = Position(int(fields[1]), int(fields[2]))
 
             # Check that this component is either an existing one added by the level or is a new component that the
             # level allows
@@ -212,7 +212,7 @@ class Solution:
 
                 # Identify each pipe segment as vertical, horizontal, or a turn, and ensure all overlaps are legal.
                 # We can do the latter by tracking which pipe directions have already been 'occupied' by a pipe in any
-                # given cell - with a turn occupying both directions.
+                # given cell - with a turn occupying both directions. We'll use RIGHT/DOWN for horizontal/vertical.
 
                 # To find whether a pipe is straight or not, we need to iterate over each pipe posn with its neighbors
                 # Ugly edge case: When a pipe starts by moving vertically, it prevents a horizontal pipe from
@@ -226,21 +226,21 @@ class Solution:
                 #                 crossovers (note that no components have pipes on their top/bottom edges so this is
                 #                 safe).
                 #                 This also ensures that a 1-long pipe will count as horizontal and not vertical.
-                for prev, cur, next_ in zip([(pipe.posns[0][0] - 1, pipe.posns[0][1])] + pipe.posns[:-1],
+                for prev, cur, next_ in zip([pipe.posns[0] + Direction.LEFT] + pipe.posns[:-1],
                                             pipe.posns,
                                             pipe.posns[1:] + [pipe.posns[-1]]):
-                    real_posn = (component.posn[0] + cur[0], component.posn[1] + cur[1])
+                    real_posn = component.posn + cur
 
                     if real_posn not in pipe_posns_to_dirns:
                         pipe_posns_to_dirns[real_posn] = set()
 
                     # Pipe is not vertical (blocks the horizontal direction)
-                    if not (prev[0] == cur[0] == next_[0]):
+                    if not (prev.col == cur.col == next_.col):
                         assert Direction.RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
                         pipe_posns_to_dirns[real_posn].add(Direction.RIGHT)
 
                     # Pipe is not horizontal (blocks the vertical direction)
-                    if not(prev[1] == cur[1] == next_[1]):
+                    if not (prev.row == cur.row == next_.row):
                         assert Direction.UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
                         pipe_posns_to_dirns[real_posn].add(Direction.UP)
 
@@ -255,8 +255,7 @@ class Solution:
                     continue
 
                 # TODO: Standardize Position and add position + position operations in addition to position + direction
-                pipe_end = (component.posn[0] + pipe.posns[-1][0],
-                            component.posn[1] + pipe.posns[-1][1])
+                pipe_end = component.posn + pipe.posns[-1]
 
                 # Ugly edge case:
                 # If there are two pipe ends in the same spot, the vertical one should not connect to a component.
@@ -265,15 +264,14 @@ class Solution:
                 # the cell this pipe ends in, we must ignore this pipe if its second last segment is not to the left of
                 # its last segment.
                 if (pipe_posns_to_dirns[pipe_end] == {Direction.UP, Direction.RIGHT}
-                        and len(pipe) >= 2 and pipe.posns[-2] != (pipe.posns[-1][0] - 1,
-                                                                  pipe.posns[-1][1])):
+                        and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + Direction.LEFT):
                     continue
 
                 # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of the
                 # component is always 1 up and right of the input pipe, plus one more row per extra input the object
                 # accepts (up to 3 for recycler). Blindly check the 3 possible positions for the components that
                 # could connect to this pipe
-                component_posn = (pipe_end[0] + 1, pipe_end[1] - 1)  # TODO: ditto to above, this should be cleaner
+                component_posn = pipe_end + (1, - 1)  # TODO: ditto to above, this should be cleaner
 
                 if component_posn in posn_to_component:
                     other_component = posn_to_component[component_posn]
@@ -284,7 +282,7 @@ class Solution:
                         other_component.in_pipes[0] = pipe
                     continue
 
-                component_posn = (pipe_end[0] + 1, pipe_end[1] - 2)
+                component_posn = pipe_end + (1, -2)
                 if component_posn in posn_to_component:
                     other_component = posn_to_component[component_posn]
                     if ((isinstance(other_component, Reactor) and other_component.type != 'drag-disassemby-reactor')
@@ -292,7 +290,7 @@ class Solution:
                         other_component.in_pipes[1] = pipe
                     continue
 
-                component_posn = (pipe_end[0] + 1, pipe_end[1] - 3)
+                component_posn = pipe_end + (1, -3)
                 if component_posn in posn_to_component:
                     other_component = posn_to_component[component_posn]
                     if isinstance(other_component, Recycler):
@@ -330,20 +328,17 @@ class Solution:
                 dimensions = COMPONENT_SHAPES[component.type]
 
             # Visual bounds set since components are allowed to hang outside the play area (e.g. in Going Green)
-            for posn in product(range(max(0, component.posn[0]), min(OVERWORLD_COLS,
-                                                                     component.posn[0] + dimensions[0])),
-                                range(max(0, component.posn[1]), min(OVERWORLD_ROWS,
-                                                                     component.posn[1] + dimensions[1]))):
+            for posn in product(range(max(0, component.posn.col), min(OVERWORLD_COLS,
+                                                                      component.posn.col + dimensions[0])),
+                                range(max(0, component.posn.row), min(OVERWORLD_ROWS,
+                                                                      component.posn.col + dimensions[1]))):
                 grid[posn[1]][posn[0]] = '##'  # row, col
 
-            # Display each pipe with ==, \\, //, ||, or a . for tiles containing a molecule
+            # Display each pipe with --, |, //, ||, or a . for tiles containing a molecule
             for pipe in component.out_pipes:
                 for relative_posn, molecule in zip(pipe.posns, pipe):
-                    posn = (component.posn[0] + relative_posn[0], component.posn[1] + relative_posn[1])
-                    if molecule is None:
-                        grid[posn[1]][posn[0]] = '=='
-                    else:
-                        grid[posn[1]][posn[0]] = ' .'
+                    posn = component.posn + relative_posn
+                    grid[posn.row][posn.col] = '==' if molecule is None else ' .'
 
         result = f"_{OVERWORLD_COLS * '__'}_\n"
         for row in grid:

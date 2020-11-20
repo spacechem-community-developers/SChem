@@ -100,7 +100,7 @@ class Reactor(Component):
         component_type = fields[0][len('COMPONENT:'):].strip("'")
         if features_dict is None:
             features_dict = REACTOR_TYPES[component_type]
-        component_posn = (int(fields[1]), int(fields[2]))
+        component_posn = Position(int(fields[1]), int(fields[2]))
 
         # TODO: Still don't know what the 4th field does...
 
@@ -133,7 +133,7 @@ class Reactor(Component):
             # The same field in Blue is 16 for arrows, 32 for instructions
             waldo_idx = 0 if int(fields[3]) >= 64 else 1
 
-            position = Position(int(fields[5]), int(fields[4]))  # TODO: Fix when we make Positions (col, row)
+            position = Position(int(fields[4]), int(fields[5]))
 
             if member_name.startswith('feature-'):
                 if position in feature_posns:
@@ -273,9 +273,9 @@ class Reactor(Component):
 
         # Map out the molecules in the reactor
         for molecule in self.molecules:
-            for (r, c), atom in molecule.atom_map.items():
+            for (c, r), atom in molecule.atom_map.items():
                 # Round co-ordinates in case we are mid-rotate
-                r, c = round(r), round(c)
+                c, r = round(c), round(r)
                 if grid[r][c] != '   ':
                     grid[r][c] = ' XX'  # Colliding atoms
                 else:
@@ -283,7 +283,7 @@ class Reactor(Component):
 
         # Represent waldos as |  | when not grabbing and (  ) when grabbing. Distinguishing red/blue isn't too important
         for waldo in self.waldos:
-            r, c = waldo.position
+            c, r = waldo.position
             # This will overwrite the previous waldo sometimes but its not a noticeable issue
             if waldo.molecule is None:
                 grid[r][c] = f'|{grid[r][c][1:]}'

@@ -7,6 +7,7 @@ import copy
 import numpy as np
 
 from spacechem.exceptions import InvalidOutputError
+from spacechem.grid import Position
 from spacechem.molecule import Molecule
 from spacechem.spacechem_random import SpacechemRandom
 
@@ -56,7 +57,7 @@ class Pipe(list):
             fields = line.split(',')
             assert len(fields) == 3, f"Invalid num fields in PIPE line:\n{line}"
 
-            posn = (int(fields[1]), int(fields[2]))
+            posn = Position(col=int(fields[1]), row=int(fields[2]))
             if posns:
                 assert (abs(posn[0] - posns[-1][0]), abs(posn[1] - posns[-1][1])) in ((0, 1), (1, 0)), \
                        "Pipe is not contiguous"
@@ -69,7 +70,7 @@ class Pipe(list):
 
     def export_str(self, pipe_idx=0):
         '''Represent this pipe in solution export string format.'''
-        return '\n'.join(f'PIPE:{pipe_idx},{posn[0]},{posn[1]}' for posn in self.posns)
+        return '\n'.join(f'PIPE:{pipe_idx},{posn.col},{posn.row}' for posn in self.posns)
 
 
 class Component:
@@ -78,7 +79,7 @@ class Component:
 
     def __init__(self, type_, posn):
         self.type = type_
-        self.posn = posn
+        self.posn = Position(*posn)
         self.in_pipes = []
         self.out_pipes = []
 
@@ -122,8 +123,9 @@ class Input(Component):
         self.input_rate = input_rate
 
         dimensions = COMPONENT_SHAPES[component_type]
-        self.out_pipes = [Pipe(posns=[(dimensions[0],
-                                       (dimensions[1] - 1) // 2)])]  # Initialize with a 1-long pipe
+        # Initialize with a 1-long pipe
+        self.out_pipes = [Pipe(posns=[Position(dimensions[0],
+                                               (dimensions[1] - 1) // 2)])]
 
         # TODO: Should create a pipe of length 1 by default - which means this needs to know its own dimensions
 
@@ -301,7 +303,7 @@ class StorageTank(Component):
         assert len(fields) == 4, f"Unrecognized component line format:\n{component_line}"
 
         component_type = fields[0][len('COMPONENT:'):].strip("'")
-        component_posn = (int(fields[1]), int(fields[2]))
+        component_posn = Position(int(fields[1]), int(fields[2]))
 
         return StorageTank(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
 

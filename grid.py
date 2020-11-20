@@ -36,30 +36,30 @@ class Direction(IntEnum):
             return Direction((self.value + 2) % 4)
 
 
-class Position(namedtuple("Position", ('row', 'col'))):
-    '''Grid position, with row and column 0-indexed from the top left of the reactor.'''
+class Position(namedtuple("Position", ('col', 'row'))):
+    '''Grid position, with (col, row) 0-indexed from the top left of the reactor or overworld.'''
 
-    dirn_to_delta = {Direction.UP: (-1, 0),
-                     Direction.RIGHT: (0, 1),
-                     Direction.DOWN: (1, 0),
-                     Direction.LEFT: (0, -1)}
+    dirn_to_delta = {Direction.UP: (0, -1),
+                     Direction.RIGHT: (1, 0),
+                     Direction.DOWN: (0, 1),
+                     Direction.LEFT: (-1, 0)}
 
     __slots__ = ()
 
     def __str__(self):
-        return f'({self.row}, {self.col})'
+        return f'({self.col}, {self.row})'
     __repr__ = __str__
 
     def __add__(self, other):
         if isinstance(other, Direction):
-            r_delta, c_delta = self.dirn_to_delta[other]
-            return Position(self.row + r_delta, self.col + c_delta)
+            c_delta, r_delta = self.dirn_to_delta[other]
+            return Position(self.col + c_delta, self.row + r_delta)
         else:
-            return Position(self.row + other.row, self.col + other.col)
+            return Position(self.col + other[0], self.row + other[1])
 
     def move(self, direction, distance):
-        r_delta, c_delta = self.dirn_to_delta[direction]
-        return Position(self.row + distance * r_delta, self.col + distance * c_delta)
+        c_delta, r_delta = self.dirn_to_delta[direction]
+        return Position(self.col + distance * c_delta, self.row + distance * r_delta)
 
     def rotate_fine(self, pivot_pos, direction, radians):
         '''Rotate in sub-quarter-turn increments.'''
@@ -68,9 +68,9 @@ class Position(namedtuple("Position", ('row', 'col'))):
             radians *= -1
 
         sin_theta, cos_theta = math.sin(radians), math.cos(radians)
-        return Position(pivot_pos.row + sin_theta * (self.col - pivot_pos.col) + cos_theta * (self.row - pivot_pos.row),
-                        pivot_pos.col + cos_theta * (self.col - pivot_pos.col) - sin_theta * (self.row - pivot_pos.row))
+        return Position(pivot_pos.col + cos_theta * (self.col - pivot_pos.col) - sin_theta * (self.row - pivot_pos.row),
+                        pivot_pos.row + sin_theta * (self.col - pivot_pos.col) + cos_theta * (self.row - pivot_pos.row))
 
     def round(self):
         '''Return from float-precision co-ordinates to the integer grid.'''
-        return Position(round(self.row), round(self.col))
+        return Position(round(self.col), round(self.row))
