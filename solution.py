@@ -29,31 +29,13 @@ class Solution:
 
     def __init__(self, level, soln_export_str=None):
         self.level = level
-        self.level_name = ''  # Note that the level name is vestigial; a solution can run in any compatible level
-        self.name = ''
-
-        if soln_export_str is None:
-            # TODO: Should only skip the solution entities but still create level entities
-            return
-
-        # Parse solution metadata from the first line
-        soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
-        assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
-
-        fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
-        assert len(fields) >= 3, 'SOLUTION line missing fields'
-
-        self.level_name = fields[0][len('SOLUTION:'):]
-        self.author = fields[1]
-        # The game stores unsolved solutions as '0-0-0'
-        self.expected_score = Score(*(int(i) for i in fields[2].split('-'))) if fields[2] != '0-0-0' else None
-        self.name = fields[3] if len(fields) == 4 else None  # Optional field
-
-        # Store components by posn for now, for convenience. We'll re-order and store them in self.components later
-        posn_to_component = {}  # Note that components are referenced by their top-left corner posn
+        self.level_name = level['name']  # Note that the level name is vestigial; a solution can run in any compatible level
+        self.name = None
+        self.author = 'Unknown'
+        self.expected_score = '0-0-0'
 
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
-        if self.level['type'] == 'production':
+        if level['type'] == 'production':
             # Main game levels have unique terrain which we have to hardcode D:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
@@ -63,6 +45,8 @@ class Solution:
             terrain_id = 'research'  # BIG HACKS
 
         # Add level-defined entities - including any fixed-position reactors/pipes
+        # Store components by posn for now, for convenience. We'll re-order and store them in self.components later
+        posn_to_component = {}  # Note that components are referenced by their top-left corner posn
 
         # Inputs
         input_zone_types = ('random-input-zones', 'fixed-input-zones') if self.level['type'] == 'production' else ('input-zones',)
@@ -108,62 +92,77 @@ class Solution:
         # TODO: Preset reactors - note that research levels behave like a production with a single preset reactor
 
         # Add solution-defined entities and update preset level components (e.g. pipe inputs, preset reactor contents)
-        # TODO: Disallow mutating pipes in research levels or on preset reactors, and preset input pipes
-        for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
-            component_metadata = component_str.split('\n', maxsplit=1)[0]
-            fields = component_metadata.split(',')
-            component_type = fields[0].strip('COMPONENT:').strip("'")
-            component_posn = Position(int(fields[1]), int(fields[2]))
+        if soln_export_str is not None:
+            # Parse solution metadata from the first line
+            soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
+            assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
 
-            # Check that this component is either an existing one added by the level or is a new component that the
-            # level allows
-            if component_posn in posn_to_component:
-                cur_component = posn_to_component[component_posn]
-                assert component_type == cur_component.type, \
-                    (f'Built-in draggable of type "{cur_component.type}" cannot be overwritten with draggable'
-                     + f' of type "{component_type}"')
+            fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
+            assert len(fields) >= 3, 'SOLUTION line missing fields'
 
-                # Generate the new component and update or overwrite the existing component
-                if isinstance(cur_component, Reactor):
-                    if self.level['type'] == 'research':
-                        new_component = Reactor.from_export_str(component_str, features_dict=self.level.dict)
+            self.level_name = fields[0][len('SOLUTION:'):]
+            self.author = fields[1]
+            # The game stores unsolved solutions as '0-0-0'
+            self.expected_score = Score(*(int(i) for i in fields[2].split('-'))) if fields[2] != '0-0-0' else None
+            self.name = fields[3] if len(fields) == 4 else None  # Optional field
+
+
+            # TODO: Disallow mutating pipes in research levels or on preset reactors, and preset input pipes
+            for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
+                component_metadata = component_str.split('\n', maxsplit=1)[0]
+                fields = component_metadata.split(',')
+                component_type = fields[0].strip('COMPONENT:').strip("'")
+                component_posn = Position(int(fields[1]), int(fields[2]))
+
+                # Check that this component is either an existing one added by the level or is a new component that the
+                # level allows
+                if component_posn in posn_to_component:
+                    cur_component = posn_to_component[component_posn]
+                    assert component_type == cur_component.type, \
+                        (f'Built-in draggable of type "{cur_component.type}" cannot be overwritten with draggable'
+                         + f' of type "{component_type}"')
+
+                    # Generate the new component and update or overwrite the existing component
+                    if isinstance(cur_component, Reactor):
+                        if self.level['type'] == 'research':
+                            new_component = Reactor.from_export_str(component_str, features_dict=self.level.dict)
+                        else:
+                            # In this case, the constructor will self-verify the features based on its component ID
+                            new_component = Reactor.from_export_str(component_str)
+
+                        # Reactor contents can be overwritten but not their pipes (any pipe changes are silently ignored)
+                        new_component.out_pipes = cur_component.out_pipes
+
+                        # Overwrite the existing component
+                        posn_to_component[component_posn] = new_component
+                    elif isinstance(cur_component, Input):
+                        # TODO: For levels like e.g. PseudoEthyne, input pipes shouldn't be overwritable
+                        # Drop the COMPONENT line and expect the remaining lines to construct a pipe
+                        cur_component.out_pipe = Pipe.from_export_str(component_str[component_str.find('\n') + 1:])
                     else:
-                        # In this case, the constructor will self-verify the features based on its component ID
-                        new_component = Reactor.from_export_str(component_str)
-
-                    # Reactor contents can be overwritten but not their pipes (any pipe changes are silently ignored)
-                    new_component.out_pipes = cur_component.out_pipes
-
-                    # Overwrite the existing component
-                    posn_to_component[component_posn] = new_component
-                elif isinstance(cur_component, Input):
-                    # TODO: For levels like e.g. PseudoEthyne, input pipes shouldn't be overwritable
-                    # Drop the COMPONENT line and expect the remaining lines to construct a pipe
-                    cur_component.out_pipe = Pipe.from_export_str(component_str[component_str.find('\n') + 1:])
+                        raise Exception(f"Unexpected modification to immutable level component {component_type}")
                 else:
-                    raise Exception(f"Unexpected modification to immutable level component {component_type}")
-            else:
-                # Component is new; create and add it
-                if 'reactor' in component_type.split('-'):
-                    if self.level['type'] == 'research':
-                        posn_to_component[component_posn] = Reactor.from_export_str(component_str,
-                                                                                    features_dict=self.level.dict)
+                    # Component is new; create and add it
+                    if 'reactor' in component_type.split('-'):
+                        if self.level['type'] == 'research':
+                            posn_to_component[component_posn] = Reactor.from_export_str(component_str,
+                                                                                        features_dict=self.level.dict)
+                        else:
+                            # Ensure this is a legal reactor type for the level (e.g. drag-starter-reactor -> has-starter)
+                            assert f'has-{component_type.split("-")[1]}' in self.level, f"Unknown reactor type {component_type}"
+                            assert self.level[f'has-{component_type.split("-")[1]}'], f"Illegal reactor type {component_type}"
+
+                            # In this case, the constructor will self-verify the features based on its component type
+                            posn_to_component[component_posn] = Reactor.from_export_str(component_str)
+                    # TODO: Storage tanks are only available in defense levels
+                    elif component_type == 'drag-storage-tank':
+                        if self.level['type'] != 'defense':
+                            raise Exception(f"Component {component_type} cannot be used outside Defense levels")
+                        posn_to_component[component_posn] = StorageTank.from_export_str(component_str)
+                    elif 'input' in component_type.split('-'):
+                        raise Exception(f"Could not find level input at position {component_posn}.")
                     else:
-                        # Ensure this is a legal reactor type for the level (e.g. drag-starter-reactor -> has-starter)
-                        assert f'has-{component_type.split("-")[1]}' in self.level, f"Unknown reactor type {component_type}"
-                        assert self.level[f'has-{component_type.split("-")[1]}'], f"Illegal reactor type {component_type}"
-
-                        # In this case, the constructor will self-verify the features based on its component type
-                        posn_to_component[component_posn] = Reactor.from_export_str(component_str)
-                # TODO: Storage tanks are only available in defense levels
-                elif component_type == 'drag-storage-tank':
-                    if self.level['type'] != 'defense':
-                        raise Exception(f"Component {component_type} cannot be used outside Defense levels")
-                    posn_to_component[component_posn] = StorageTank.from_export_str(component_str)
-                elif 'input' in component_type.split('-'):
-                    raise Exception(f"Could not find level input at position {component_posn}.")
-                else:
-                    raise Exception(f"Solution places unexpected component {component_type}")
+                        raise Exception(f"Solution places unexpected component {component_type}")
 
         # Now that we're done updating components, check that all components/pipes are validly placed
         # TODO: Should probably just be a method validating self.components, and also called at start of run()
@@ -254,7 +253,6 @@ class Solution:
                 if pipe is None:
                     continue
 
-                # TODO: Standardize Position and add position + position operations in addition to position + direction
                 pipe_end = component.posn + pipe.posns[-1]
 
                 # Ugly edge case:
@@ -271,7 +269,7 @@ class Solution:
                 # component is always 1 up and right of the input pipe, plus one more row per extra input the object
                 # accepts (up to 3 for recycler). Blindly check the 3 possible positions for the components that
                 # could connect to this pipe
-                component_posn = pipe_end + (1, - 1)  # TODO: ditto to above, this should be cleaner
+                component_posn = pipe_end + (1, - 1)
 
                 if component_posn in posn_to_component:
                     other_component = posn_to_component[component_posn]

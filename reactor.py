@@ -163,11 +163,10 @@ class Reactor(Component):
             if member_name == 'instr-arrow':
                 waldo_instr_maps[waldo_idx][position][0] = direction
             elif member_name == 'instr-input':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT,
-                                                                            target_idx=instr_sub_type)
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT, target_idx=instr_sub_type)
             elif member_name == 'instr-output':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.OUTPUT,
-                                                                            target_idx=instr_sub_type)
+                                                                       target_idx=instr_sub_type)
             elif member_name == 'instr-grab':
                 if instr_sub_type == 0:
                     waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB_DROP)
@@ -178,7 +177,7 @@ class Reactor(Component):
             elif member_name == 'instr-rotate':
                 if instr_sub_type == 0:
                     waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
-                                                                                direction=Direction.CLOCKWISE)
+                                                                           direction=Direction.CLOCKWISE)
                 else:
                     waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
                                                                            direction=Direction.COUNTER_CLOCKWISE)

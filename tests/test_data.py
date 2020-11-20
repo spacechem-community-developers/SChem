@@ -736,7 +736,7 @@ PIPE:0,11,9
 PIPE:0,12,9
 PIPE:0,13,9
 ''',),
-    # 3: 2-5: There's Something in the Fishcake (jerry-rigged json)
+    # 4: 2-5: There's Something in the Fishcake (jerry-rigged json)
     '''H4sIAHBrVF8A/22QwWrDMAyGXyXosksC9i6D5DQKo/fttLGDaiu1mSMH2R7NSt99Trsxynox6P
 Ovz5KPIMg2Tp3nueTuKzIl6I+g1uPMavn2fjq1MPoD2Rs52C5W4p542A5aa6WgBV3xxoUonmnY
 hJU/1ItqiSX/f2iKgUwJ9Csz51bTPBpvh+2lX6vh/mJpwcTCGXqt1rkyiaBn6FULEx46ITQ5Sr
@@ -795,7 +795,7 @@ PIPE:0,3,0
 PIPE:0,3,-1
 PIPE:0,3,-2
 PIPE:0,3,-3''',),
-    # 4: 3-3 Split Before Bonding (bonder priority)
+    # 5: 3-3 Split Before Bonding (bonder priority)
     '''H4sIAD8ObF4A/3WQzWrDMBCEX8Xs2QZJ9BDkW065pdBbSw6qvbIFimT0A3GM++zVxqWkTavDwo
 6Gb0ZawLgpp+bqHUaQCzAaN62sbwucvcUuWwQJh7kPfkDXHj6YaHk5rBVlMKih89klkFysp7UG
 /j/keJkJcdwQO0GI3QOiMHxOj8X+aFM9Y/AX0+Ot1sYVpRTROd/orWCc8bsMRgmjio1VYcBmyw
@@ -835,7 +835,7 @@ MEMBER:'instr-rotate',-1,0,32,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,4,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-    # 5: 4-1 An Introduction to Sensing (random input, sensor)
+    # 6: 4-1 An Introduction to Sensing (random input, sensor)
     '''H4sIAGguPF8A/42PsWrEMAyGXyVoTsCmHYpvurHLLd2udHATJTH4pCDLwzXk3eskpfSuFLoI9P
 OJ79cMgaaszQcTJnAzmHVsWVlfZ7hwxDZHBAcnZDqc8GCtNcZADS1nUnAPS33DHWUo4FFW8OkW
 fFuWGjjrb+U/PNaUY3sH/ykrdMFHn5roZcBmt4LrfUxYwztTh9J8wY87mZASCziVjHvS54Tyfb
@@ -906,7 +906,7 @@ MEMBER:'instr-input',-1,0,128,0,1,0,0
 MEMBER:'instr-output',-1,0,32,0,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',),
-    # 6: 4-O Going Green
+    # 7: 4-O Going Green
     '''H4sIANihsF8A/22QS2/DIBCE/4q1Z1sCmkaWOVWplNx6yLHqgcAmRcJg8ajiRu5vL8St8mgvCE
 bszDd7Ai+scn2j7ZBi8+ksBuhOQMpx1vLz9QS9MyiTQehgJfzO2epZu6NWyFcvX4RxSltGOKPL
 fD7QlhCoQbpkI3SLqb6Z34zKuwPaapvMvjhsssGW0zxMSTaihHLG6LUFm97qX9CAqKCjZJpq2O
@@ -1071,7 +1071,7 @@ PIPE:1,12,-4
 PIPE:1,13,-4
 PIPE:1,14,-4
 ''',),
-    # 7: 6-3 The Plot Thickens (sensor, large output)
+    # 8: 6-3 The Plot Thickens (sensor, large output)
     '''H4sIAKE2OV8A/3WQuW7DMBBEf8XYKgEkgNRViKUalS5cJUjBSKsDpkmBR6EI8reHpB3AiZHmAT
 uc5Qx2g1kuzqZfSqKBegMSEDU/vm9wUQI7JxBqaLj+VJI1jNKKEEigU05aqGm2f+wJ0P8327XX
 akTJWr9Ln3b9snL2ucbDD0clVrTTKlAie2muJGuvpHiVoQuljGaReWQRWUZWFSWMhFCWhWSWZY

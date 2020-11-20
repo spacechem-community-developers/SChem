@@ -29,8 +29,8 @@ class Direction(IntEnum):
         return Direction((self.value - other.value) % 4)
 
     def opposite(self):
-        if self.value >= 4:  # rotational directions, this is a bit hacky since I stuffed them in
-                             # what should really be two separate enums...
+        if self.value >= 4:
+            # rotational directions, this is a bit hacky since I stuffed them in what should really be separate enums...
             return Direction(4 + ((self.value + 2) % 4))
         else:
             return Direction((self.value + 2) % 4)
