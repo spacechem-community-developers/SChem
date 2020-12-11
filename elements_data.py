@@ -127,15 +127,14 @@ elements = [Element(1, 'H', 1),
             Element(200, 'Θ', 12),
             Element(201, 'Ω', 12),
             Element(202, 'Σ', 12),
-            Element(203, 'Δ', 12)
+            Element(203, 'Δ', 12),
 
             # Australium
             # Not included because it has the same properties as gold and will cause problems
-            #Element(-79, '<Insert kangaroo>', 5)
+            #Element(-79, '<Insert kangaroo>', 5),
 
             # Element ?
-            # TODO: Add support for the '?' element
-            #Element(0, '?', 12)
+            Element(0, '?', 12)
             ]
 
 

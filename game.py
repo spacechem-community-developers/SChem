@@ -7,6 +7,8 @@ from collections import namedtuple
 from spacechem.level import Level
 from spacechem.solution import Solution
 from spacechem.tests import test_data
+from spacechem.components import *
+from spacechem.reactor import *
 
 
 def main():
@@ -22,7 +24,7 @@ def main():
     # parser.add_argument('--solution_file'
     args = parser.parse_args()
 
-    level_code = tuple(test_data.valid.keys())[5]
+    level_code = tuple(test_data.valid.keys())[14]
     level = Level(level_code)
 
     # TODO: If level not specified, automatically find the relevant main or ResearchNet level to run against
@@ -32,10 +34,10 @@ def main():
     solution = Solution(level=level, soln_export_str=solution_code)
 
     debug = False
-    DebugOptions = namedtuple("Debug", ('reactor', 'cycle'))
+    DebugOptions = namedtuple("DebugOptions", ('reactor', 'cycle'))
     if args.debug is not None:
         # Default --debug with no args to the first reactor in research levels
-        reactor = 0 if level['type'] == 'research' else None
+        reactor = 0 if level['type'].startswith('research') else None
         cycle = 0
         for s in args.debug.split(','):
             if s and s[0] == 'r':

@@ -107,9 +107,9 @@ class Level:
         # TODO: There doesn't seem to be a clean way to have Level(code) return an instance of the appropriate subclass,
         #       while also allowing ResearchLevel(code) and ProductionLevel(code) to work, without duplicating some
         #       conversion to/from the level code or else duplicating a lot of init logic.
-        if d['type'] == 'research':
+        if d['type'].startswith('research'):
             return super().__new__(ResearchLevel)
-        elif d['type'] == 'production':
+        elif d['type'].startswith('production'):
             return super().__new__(ProductionLevel)
         else:
             raise ValueError(f"Unrecognized level type {d['type']}")
@@ -169,7 +169,7 @@ class ResearchLevel(Level):
             self['has-splitter'] = False
             self['has-teleporter'] = False
 
-        assert self['type'] == 'research'
+        assert self['type'].startswith('research')
 
         self.input_molecules = {}
         self.input_random_generators = {}

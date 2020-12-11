@@ -124,7 +124,7 @@ class Solution:
 
                     # Generate the new component and update or overwrite the existing component
                     if isinstance(cur_component, Reactor):
-                        if self.level['type'] == 'research':
+                        if self.level['type'].startswith('research'):
                             new_component = Reactor.from_export_str(component_str, features_dict=self.level.dict)
                         else:
                             # In this case, the constructor will self-verify the features based on its component ID
@@ -144,7 +144,7 @@ class Solution:
                 else:
                     # Component is new; create and add it
                     if 'reactor' in component_type.split('-'):
-                        if self.level['type'] == 'research':
+                        if self.level['type'].startswith('research'):
                             posn_to_component[component_posn] = Reactor.from_export_str(component_str,
                                                                                         features_dict=self.level.dict)
                         else:
@@ -259,8 +259,8 @@ class Solution:
                 # If there are two pipe ends in the same spot, the vertical one should not connect to a component.
                 # We can tell when this is happening thanks to the posn_dirn dict we built up earlier while checking for
                 # pipe collisions. The end of a pipe is always 'straight', so if there are two directions occupied in
-                # the cell this pipe ends in, we must ignore this pipe if its second last segment is not to the left of
-                # its last segment.
+                # the cell this pipe ends in, we know there are two pipes here. We must ignore this pipe if its second
+                # last segment is not to the left of its last segment.
                 if (pipe_posns_to_dirns[pipe_end] == {Direction.UP, Direction.RIGHT}
                         and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + Direction.LEFT):
                     continue
@@ -269,7 +269,7 @@ class Solution:
                 # component is always 1 up and right of the input pipe, plus one more row per extra input the object
                 # accepts (up to 3 for recycler). Blindly check the 3 possible positions for the components that
                 # could connect to this pipe
-                component_posn = pipe_end + (1, - 1)
+                component_posn = pipe_end + (1, -1)
 
                 if component_posn in posn_to_component:
                     other_component = posn_to_component[component_posn]

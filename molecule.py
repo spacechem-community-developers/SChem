@@ -211,9 +211,8 @@ class Molecule:
                         raise ReactionError("Collision between molecules.")
 
     def debond(self, posn, direction):
-        '''Decrement the specified bond in this molecule. If doing so disconnects this molecule,
-        mutate this molecule to its new size and return the extra molecule that was split off.
-        return it (else return None).
+        '''Decrement the specified bond. If doing so disconnects this molecule, mutate this molecule to its new size and
+        return the extra molecule that was split off (else return None).
         '''
         posn_A = posn
         atom_A = self.atom_map[posn_A]
@@ -233,7 +232,7 @@ class Molecule:
         if atom_B.bonds[direction_B] == 0:
             del atom_B.bonds[direction_B]
 
-        # Search from atom B, stopping if we find atom A. If not, remove all atoms we discovered
+        # Search from atom B to determine if we disconnected the molecule. If not, remove all atoms we discovered
         # connected via B from this molecule and add them to a new molecule
         visited_posns = set()
         visit_queue = [posn_B]
@@ -257,6 +256,80 @@ class Molecule:
             new_atom_map[posn] = self.atom_map[posn]
             del self.atom_map[posn]
         return Molecule(atom_map=new_atom_map)
+
+    def defrag(self, modified_posn):
+        '''Given an atom position at which existing bonds have been broken by nuclear operations or a swap,
+        check if they broke this molecule into two or more pieces. Return a list of the new molecules, with an ordering
+        matching that empirically observed in SpaceChem. If the molecule has not broken apart the list will contain only
+        a copy of itself.
+        Args:
+            modified_posn: The position at which an atom had its bonds reduced
+        '''
+        # Force the return order based on empirical data of how SpaceChem changes molecule priorities
+        # Big hack since SpaceChem no doubt produces its order as a side effect of its graph algorithms,
+        # which I'm not sure how to exactly mimic since it seems somewhat asymmetrical (East in particular)
+        # Exerpt from https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_molecule_selection_priority:
+        # ```
+        # Molecules are referred to by cardinal position, based on the bond(s) that attached them to the atom being
+        # debonded from. That atom's molecule is referred to as the 'middle' molecule. Note that a molecule may be
+        # bonded to multiple sides of the central atom. Molecules that remain bonded to the central atom after
+        # bond removal is complete are not considered "debonded."
+        # 1. A South-debonded molecule always has lowest priority (e.g. gets outputted last).
+        #    This rule applies whether or not the molecule is also debonded from another direction.
+        # 2. Subject to rule 1, a West-debonded molecule has higher priority than a North-debonded molecule, which has
+        #    higher priority than the middle molecule. This rule applies whether or not the molecule is also debonded
+        #    from East.
+        # 3. If an East-debonded molecule is not debonded from West, North or South, it has exactly 2nd-highest priority
+        #    out of all the molecules.
+        # ```
+
+        # This dict is sorted in the order molecules should be returned (with the exception of RIGHT, due to rule 3),
+        # but populated in an order that respects the fact that anything attached to the modified atom counts as
+        # 'middle', and that otherwise South's rule dominates the other directions' default orderings.
+        # Note: the (0, 0) is a quick hack since it behaves like a Direction.NONE when added to a Position.
+        new_molecules = {Direction.LEFT: None,
+                         Direction.UP: None,
+                         (0, 0): None,
+                         Direction.RIGHT: None,
+                         Direction.DOWN: None}
+
+        # Search in an order that ensures other directions get put in the 'middle' or 'down' molecules first if possible
+        for search_dirn in ((0, 0), Direction.DOWN, Direction.LEFT, Direction.UP, Direction.RIGHT):
+            start_posn = modified_posn + search_dirn
+            # If we already found this posn attached to one of the other posns, or it doesn't exist, skip it
+            if start_posn not in self.atom_map:
+                continue
+
+            # Search from the neighbor posn to determine if we disconnected the molecule
+            visited_posns = set()
+            visit_queue = [start_posn]
+            while visit_queue:
+                cur_posn = visit_queue.pop()
+                visited_posns.add(cur_posn)
+
+                for dirn, count in self.atom_map[cur_posn].bonds.items():
+                    neighbor_posn = cur_posn + dirn
+                    if neighbor_posn not in visited_posns:
+                        visit_queue.append(neighbor_posn)
+
+            # If the molecule was broken apart, create a new molecule from the positions that were accessible
+            # from the disconnected neighbor, and remove those positions from this molecule
+            new_atom_map = {}
+            for posn in visited_posns:
+                new_atom_map[posn] = self.atom_map[posn]
+                del self.atom_map[posn]  # Ensures we don't make duplicate molecules
+
+            new_molecules[search_dirn] = Molecule(atom_map=new_atom_map)
+
+        # Per priority rule 3 above, if the right neighbor was not found in any of the other searches, force its
+        # molecule to be second in the returned list
+        mol_iter = (m for k, m in new_molecules.items() if m is not None and k != Direction.RIGHT)
+        out = [next(mol_iter)]
+        if new_molecules[Direction.RIGHT] is not None:
+            out.append(new_molecules[Direction.RIGHT])
+        out += [m for m in mol_iter]
+
+        return out
 
     def output_zone_idx(self, large_output=False):
         if not self:

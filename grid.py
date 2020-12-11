@@ -29,11 +29,14 @@ class Direction(IntEnum):
         return Direction((self.value - other.value) % 4)
 
     def opposite(self):
-        if self.value >= 4:
+        if self.value < 4:
+            return Direction((self.value + 2) % 4)
+        else:
             # rotational directions, this is a bit hacky since I stuffed them in what should really be separate enums...
             return Direction(4 + ((self.value + 2) % 4))
-        else:
-            return Direction((self.value + 2) % 4)
+
+
+CARDINAL_DIRECTIONS = (Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT)
 
 
 class Position(namedtuple("Position", ('col', 'row'))):

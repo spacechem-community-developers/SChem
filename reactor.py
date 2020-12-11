@@ -6,8 +6,8 @@ import time
 
 from spacechem.elements_data import elements_dict
 from spacechem.exceptions import *
-from spacechem.grid import Position, Direction
-from spacechem.molecule import ATOM_RADIUS
+from spacechem.grid import CARDINAL_DIRECTIONS, Position, Direction
+from spacechem.molecule import Molecule, Atom, ATOM_RADIUS
 from spacechem.components import Pipe, Component
 from spacechem.waldo import Waldo, Instruction, InstructionType
 
@@ -45,7 +45,8 @@ class Reactor(Component):
                  'large_output', 'bonders', 'bonder_pairs', 'sensors', 'fusers', 'splitters', 'swappers',
                  'debug')
 
-    def __init__(self, out_pipes, waldos, large_output=False, bonders=None, sensors=None,
+    def __init__(self, out_pipes, waldos, large_output=False,
+                 bonders=None, sensors=None, fusers=None, splitters=None, swappers=None,
                  component_type='', posn=(2, 0),
                  debug=None):
         super().__init__(component_type, posn)
@@ -55,6 +56,9 @@ class Reactor(Component):
         self.large_output = large_output
         self.bonders = bonders if bonders is not None else []
         self.sensors = sensors if sensors is not None else []
+        self.fusers = fusers if fusers is not None else []
+        self.splitters = splitters if splitters is not None else []
+        self.swappers = swappers if swappers is not None else []
         self.debug = debug  # For convenience
 
         # Store molecules as dict keys to be ordered (preserving Spacechem's hidden
@@ -82,6 +86,10 @@ class Reactor(Component):
         #       performance-wise and saves on size/index-handling code
         bonders = {}  # posn:idx dict for quick lookups
         sensors = []  # posns
+        fusers = []
+        splitters = []
+        swappers = []
+
         # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
         waldo_starts = NUM_WALDOS * [None]
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
@@ -134,19 +142,40 @@ class Reactor(Component):
             waldo_idx = 0 if int(fields[3]) >= 64 else 1
 
             position = Position(int(fields[4]), int(fields[5]))
+            assert 0 <= position.col < 10 and 0 <= position.row < 8, f"Member {member_name} is out-of-bounds"
 
             if member_name.startswith('feature-'):
                 if position in feature_posns:
                     raise Exception(f"Solution contains overlapping features at {position}")
                 feature_posns.add(position)
 
+                # Sanity check the other half of double-size features
+                if member_name in ('feature-fuser', 'feature-splitter'):
+                    position2 = position + Direction.RIGHT
+                    assert position2.col < 10, f"Member {member_name} is out-of-bounds"
+                    if position2 in feature_posns:
+                        raise Exception(f"Solution contains overlapping features at {position2}")
+                    feature_posns.add(position2)
+
                 if member_name == 'feature-bonder':
                     bonder_count += 1
                     bonders[position] = bonder_count
                 elif member_name == 'feature-sensor':
                     sensors.append(position)
+                elif member_name == 'feature-fuser':
+                    fusers.append(position)
+                elif member_name == 'feature-splitter':
+                    splitters.append(position)
+                elif member_name == 'feature-tunnel':
+                    swappers.append(position)
+                else:
+                    raise Exception(f"Unrecognized member type {member_name}")
 
                 continue
+
+            # Make sure this feature is legal (CE feature)
+            if 'disallowed-instructions' in features_dict and member_name in features_dict['disallowed-instructions']:
+                raise Exception(f"Disallowed instruction type: {repr(member_name)}")
 
             # Since this member is an instr and not a feature, prep a slot in the instr map
             if position not in waldo_instr_maps[waldo_idx]:
@@ -196,10 +225,16 @@ class Reactor(Component):
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SENSE,
                                                                        direction=direction,
                                                                        target_idx=atomic_num)
+            elif member_name == 'instr-fuse':
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FUSE)
+            elif member_name == 'instr-split':
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SPLIT)
+            elif member_name == 'instr-swap':
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SWAP)
             elif member_name == 'instr-toggle':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP, direction=direction)
             else:
-                raise Exception(f"Unrecognized member name {member_name}")
+                raise Exception(f"Unrecognized member type {member_name}")
 
         waldos = [Waldo(idx=i,
                         position=waldo_starts[i][0],
@@ -224,8 +259,10 @@ class Reactor(Component):
         # Verify all features are legal and placed
         assert len(bonders) == features_dict['bonder-count']
 
-        # TODO: ('fuser', self.fusers, 1), ('splitter', self.splitters, 1), ('teleporter', self.swappers, 2)
-        for feature, container, default_count in (('sensor', sensors, 1),):
+        for feature, container, default_count in (('sensor', sensors, 1),
+                                                  ('fuser', fusers, 1),
+                                                  ('splitter', splitters, 1),
+                                                  ('teleporter', swappers, 2)):
             assert not container or features_dict[f'has-{feature}'], f"Illegal reactor feature {feature}"
 
             # Regular vs Community Edition sanity checks
@@ -236,18 +273,26 @@ class Reactor(Component):
 
         return Reactor(component_type=component_type, posn=component_posn,
                        out_pipes=output_pipes, waldos=waldos,
-                       large_output=features_dict['has-large-output'], bonders=bonders, sensors=sensors)
+                       large_output=features_dict['has-large-output'],
+                       bonders=bonders, sensors=sensors, fusers=fusers, splitters=splitters, swappers=swappers)
 
     def export_str(self):
         '''Represent this reactor in solution export string format.'''
-        export_str = f"COMPONENT:'{self.type}',{self.posn[0]},{self.posn[1]},''"
+        export_str = f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''"
 
         # Features
+        # TODO: Make reactors more agnostic of feature types
         for posn in self.bonders:
             export_str += f"\nMEMBER:'feature-bonder',-1,0,1,{posn.col},{posn.row},0,0"
         for posn in self.sensors:
             export_str += f"\nMEMBER:'feature-sensor',-1,0,1,{posn.col},{posn.row},0,0"
-        # TODO: fusers, splitters, swappers, the special assembly/disassembly bonders
+        for posn in self.fusers:
+            export_str += f"\nMEMBER:'feature-fuser',-1,0,1,{posn.col},{posn.row},0,0"
+        for posn in self.splitters:
+            export_str += f"\nMEMBER:'feature-splitter',-1,0,1,{posn.col},{posn.row},0,0"
+        for posn in self.splitters:
+            export_str += f"\nMEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0"
+        # TODO: the special assembly/disassembly bonders
 
         # Instructions
         export_str += ''.join('\n' + waldo.export_str() for waldo in self.waldos)
@@ -458,8 +503,7 @@ class Reactor(Component):
         elif cmd.type == InstructionType.ROTATE:
             # If we are holding a molecule and weren't just rotating, start rotating
             # In all other cases, stop rotating
-            waldo.is_rotating = waldo.molecule is not None and not waldo.is_rotating
-            waldo.is_stalled = waldo.is_rotating
+            waldo.is_rotating = waldo.is_stalled = waldo.molecule is not None and not waldo.is_rotating
         elif cmd.type == InstructionType.BOND_PLUS:
             self.bond_plus()
         elif cmd.type == InstructionType.BOND_MINUS:
@@ -469,9 +513,9 @@ class Reactor(Component):
             other_waldo = self.waldos[1 - waldo.idx]
             waldo.is_stalled = other_waldo.cur_cmd() is None or other_waldo.cur_cmd().type != InstructionType.SYNC
         elif cmd.type == InstructionType.FUSE:
-            pass
+            self.fuse()
         elif cmd.type == InstructionType.SPLIT:
-            pass
+            self.split()
         elif cmd.type == InstructionType.SENSE:
             for posn in self.sensors:
                 molecule = self.get_molecule(posn)
@@ -485,7 +529,7 @@ class Reactor(Component):
 
             waldo.flipflop_states[waldo.position] = not waldo.flipflop_states[waldo.position]  # ...flip it
         elif cmd.type == InstructionType.SWAP:
-            pass
+            self.swap()
 
     def input(self, waldo, input_idx):
         # If there is no such pipe or it has no molecule available, stall the waldo
@@ -613,8 +657,9 @@ class Reactor(Component):
 
     def bond_minus(self):
         for position, neighbor_posn, direction in self.bonder_pairs:
-            # Continue if there isn't a molecule with a bond over this pair
             molecule = self.get_molecule(position)
+
+            # Skip if there isn't a molecule with a bond over this pair
             if molecule is None or direction not in molecule[position].bonds:
                 continue
 
@@ -630,11 +675,156 @@ class Reactor(Component):
             if split_off_molecule is not None:
                 self.molecules[split_off_molecule] = None  # Dummy value
 
-                # If the molecule got split apart, ensure any waldos holding it are now holding
-                # the correct split piece of it
+                # If the molecule got broken apart, ensure any waldos holding it are now holding
+                # the correct piece of it
                 for waldo in self.waldos:
                     if waldo.molecule is molecule and waldo.position in split_off_molecule:
                         waldo.molecule = split_off_molecule
+
+    def defrag_molecule(self, molecule, posn):
+        '''Given a molecule that has had some of its bonds broken from the given position, update reactor.molecules
+        based on any molecules that broke off. Note that this always at least moves the molecule to the back of the
+        priority queue, even if it did not break apart (this should be safe since defrag should only called when the
+        molecule is modified).
+        '''
+        # Update the reactor molecules based on how the molecule broke apart
+        del self.molecules[molecule]
+        for new_molecule in molecule.defrag(posn):
+            self.molecules[new_molecule] = None  # Dummy value
+
+            # Update the references of any waldos that were holding the molecule
+            for waldo in self.waldos:
+                if waldo.molecule is molecule and waldo.position in new_molecule:
+                    waldo.molecule = new_molecule
+
+    def delete_atom_bonds(self, posn):
+        '''Helper used by fuse and swap to remove all bonds from an atom and break up its molecule if needed.
+        If no atom at the given position, does nothing.
+        '''
+        molecule = self.get_molecule(posn)
+        if molecule is None:
+            return
+
+        atom = molecule.atom_map[posn]
+        for dirn in CARDINAL_DIRECTIONS:
+            if dirn in atom.bonds:
+                neighbor_atom = molecule.atom_map[posn + dirn]
+                del atom.bonds[dirn]
+                del neighbor_atom.bonds[dirn.opposite()]
+
+        self.defrag_molecule(molecule, posn)
+
+    def reduce_excess_bonds(self, posn):
+        '''Helper used by fuse and split to reduce bonds on a mutated atom down to its new count, and break up its
+        molecule if needed.
+        '''
+        molecule = self.get_molecule(posn)
+        atom = molecule.atom_map[posn]
+
+        excess_bonds = sum(atom.bonds.values()) - atom.element.max_bonds
+        max_bond_count = max(atom.bonds.values(), default=0)
+        bonds_broke = False
+        while excess_bonds > 0:
+            # The order here is deliberately hardcoded to match empirical observations of SpaceChem's behavior
+            for dirn in (Direction.RIGHT, Direction.LEFT, Direction.UP, Direction.DOWN):
+                # Reduce triple bonds first, then double bonds, etc.
+                if dirn in atom.bonds and atom.bonds[dirn] == max_bond_count:
+                    atom.bonds[dirn] -= 1
+                    if atom.bonds[dirn] == 0:
+                        del atom.bonds[dirn]
+                        bonds_broke = True
+
+                    excess_bonds -= 1
+                    if excess_bonds == 0:
+                        break
+
+            max_bond_count -= 1
+
+        if bonds_broke:
+            # Update the reactor molecules based on how the molecule broke apart (if at all)
+            self.defrag_molecule(molecule, posn)
+        else:
+            # If no bonds broke we can save a little work and just directly mark the molecule as updated
+            del self.molecules[molecule]
+            self.molecules[molecule] = None  # Dummy value
+
+    def fuse(self):
+        for left_posn in self.fusers:
+            left_molecule = self.get_molecule(left_posn)
+            if left_molecule is None:
+                continue
+
+            right_posn = left_posn + Direction.RIGHT
+            right_molecule = self.get_molecule(right_posn)
+            if right_molecule is None:
+                continue
+
+            left_atom = left_molecule[left_posn]
+            right_atom = right_molecule[right_posn]
+
+            # If the target atoms can't be legally fused, do nothing
+            fused_atomic_num = left_atom.element.atomic_num + right_atom.element.atomic_num
+            if fused_atomic_num > 109:
+                continue
+
+            # Remove all bonds from the left atom
+            self.delete_atom_bonds(left_posn)
+
+            # Delete the left atom. Note that the molecule handle will have changed after delete_atom_bonds
+            left_molecule = self.get_molecule(left_posn)
+            for waldo in self.waldos:
+                if waldo.molecule is left_molecule:
+                    waldo.molecule = None
+            del self.molecules[left_molecule]
+
+            # Update the right atom's element, reducing its bonds as needed
+            right_atom.element = elements_dict[fused_atomic_num]
+            self.reduce_excess_bonds(right_posn)
+
+    def split(self):
+        for splitter_posn in self.splitters:
+            split_molecule = self.get_molecule(splitter_posn)
+            if split_molecule is None:
+                continue
+
+            split_atom = split_molecule[splitter_posn]
+            if split_atom.element.atomic_num <= 1:
+                continue
+
+            # Split the left atom
+            new_atomic_num = split_atom.element.atomic_num // 2
+            split_atom.element = elements_dict[split_atom.element.atomic_num - new_atomic_num]
+            self.reduce_excess_bonds(splitter_posn)  # Reduce the left atom's bonds if its new bond count is too low
+
+            # Lastly create the new molecule (and check for collisions in its cell)
+            new_molecule = Molecule(atom_map={splitter_posn + Direction.RIGHT: Atom(element=elements_dict[new_atomic_num])})
+            self.check_molecule_collisions(new_molecule)
+            self.molecules[new_molecule] = None  # Dummy value
+
+    def swap(self):
+        '''Swap atoms between swappers. Note that the order of operations here was carefully chosen to modify the
+        internal priority order of reactor molecules the same way that SpaceChem does.
+        '''
+        # Debond all atoms on swappers from their neighbors
+        for posn in self.swappers:
+            self.delete_atom_bonds(posn)  # Does nothing if no atom on the swapper
+
+        # Swap the atoms, ensuring that waldos don't drop if their held atom is replaced
+        # Make sure we get all the molecules to be swapped before we mess up get_molecule by moving them
+        for i, (posn, molecule) in enumerate([(p, self.get_molecule(p)) for p in self.swappers]):
+            next_posn = self.swappers[(i + 1) % len(self.swappers)]
+
+            if molecule is not None:
+                # Update the molecule's atom position and move it to the back of the reactor priority queue
+                molecule.atom_map[next_posn] = molecule.atom_map[posn]
+                del molecule.atom_map[posn]
+                del self.molecules[molecule]
+                self.molecules[molecule] = None  # Dummy value
+
+            # If there are any waldos holding something on the next swapper, update their contents
+            for waldo in self.waldos:
+                if waldo.position == next_posn and waldo.molecule is not None:
+                    waldo.molecule = molecule  # May be None, which handles the no molecule case correctly
 
     def debug_print(self, cycle, duration=0.5):
         '''Print the current reactor state then clear it from the terminal.
