@@ -18,7 +18,7 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
     __slots__ = ()
 
     def __str__(self):
-        '''Convert to the community-accepted format for displaying a score.'''
+        '''Convert to the format used in solution metadata.'''
         return '-'.join(str(i) for i in self)
 
 
@@ -26,6 +26,19 @@ class Solution:
     '''Class for constructing and running game entities from a given level object and solution code.'''
     __slots__ = ('level_name', 'author', 'expected_score', 'name',
                  'level', 'components')
+
+    @classmethod
+    def get_level_name(cls, soln_export_str):
+        '''Helper to extract the level name from a given solution name. Should be used to ensure the correct level is
+        being passed to Solution.__init__ in case of ambiguities.
+        '''
+        soln_metadata_str = soln_export_str.strip().split('\n', maxsplit=1)[0]
+        assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
+
+        fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
+        assert len(fields) >= 3, 'SOLUTION line missing fields'
+
+        return fields[0][len('SOLUTION:'):]
 
     def __init__(self, level, soln_export_str=None):
         self.level = level

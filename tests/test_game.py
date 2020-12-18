@@ -15,12 +15,15 @@ LAST_TEST_RESULTS = {}
 num_subtests = 0
 
 
-def iter_test_data(data_dict):
+def iter_test_data(solution_codes):
     global num_subtests
-    for level_code in data_dict:
-        for solution_code in data_dict[level_code]:
-            num_subtests += 1
-            yield level_code, solution_code
+    for solution_code in solution_codes:
+        num_subtests += 1
+
+        level_name = spacechem.solution.Solution.get_level_name(solution_code)
+        level_code = spacechem.levels.levels[level_name] if level_name in spacechem.levels.levels else test_data.test_levels[level_name]
+
+        yield level_code, solution_code
 
 
 def percent_diff_str(last_metric, cur_metric):
@@ -79,12 +82,12 @@ class TestGame(unittest.TestCase):
                 # Given our above loops measurement this should run in about 0.1s for lightweight tests
                 min_time = min(timer.repeat(repeat=loops, number=1))
 
-                print(f"{test_id}:")
                 if test_id in LAST_TEST_RESULTS:
-                    metrics_str = f"    {min_time:.4f}s (b. of {loops}) ({percent_diff_str(LAST_TEST_RESULTS[test_id]['min_time'], min_time)})"
-                    metrics_str += f" | Mem usage: {mem_usage} ({percent_diff_str(LAST_TEST_RESULTS[test_id]['mem_usage'], mem_usage)})"
+                    metrics_str = f"{min_time:.4f}s (b. of {loops}) ({percent_diff_str(LAST_TEST_RESULTS[test_id]['min_time'], min_time)})"
+                    metrics_str += f" | Mem usage: {mem_usage} B ({percent_diff_str(LAST_TEST_RESULTS[test_id]['mem_usage'], mem_usage)})"
+                    metrics_str += f" | {test_id}"
                 else:
-                    metrics_str = f"    {min_time:.4f}s (b. of {loops}) (NEW) | Mem usage: {mem_usage} (NEW)"
+                    metrics_str = f"    {min_time:.4f}s (b. of {loops}) (NEW) | Mem usage: {mem_usage} B (NEW)"
                 print(metrics_str)
 
                 LAST_TEST_RESULTS[test_id] = {'loops': loops,
@@ -140,6 +143,6 @@ if __name__ == '__main__':
     unittest.main(verbosity=0, exit=False)
     print(f"Ran {num_subtests} subtests")
 
-    # Write the current times/mem usage to file
+    # If successful, write the current times/mem usage to file
     with test_results_file.open('wb') as f:
         pickle.dump(LAST_TEST_RESULTS, f)
