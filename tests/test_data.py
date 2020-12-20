@@ -1912,6 +1912,13 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ]
 
 import_errors = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,illegal flip-flop
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,1,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-toggle',0,0,64,0,0,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
     '''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,terrain collision
 COMPONENT:'drag-silo-input',9,4,''
 PIPE:0,5,2
