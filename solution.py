@@ -454,15 +454,15 @@ class Solution:
         '''Run this solution and assert that the resulting score matches the expected score that was included in its
         solution code.
         '''
-        if self.level_name != self.level['name']:
-            print(f"Warning: Validating solution against level {repr(self.level['name'])} that was originally"
+        if self.level_name != self.level.name:
+            print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")
 
         score = self.run(debug=debug)
         assert score == self.expected_score, (f"Expected score {'-'.join(str(x) for x in self.expected_score)}"
                                               f" but got {'-'.join(str(x) for x in score)}")
         if verbose:
-            out_str = f"Validated [{self.level.get_name()}] {score}"
+            out_str = f"Validated [{self.level.name}] {score}"
             if self.name is not None:
                 out_str += f' "{self.name}"'
             out_str += f" by {self.author}"

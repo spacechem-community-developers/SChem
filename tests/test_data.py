@@ -21,7 +21,7 @@ H+JLySE/kFBQnXEO+x3NbSOyKjjeOSm3l7LeQRWZ4s0RCIHLvg+QFnK+4dc8YmWUoFeHZzXi9u
 mlz+Abnlkvsnw2Alo4gBAAA='''
 }
 
-valid = [
+valid_solutions = [
     '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,Basic
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0

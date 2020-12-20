@@ -46,10 +46,10 @@ def percent_diff_str(last_metric, cur_metric):
 class TestGame(unittest.TestCase):
     def test_valid_solutions(self):
         '''Tests for solutions that should run to completion and match the expected score.'''
-        for level_code, solution_code in iter_test_data(test_data.valid):
+        for level_code, solution_code in iter_test_data(test_data.valid_solutions):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
-            test_id = f'{level.get_name()} - {solution.name}'
+            test_id = f'{level.name} - {solution.name}'
             with self.subTest(msg=test_id):
                 self.assertEqual(solution.run(), solution.expected_score)
 
@@ -99,7 +99,7 @@ class TestGame(unittest.TestCase):
         for level_code, solution_code in iter_test_data(test_data.infinite_loops):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.get_name()} - {solution.name}'):
+            with self.subTest(msg=f'{level.name} - {solution.name}'):
                 with self.assertRaises(TimeoutError):  # TODO: spacechem.exceptions.InfiniteLoopError
                     solution.run()
 
@@ -108,7 +108,7 @@ class TestGame(unittest.TestCase):
         for level_code, solution_code in iter_test_data(test_data.invalid_outputs):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.get_name()} - {solution.name}'):
+            with self.subTest(msg=f'{level.name} - {solution.name}'):
                 with self.assertRaises(spacechem.exceptions.InvalidOutputError):
                     solution.run()
 
@@ -117,7 +117,7 @@ class TestGame(unittest.TestCase):
         for level_code, solution_code in iter_test_data(test_data.runtime_collisions):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.get_name()} - {solution.name}'):
+            with self.subTest(msg=f'{level.name} - {solution.name}'):
                 with self.assertRaises(spacechem.exceptions.ReactionError):
                     solution.run()
 
@@ -127,7 +127,7 @@ class TestGame(unittest.TestCase):
             level = spacechem.level.Level(level_code)
             # Extract the solution name manually so we can label the test with it
             soln_name = solution_code.strip().split('\n', maxsplit=1)[0].split(',', maxsplit=3)[3]
-            with self.subTest(msg=f'{level.get_name()} - {soln_name}'):
+            with self.subTest(msg=f'{level.name} - {soln_name}'):
                 with self.assertRaises(Exception):
                     spacechem.solution.Solution(level, solution_code)
 

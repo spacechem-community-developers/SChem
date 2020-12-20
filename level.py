@@ -11,7 +11,6 @@ import zlib
 from spacechem.molecule import Molecule
 from spacechem.spacechem_random import SpacechemRandom
 
-
 OVERWORLD_ROWS = 22
 OVERWORLD_COLS = 32
 
@@ -98,6 +97,7 @@ class Level:
     '''Parent class for Research and Production levels. Level(code) will return an instance of whichever subclass
     is appropriate.
     '''
+    export_line_len = 74
     __slots__ = ('dict', 'input_molecules', 'output_molecules', 'output_counts', 'input_random_generators',
                  'input_random_buckets')
 
@@ -134,15 +134,23 @@ class Level:
     def __str__(self):
         return json.dumps(self.dict)
 
-    def get_code(self):
+    @property
+    def code(self):
         '''Export to mission code string; gzip then b64 the level json.'''
         out = io.BytesIO()
         with gzip.GzipFile(fileobj=out, mode="w") as f:
             f.write(json.dumps(self.dict).encode('utf-8'))
-        return base64.b64encode(out.getvalue()).decode()
+        code = base64.b64encode(out.getvalue()).decode()
+        # Split the export code across lines for readability
+        return '\n'.join(code[i:i+self.export_line_len] for i in range(0, len(code), self.export_line_len))
 
-    def get_name(self):
+    @property
+    def name(self):
         return self.dict['name']
+    @name.setter
+    def name(self, s):
+        assert isinstance(s, str), "Level name must be a string"
+        self.dict['name'] == s
 
 
 class ResearchLevel(Level):
