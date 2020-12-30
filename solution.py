@@ -6,7 +6,7 @@ import copy
 from itertools import product
 import time
 
-from spacechem.components import COMPONENT_SHAPES, Pipe, Input, Output, Reactor, Recycler, StorageTank
+from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
 from spacechem.exceptions import RunSuccess
 from spacechem.grid import Direction, Position
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS, TERRAIN_MAPS
@@ -20,6 +20,18 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
         '''Convert to the format used in solution metadata.'''
         return '-'.join(str(i) for i in self)
 
+    @classmethod
+    def is_score_str(cls, s):
+        '''Return True if the given string is formatted like a Spacechem score, e.g. 45-1-14. 0-0-0 is included, but
+        note that it is used to denote incomplete solutions.
+        '''
+        parts = s.split('-')
+        return len(parts) == 3 and all(part.isdigit() for part in parts)  # Thinks 045-1-14 is a score but whatever
+
+    @classmethod
+    def from_str(cls, s):
+        return cls(*(int(x) for x in s.split('-')))
+
 
 class Solution:
     '''Class for constructing and running game entities from a given level object and solution code.'''
@@ -27,27 +39,51 @@ class Solution:
                  'level', 'components')
 
     @classmethod
+    def parse_metadata_line(cls, s):
+        '''Given the SOLUTION line from the top of a solution export, return the level name, author, expected score,
+        and solution name (or None if either of the latter are not set).
+        Due to the use of comma-separated values in export lines, commas in the level or author name may cause
+        errors in the parsing. To combat this, it is assumed that author names contain no commas, and that the first
+        comma-separated string (after the second comma) which is formatted like a score (e.g. 45-1-14) is the score
+        field. This is sufficient to uniquely identify the other fields.
+        As a consequence, if either the author name contains a comma or the author/level names look like scores,
+        it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
+        completely messed up by any commas in the level name.
+        '''
+        s = s.strip()
+        assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution metadata"
+        fields = s[len('SOLUTION:'):].split(',')
+        assert len(fields) >= 3, "Missing fields in solution metadata"
+
+        # Starting from the third CSV value, look for a score-like string and assume it is the expected score
+        score_field_idx = next((i for i in range(2, len(fields)) if Score.is_score_str(fields[i])),
+                               None)
+        assert score_field_idx is not None, "Solution metadata missing expected score"
+
+        level_name = ','.join(fields[:score_field_idx - 1])
+        author_name = fields[score_field_idx - 1]
+        # The game stores unsolved solutions as '0-0-0'
+        expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] != '0-0-0' else None
+        soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
+
+        return level_name, author_name, expected_score, soln_name
+
+    @classmethod
     def get_level_name(cls, soln_export_str):
         '''Helper to extract the level name from a given solution name. Should be used to ensure the correct level is
         being passed to Solution.__init__ in case of ambiguities.
         '''
-        soln_metadata_str = soln_export_str.strip().split('\n', maxsplit=1)[0]
-        assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
-
-        fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
-        assert len(fields) >= 3, 'SOLUTION line missing fields'
-
-        return fields[0][len('SOLUTION:'):]
+        return cls.parse_metadata_line(soln_export_str.strip().split('\n', maxsplit=1)[0])[0]
 
     def __init__(self, level, soln_export_str=None):
         self.level = level
         self.level_name = level['name']  # Note that the level name is vestigial; a solution can run in any compatible level
         self.name = None
         self.author = 'Unknown'
-        self.expected_score = '0-0-0'
+        self.expected_score = None
 
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
-        if level['type'] == 'production':
+        if level['type'].startswith('production'):
             # Main game levels have unique terrain which we have to hardcode D:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
@@ -61,120 +97,133 @@ class Solution:
         posn_to_component = {}  # Note that components are referenced by their top-left corner posn
 
         # Inputs
-        input_zone_types = ('random-input-zones', 'fixed-input-zones') if self.level['type'] == 'production' else ('input-zones',)
-        input_rate = 10 if self.level['type'] == 'production' else 1  # TODO Support CE variable input rates
+        input_zone_types = None
+        if self.level['type'].startswith('research'):
+            input_zone_types = ('input-zones',)
+            output_zone_type = 'output-zones'
+        elif self.level['type'] == 'production':
+            input_zone_types = ('random-input-zones', 'fixed-input-zones')
+            output_zone_type = 'output-zones'
+        elif self.level['type'].startswith('production-community-edition'):
+            # CE Productions finally give up on the useless distinction between fixed and random zones
+            input_zone_types = ('random-input-components', 'programmed-input-components')
+            output_zone_type = 'output-components'
+        else:
+            raise ValueError(f"Unknown level type {self.level['type']}")
+
         for input_zone_type in input_zone_types:
-            for i, input_dict in self.level[input_zone_type].items():
-                i = int(i)
-                # For some reason production fixed inputs are defined less flexibly than in researches
-                # TODO: Input class should probably accept raw molecule string instead of having to stuff it into a dict
-                #       One does wonder why Zach separated random from fixed inputs in productions but not researches...
-                if isinstance(input_dict, str):
-                    # Convert from molecule string to input zone dict format
-                    input_dict = {'inputs': [{'molecule': input_dict, 'count': 12}]}
+            if isinstance(self.level[input_zone_type], dict):
+                for i, input_dict in self.level[input_zone_type].items():
+                    i = int(i)
 
-                # Due to a bug in SpaceChem, the random-input-zones may end up populated with an empty input
-                # entry. Skip it if that's the case
-                # TODO: Make CE issue on github for this
-                if not input_dict['inputs']:
-                    continue
+                    # For some reason production fixed inputs are defined less flexibly than in researches
+                    # TODO: Input class should probably accept raw molecule string instead of having to stuff it into a dict
+                    #       One does wonder why Zach separated random from fixed inputs in productions but not researches...
+                    if isinstance(input_dict, str):
+                        # Convert from molecule string to input zone dict format
+                        input_dict = {'inputs': [{'molecule': input_dict, 'count': 12}]}
 
-                component_type, component_posn = TERRAIN_MAPS[terrain_id][input_zone_type][i]
-                posn_to_component[component_posn] = Input(component_type=component_type, posn=component_posn,
-                                                          input_dict=input_dict, input_rate=input_rate)
+                    # Due to a bug in SpaceChem, random-input-zones may end up populated with an empty input
+                    # entry in a non-random level. Skip it if that's the case
+                    # TODO: Make CE issue on github for this
+                    if not input_dict['inputs']:
+                        continue
+
+                    # Fetch the component type and posn from the terrain's presets based on this input's index
+                    component_type, component_posn = TERRAIN_MAPS[terrain_id][input_zone_type][i]
+
+                    posn_to_component[component_posn] = Input(input_dict=input_dict,
+                                                              _type=component_type, posn=component_posn,
+                                                              is_research=self.level['type'].startswith('research'))
+            else:
+                # CE production levels expect input types/positions to be manually specified in the input dict
+                for input_dict in self.level[input_zone_type]:
+                    if not input_dict['molecules']:
+                        continue
+
+                    new_component = Input(input_dict=input_dict, is_research=self.level['type'].startswith('research'))
+                    posn_to_component[new_component.posn] = new_component
 
         # Outputs
-        for i, output_dict in self.level['output-zones'].items():
-            i = int(i)
+        if isinstance(self.level[output_zone_type], dict):
+            for i, output_dict in self.level[output_zone_type].items():
+                i = int(i)
 
-            # Zach pls
-            if self.level['type'] == 'production':
-                output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
-                output_dict['count'] *= 4
+                # I'd handle this in the Output constructor but I refuse to enable Zach's madness
+                if self.level['type'] == 'production':
+                    output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
+                    output_dict['count'] *= 4  # Zach pls
 
-            component_type, component_posn = TERRAIN_MAPS[terrain_id]['output-zones'][i]
-            posn_to_component[component_posn] = Output(component_type=component_type, posn=component_posn,
-                                                       output_dict=output_dict)
+                component_type, component_posn = TERRAIN_MAPS[terrain_id]['output-zones'][i]
+                posn_to_component[component_posn] = Output(output_dict=output_dict,
+                                                           _type=component_type, posn=component_posn)
+        else:
+            for output_dict in self.level[output_zone_type]:
+                new_component = Output(output_dict=output_dict)
+                posn_to_component[new_component.posn] = new_component
 
-        # Recycler
-        if self.level['type'] == 'production' and self.level['has-recycler']:
-            component_type, component_posn = TERRAIN_MAPS[terrain_id]['recycler']
-            posn_to_component[component_posn] = Recycler(component_type=component_type, posn=component_posn)
+        # Preset reactors
+        if self.level['type'].startswith('research'):
+            # Preset one reactor, treating the level dict as its component dict
+            # TODO: _type='reactor' is hacky but ensures Component.__init__ knows what it's dealing with
+            new_component = Reactor(self.level.dict, _type='reactor', posn=Position(col=2, row=0))
+            posn_to_component[new_component.posn] = new_component
 
-        # TODO: Preset reactors - note that research levels behave like a production with a single preset reactor
+            # TODO: Add a disabled output to every unused output zone. The distinction from a non-existent pipe (e.g.
+            #       assembly reactor) being that the level actually crashes if a molecule is passed to that output,
+            #       instead of stalling or ignoring the output command
+        else:
+            # Recycler
+            if 'has-recycler' in self.level and self.level['has-recycler']:
+                component_type, component_posn = TERRAIN_MAPS[terrain_id]['recycler']
+                posn_to_component[component_posn] = Recycler(_type=component_type, posn=component_posn)
 
-        # Add solution-defined entities and update preset level components (e.g. pipe inputs, preset reactor contents)
+            # Community Edition presettable components
+            for component_list_key in ('pass-through-counters', 'components-with-output', 'other-components'):
+                if component_list_key in self.level:
+                    for component_dict in self.level[component_list_key]:
+                        # Add custom reactor attributes
+                        if component_dict['type'].startswith('freeform-custom-reactor-'):
+                            i = int(component_dict['type'].split('-')[-1]) - 1
+                            # TODO: Use py3.9's dict union operator
+                            component_dict = {**self.level['custom-reactors'][i], **component_dict}
+
+                        new_component = Component(component_dict)
+                        posn_to_component[new_component.posn] = Component(component_dict)
+
+        # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
         if soln_export_str is not None:
             # Parse solution metadata from the first line
             soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
-            assert soln_metadata_str.startswith('SOLUTION:'), "Missing SOLUTION line"
+            self.level_name, self.author, self.expected_score, self.name = self.parse_metadata_line(soln_metadata_str)
 
-            fields = soln_metadata_str.split(',', maxsplit=3)  # maxsplit since solution name may include commas
-            assert len(fields) >= 3, 'SOLUTION line missing fields'
-
-            self.level_name = fields[0][len('SOLUTION:'):]
-            self.author = fields[1]
-            # The game stores unsolved solutions as '0-0-0'
-            self.expected_score = Score(*(int(i) for i in fields[2].split('-'))) if fields[2] != '0-0-0' else None
-            self.name = fields[3] if len(fields) == 4 else None  # Optional field
-
-
-            # TODO: Disallow mutating pipes in research levels or on preset reactors, and preset input pipes
+            # TODO: Disallow mutating pipes in research levels or on certain flidais preset components, even if length 1
             for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
                 component_metadata = component_str.split('\n', maxsplit=1)[0]
                 fields = component_metadata.split(',')
                 component_type = fields[0].strip('COMPONENT:').strip("'")
                 component_posn = Position(int(fields[1]), int(fields[2]))
 
-                # Check that this component is either an existing one added by the level or is a new component that the
-                # level allows
-                if component_posn in posn_to_component:
-                    cur_component = posn_to_component[component_posn]
-                    assert component_type == cur_component.type, \
-                        (f'Built-in draggable of type "{cur_component.type}" cannot be overwritten with draggable'
-                         + f' of type "{component_type}"')
+                # Create a raw instance of the component if it doesn't exist yet
+                if not component_posn in posn_to_component:
+                    # Ensure this is a legal component type for the level (e.g. drag-starter-reactor -> has-starter)
+                    reactor_type_flag = f'has-{component_type.split("-")[1]}'
+                    assert ((reactor_type_flag in self.level and self.level[reactor_type_flag])
+                            # Misleadingly, allowed-reactor-types includes storage tanks
+                            or ('allowed-reactor-types' in self.level
+                                and component_type in self.level['allowed-reactor-types'])), \
+                        f"Cannot create new component of type {component_type} at {component_posn}"
 
-                    # Generate the new component and update or overwrite the existing component
-                    if isinstance(cur_component, Reactor):
-                        if self.level['type'].startswith('research'):
-                            new_component = Reactor.from_export_str(component_str, features_dict=self.level.dict)
-                        else:
-                            # In this case, the constructor will self-verify the features based on its component ID
-                            new_component = Reactor.from_export_str(component_str)
-
-                        # Reactor contents can be overwritten but not their pipes (any pipe changes are silently ignored)
-                        new_component.out_pipes = cur_component.out_pipes
-
-                        # Overwrite the existing component
-                        posn_to_component[component_posn] = new_component
-                    elif isinstance(cur_component, Input):
-                        # TODO: For levels like e.g. PseudoEthyne, input pipes shouldn't be overwritable
-                        # Drop the COMPONENT line and expect the remaining lines to construct a pipe
-                        cur_component.out_pipe = Pipe.from_export_str(component_str[component_str.find('\n') + 1:])
+                    if component_type.startswith('freeform-custom-reactor-'):
+                        # Add custom reactor attributes if needed
+                        i = int(component_type.split('-')[-1]) - 1
+                        posn_to_component[component_posn] = Component(self.level['custom-reactors'][i],
+                                                                      _type=component_type, posn=component_posn)
                     else:
-                        raise Exception(f"Unexpected modification to immutable level component {component_type}")
-                else:
-                    # Component is new; create and add it
-                    if 'reactor' in component_type.split('-'):
-                        if self.level['type'].startswith('research'):
-                            posn_to_component[component_posn] = Reactor.from_export_str(component_str,
-                                                                                        features_dict=self.level.dict)
-                        else:
-                            # Ensure this is a legal reactor type for the level (e.g. drag-starter-reactor -> has-starter)
-                            assert f'has-{component_type.split("-")[1]}' in self.level, f"Unknown reactor type {component_type}"
-                            assert self.level[f'has-{component_type.split("-")[1]}'], f"Illegal reactor type {component_type}"
+                        posn_to_component[component_posn] = Component(_type=component_type, posn=component_posn)
 
-                            # In this case, the constructor will self-verify the features based on its component type
-                            posn_to_component[component_posn] = Reactor.from_export_str(component_str)
-                    # TODO: Storage tanks are only available in defense levels
-                    elif component_type == 'drag-storage-tank':
-                        if self.level['type'] != 'defense':
-                            raise Exception(f"Component {component_type} cannot be used outside Defense levels")
-                        posn_to_component[component_posn] = StorageTank.from_export_str(component_str)
-                    elif 'input' in component_type.split('-'):
-                        raise Exception(f"Could not find level input at position {component_posn}.")
-                    else:
-                        raise Exception(f"Solution places unexpected component {component_type}")
+                # Update the existing component (e.g. its pipes or reactor internals)
+                posn_to_component[component_posn].update_from_export_str(component_str)
 
         # Now that we're done updating components, check that all components/pipes are validly placed
         # TODO: Should probably just be a method validating self.components, and also called at start of run()
@@ -183,20 +232,15 @@ class Solution:
         pipe_posns_to_dirns = {}
 
         # Add impassable terrain
-        if self.level['type'] == 'production':
+        if not self.level['type'].startswith('research'):
             blocked_posns.update(TERRAIN_MAPS[terrain_id]['obstructed'])
 
         # Check for component/pipe collisions
         for component in posn_to_component.values():
             # Add this component's cells to the blacklist
-            if 'reactor' in component.type.split('-'):
-                component_dimensions = COMPONENT_SHAPES['reactor']  # TODO: this is hacky but I'm lazy
-            else:
-                component_dimensions = COMPONENT_SHAPES[component.type]
-
             # Check for collisions and add this component's main body (non-pipe) posns to the blacklist
-            component_posns = set(product(range(component.posn[0], component.posn[0] + component_dimensions[0]),
-                                          range(component.posn[1], component.posn[1] + component_dimensions[1])))
+            component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
+                                          range(component.posn[1], component.posn[1] + component.dimensions[1])))
             assert (component_posns.isdisjoint(blocked_posns)
                     and component_posns.isdisjoint(pipe_posns_to_dirns.keys())), \
                 f"Component at {component.posn} colliding with terrain or another component"
@@ -210,8 +254,8 @@ class Solution:
                 assert len(pipe.posns) == len(set(pipe.posns)), "Pipe overlaps with itself"
 
                 # Make sure the pipe is properly connected to this component
-                # Note: this code would break if any component had 3 output pipes but none do
-                assert pipe.posns[0] == (component_dimensions[0], ((component_dimensions[1] - 1) // 2) + i), \
+                # TODO: this code would break if any component had 3 output pipes but none do...
+                assert pipe.posns[0] == (component.dimensions[0], ((component.dimensions[1] - 1) // 2) + i), \
                     f"Pipe {i} is not connected to parent component {component.type} at {component.posn}"
 
                 # Ensure this pipe doesn't collide with a component or terrain
@@ -277,34 +321,16 @@ class Solution:
                         and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + Direction.LEFT):
                     continue
 
-                # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of the
-                # component is always 1 up and right of the input pipe, plus one more row per extra input the object
-                # accepts (up to 3 for recycler). Blindly check the 3 possible positions for the components that
-                # could connect to this pipe
-                component_posn = pipe_end + (1, -1)
-
-                if component_posn in posn_to_component:
-                    other_component = posn_to_component[component_posn]
-                    if (isinstance(other_component, Output)
-                            or isinstance(other_component, StorageTank)
-                            or isinstance(other_component, Reactor)
-                            or isinstance(other_component, Recycler)):
-                        other_component.in_pipes[0] = pipe
-                    continue
-
-                component_posn = pipe_end + (1, -2)
-                if component_posn in posn_to_component:
-                    other_component = posn_to_component[component_posn]
-                    if ((isinstance(other_component, Reactor) and other_component.type != 'drag-disassemby-reactor')
-                            or isinstance(other_component, Recycler)):
-                        other_component.in_pipes[1] = pipe
-                    continue
-
-                component_posn = pipe_end + (1, -3)
-                if component_posn in posn_to_component:
-                    other_component = posn_to_component[component_posn]
-                    if isinstance(other_component, Recycler):
-                        other_component.in_pipes[2] = pipe
+                # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
+                # component is always 1 up and right of its input pipe, plus one more row for lower inputs (up to 3 for
+                # recycler). Blindly check the 3 possible positions for components that could connect to this pipe
+                for i in range(3):
+                    component_posn = pipe_end + (1, -1 - i)
+                    if component_posn in posn_to_component:
+                        other_component = posn_to_component[component_posn]
+                        if len(other_component.in_pipes) >= i + 1:
+                            other_component.in_pipes[i] = pipe
+                        break
 
     def export_str(self):
         # Solution metadata
@@ -327,33 +353,37 @@ class Solution:
 
     def __str__(self):
         ''''Return a string representing the overworld of this solution including all components and pipes.'''
-        # 2 characters per tile
-        grid = [['  ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
+        # 1 character per tile
+        grid = [[' ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
 
         # Display each component with #'s
         for component in self.components:
-            if isinstance(component, Reactor):
-                dimensions = COMPONENT_SHAPES['reactor']
-            else:
-                dimensions = COMPONENT_SHAPES[component.type]
-
             # Visual bounds set since components are allowed to hang outside the play area (e.g. in Going Green)
             for posn in product(range(max(0, component.posn.col), min(OVERWORLD_COLS,
-                                                                      component.posn.col + dimensions[0])),
+                                                                      component.posn.col + component.dimensions[0])),
                                 range(max(0, component.posn.row), min(OVERWORLD_ROWS,
-                                                                      component.posn.col + dimensions[1]))):
-                grid[posn[1]][posn[0]] = '##'  # row, col
+                                                                      component.posn.row + component.dimensions[1]))):
+                grid[posn[1]][posn[0]] = '#'  # row, col
 
-            # Display each pipe with --, |, //, ||, or a . for tiles containing a molecule
+            # Display each pipe with -, \, /, +, |, or a . for tiles containing a molecule
             for pipe in component.out_pipes:
+                last_posn = Position(-1, -1)
                 for relative_posn, molecule in zip(pipe.posns, pipe):
                     posn = component.posn + relative_posn
-                    grid[posn.row][posn.col] = '==' if molecule is None else ' .'
 
-        result = f"_{OVERWORLD_COLS * '__'}_\n"
+                    if molecule is not None:
+                        grid[posn.row][posn.col] = '.'
+                    elif posn.row == last_posn.row:
+                        grid[posn.row][posn.col] = '-'
+                    elif posn.col == last_posn.col:
+                        grid[posn.row][posn.col] = '|'
+
+                    last_posn = posn
+
+        result = f"_{OVERWORLD_COLS * '_'}_\n"
         for row in grid:
             result += f"|{''.join(row)}|\n"
-        result += f"‾{OVERWORLD_COLS * '‾‾'}‾\n"
+        result += f"‾{OVERWORLD_COLS * '‾'}‾\n"
 
         return result
 
@@ -374,7 +404,7 @@ class Solution:
         Called at the start of each run to ensure that no trickery was done on this object post-construction.
         '''
         # Make sure the reactor limit has been respected
-        if self.level['type'] == 'production':
+        if self.level['type'].startswith('production'):
             assert sum(1 if isinstance(component, Reactor) else 0
                        for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
@@ -401,6 +431,8 @@ class Solution:
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
         cycle = 0
         completed_outputs = 0
+        num_outputs = len([c for c in self.components if isinstance(c, Output) and not isinstance(c, DisabledOutput)])
+
         try:
             while cycle < max_cycles:
                 # Move molecules/waldos
@@ -419,7 +451,7 @@ class Solution:
                         # Outputs return true the first time they reach their target count; count these occurrences and
                         # raise success when they've all completed
                         completed_outputs += 1
-                        if completed_outputs == len(self.level['output-zones']):
+                        if completed_outputs == num_outputs:
                             raise RunSuccess()
 
                 if debug and cycle >= debug.cycle:

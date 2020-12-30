@@ -6,8 +6,6 @@ import copy
 import math
 import time
 
-import numpy as np
-
 from spacechem.elements_data import elements_dict
 from spacechem.exceptions import *
 from spacechem.grid import CARDINAL_DIRECTIONS, Position, Direction
@@ -22,6 +20,8 @@ COMPONENT_SHAPES = {
     'reactor': (4, 4),
     'output': (2, 3),  # All production level outputs appear to be 2x3
     'recycler': (5, 5),
+    'drag-storage-tank': (3, 3),
+    'freeform-counter': (2, 3),
     'research-output': (1, 1),  # Hacky way to make sure research levels don't have colliding output components
     'research-input': (1, 1),   # ditto
     'drag-arbitrary-input': (2, 3),
@@ -33,29 +33,24 @@ COMPONENT_SHAPES = {
 
 # Production level codes don't specify available reactor properties like research levels; encode them here
 REACTOR_TYPES = {
-    'drag-starter-reactor': {
-        'has-large-output': False,
-        'bonder-count': 4,
-        'has-sensor': False,
-        'has-fuser': False,
-        'has-splitter': False,
-        'has-teleporter': False},
-    'drag-advanced-reactor': {
-        'has-large-output': False,
-        'bonder-count': 4,
-        'has-sensor': True,
-        'has-fuser': False,
-        'has-splitter': False,
-        'has-teleporter': False}}
-
-NUM_WALDOS = 2
-NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
+    'drag-starter-reactor': {'bonder-count': 4},
+    'drag-disassembly-reactor': {'bonder-minus-count': 4, 'has-bottom-input': False},
+    'drag-assembly-reactor': {'bonder-plus-count': 4, 'has-bottom-output': False},
+    'drag-advanced-reactor': {'bonder-count': 4, 'has-sensor': True},
+    'drag-fusion-reactor': {'bonder-count': 4, 'has-fuser': True},
+    'drag-superbonder-reactor': {'bonder-count': 8},
+    'drag-nuclear-reactor': {'bonder-count': 4, 'has-fuser': True, 'has-splitter': True},
+    'drag-quantum-reactor': {'bonder-count': 4, 'has-sensor': True, 'has-teleporter': True,
+                             'quantum-walls-y': {5: [0, 1, 2, 3, 4, 5, 6, 7]}},
+    'drag-sandbox-reactor': {'bonder-count': 8, 'has-sensor': True, 'has-fuser': True, 'has-splitter': True,
+                             'has-teleporter':True}}
 
 
 class Pipe(list):
     __slots__ = 'posns',
 
     def __init__(self, posns):
+        '''Construct a pipe. posns should be defined relative to the pipe's parent component posn.'''
         super().__init__([None for _ in posns])
         self.posns = posns
 
@@ -65,6 +60,20 @@ class Pipe(list):
         for i in range(len(self) - 2, -1, -1):  # Note that we don't need to shift the last element
             if self[i + 1] is None:
                 self[i], self[i + 1] = None, self[i]
+
+    @classmethod
+    def from_preset_string(cls, start_posn, dirns_str):
+        '''Construct a pipe from the given CE pipe string, e.g. 'RRDRUULR', moving in the indicated directions
+        (U = Up, R = Right, D = Down, L = Left) from the start_posn (should be relative to the parent component's posn).
+        '''
+        posns = [start_posn]
+        char_to_dirn = {'U': Direction.UP, 'R': Direction.RIGHT, 'D': Direction.DOWN, 'L': Direction.LEFT}
+        for dirn_char in dirns_str:
+            posns.append(posns[-1] + char_to_dirn[dirn_char])
+
+        assert len(posns) == len(set(posns)), "Pipe overlaps with itself"
+
+        return Pipe(posns)
 
     @classmethod
     def from_export_str(cls, export_str):
@@ -83,14 +92,23 @@ class Pipe(list):
 
             posn = Position(col=int(fields[1]), row=int(fields[2]))
             if posns:
-                assert (abs(posn[0] - posns[-1][0]), abs(posn[1] - posns[-1][1])) in ((0, 1), (1, 0)), \
-                       "Pipe is not contiguous"
+                assert abs(posn - posns[-1]) in ((0, 1), (1, 0)), "Pipe is not contiguous"
             posns.append(posn)
 
         assert posns, "Expected at least one PIPE line"
         assert len(posns) == len(set(posns)), "Pipe overlaps with itself"
 
         return Pipe(posns)
+
+    @classmethod
+    def pipe_list_from_export_str(cls, export_str):
+        lines = export_str.split('\n')
+        assert all(s.startswith('PIPE:0') or s.startswith('PIPE:1') for s in lines if s), \
+            f"Unexpected data in component pipes export string:\n{export_str}"
+        pipe_export_strs = ['\n'.join(s for s in lines if s.startswith(f'PIPE:{i},'))
+                            for i in range(2)]
+
+        return [Pipe.from_export_str(s) for s in pipe_export_strs if s]
 
     def export_str(self, pipe_idx=0):
         '''Represent this pipe in solution export string format.'''
@@ -99,13 +117,88 @@ class Pipe(list):
 
 class Component:
     '''Informal Interface class defining methods overworld objects will implement one or more of.'''
-    __slots__ = 'type', 'posn', 'in_pipes', 'out_pipes'
+    __slots__ = 'type', 'posn', 'dimensions', 'in_pipes', 'out_pipes'
 
-    def __init__(self, type_, posn):
-        self.type = type_
-        self.posn = Position(*posn)
-        self.in_pipes = []
+    def __new__(cls, component_dict=None, _type=None, *args, **kwargs):
+        '''Return a new object of the appropriate subclass based on the component type.'''
+        if _type is None:
+            _type = component_dict['type']
+
+        parts = _type.split('-')
+        if 'reactor' in parts:
+            return super().__new__(Reactor)
+        elif 'input' in parts:
+            return super().__new__(Input)
+        elif 'output' in parts or 'production-target' in _type:
+            return super().__new__(Output)
+        elif _type == 'drag-recycler':
+            return super().__new__(Recycler)
+        elif _type == 'drag-storage-tank':
+            return super().__new__(StorageTank)
+        elif _type == 'freeform-counter':
+            return super().__new__(PassThroughCounter)
+        else:
+            raise ValueError(f"Unrecognized component type {_type}")
+
+    def __init__(self, component_dict=None, _type=None, posn=None, num_in_pipes=0, num_out_pipes=0):
+        self.type = _type if _type is not None else component_dict['type']
+        self.posn = Position(*posn) if posn is not None else Position(col=component_dict['x'], row=component_dict['y'])
+        self.in_pipes = [None for _ in range(num_in_pipes)]
+
+        # Initialize output pipes, accounting for any level-preset pipes
         self.out_pipes = []
+
+        type_parts = self.type.split('-')
+        if self.type in COMPONENT_SHAPES:
+            self.dimensions = COMPONENT_SHAPES[self.type]
+        elif 'output' in type_parts or 'production-target' in self.type:
+            self.dimensions = COMPONENT_SHAPES['output']
+        elif 'reactor' in type_parts:
+            self.dimensions = COMPONENT_SHAPES['reactor']
+        else:
+            raise ValueError(f"Dimensions of component {self.type} are unknown")
+
+        pipe_start_posn = Position(col=self.dimensions[0], row=(self.dimensions[1] - 1) // 2)
+        if 'output-pipes' in component_dict:
+            assert len(component_dict['output-pipes']) == num_out_pipes, f"Unexpected number of output pipes for {self.type}"
+            for pipe_dirns_str in component_dict['output-pipes']:
+                self.out_pipes.append(Pipe.from_preset_string(pipe_start_posn, pipe_dirns_str))
+                pipe_start_posn += Direction.DOWN
+        else:
+            for _ in range(num_out_pipes):
+                self.out_pipes.append(Pipe(posns=[pipe_start_posn]))
+                pipe_start_posn += Direction.DOWN
+
+    def update_from_export_str(self, export_str):
+        '''Given a matching export string, update this component.'''
+        component_line, pipes_str = export_str.split('\n', maxsplit=1)
+
+        # Parse COMPONENT line
+        assert component_line.startswith('COMPONENT:'), "Missing COMPONENT line in export string"
+        fields = component_line.split(',')
+        assert len(fields) == 4, f"Unrecognized component line format:\n{component_line}"
+
+        component_type = fields[0][len('COMPONENT:'):].strip("'")
+        component_posn = Position(int(fields[1]), int(fields[2]))
+        assert component_posn == self.posn, f"No component at posn {component_posn}"
+        # TODO: Is ignoring component type checks unsafe?
+        #assert component_type == self.type, \
+        #    f"Component of type {self.type} cannot be overwritten with component of type {component_type}"
+        # TODO: Still don't know what the 4th field does...
+
+        # Expect the remaining lines to define the component's output pipes
+        new_out_pipes = Pipe.pipe_list_from_export_str(pipes_str)
+        assert len(new_out_pipes) == len(self.out_pipes), f"Unexpected number of pipes for component {self.type}"
+
+        for i, pipe in enumerate(new_out_pipes):
+            # Preset pipes of length > 1 are immutable
+            # TODO: This doesn't prevent research level pipes from being modified
+            if len(self.out_pipes[i]) == 1:
+                # Ensure this pipe starts from the correct position
+                assert pipe.posns[0] == Position(col=self.dimensions[0], row=((self.dimensions[1] - 1) // 2) + i), \
+                    f"Invalid start position for pipe {i} of component {self.type}"
+
+                self.out_pipes[i] = pipe
 
     def __str__(self):
         return f'{self.type},{self.posn}'
@@ -121,7 +214,7 @@ class Component:
 
 
 class Input(Component):
-    __slots__ = 'input_molecules', 'input_rate'
+    __slots__ = 'molecules', 'input_rate'
 
     # Convenience property for when we know we're dealing with an Input
     @property
@@ -132,30 +225,37 @@ class Input(Component):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def __new__(cls, component_type, posn, input_dict, input_rate):
-        '''Convert to a RandomInput if multiple molecules are specified.'''
-        if len(input_dict['inputs']) > 1:
-            return super().__new__(RandomInput)
+    def __new__(cls, input_dict, *args, **kwargs):
+        '''Convert to a random or programmed input if relevant.'''
+        if 'repeating-molecules' in input_dict:
+            return object.__new__(ProgrammedInput)
+
+        molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'
+        if len(input_dict[molecules_key]) <= 1:
+            return object.__new__(cls)
         else:
-            return super().__new__(cls)
+            return object.__new__(RandomInput)
 
-    def __init__(self, component_type, posn, input_dict, input_rate):
-        super().__init__(component_type, posn)
-        assert len(input_dict['inputs']) != 0, "No molecules in input dict"
-        self.input_molecules = [Molecule.from_json_string(input_mol_dict['molecule'])
-                                for input_mol_dict in input_dict['inputs']]
-        self.input_rate = input_rate
+    def __init__(self, input_dict, _type=None, posn=None, is_research=False):
+        super().__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)
 
-        dimensions = COMPONENT_SHAPES[component_type]
-        # Initialize with a 1-long pipe
-        self.out_pipes = [Pipe(posns=[Position(dimensions[0],
-                                               (dimensions[1] - 1) // 2)])]
+        # Handle either vanilla or Community Edition nomenclature
+        molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'
 
-        # TODO: Should create a pipe of length 1 by default - which means this needs to know its own dimensions
+        assert len(input_dict[molecules_key]) != 0, "No molecules in input dict"
+        self.molecules = [Molecule.from_json_string(input_mol_dict['molecule'])
+                          for input_mol_dict in input_dict[molecules_key]]
+
+        if is_research:
+            self.input_rate = 1
+        elif 'production-delay' in input_dict:
+            self.input_rate = input_dict['production-delay']
+        else:
+            self.input_rate = 10
 
     def do_instant_actions(self, cur_cycle):
         if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
-            self.out_pipe[0] = copy.deepcopy(self.input_molecules[0])
+            self.out_pipe[0] = copy.deepcopy(self.molecules[0])
 
     def export_str(self):
         '''Represent this input in solution export string format.'''
@@ -166,22 +266,20 @@ class Input(Component):
 class RandomInput(Input):
     __slots__ = 'random_generator', 'input_counts', 'random_bucket'
 
-    def __init__(self, component_type, posn, input_dict, input_rate):
-        super().__init__(component_type, posn, input_dict, input_rate)
+    def __init__(self, input_dict, _type=None, posn=None, is_research=False):
+        super().__init__(input_dict, _type=_type, posn=posn, is_research=is_research)
 
-        assert len(input_dict['inputs']) > 1, "Fixed input passed to RandomInput ctor"
+        assert len(self.molecules) > 1, "Fixed input passed to RandomInput ctor"
 
         # Create a random generator with the given seed. Most levels default to seed 0
-        seed = np.int32(input_dict['random-seed']) if 'random-seed' in input_dict else np.int32(0)
+        seed = input_dict['random-seed'] if 'random-seed' in input_dict else 0
         self.random_generator = SpacechemRandom(seed=seed)
         self.random_bucket = []  # Bucket of indices for the molecules in the current balancing bucket
 
-        # Construct one of each molecule from the input JSON
-        # Input molecules have relative indices to within their zones, so let the ctor know if this is a beta input
-        # zone molecule (will be initialized 4 rows downward)
-        self.input_counts = [input_mol_dict['count'] for input_mol_dict in input_dict['inputs']]
+        molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'
+        self.input_counts = [input_mol_dict['count'] for input_mol_dict in input_dict[molecules_key]]
 
-    def get_input_molecule_idx(self):
+    def get_next_molecule_idx(self):
         '''Get the next input molecule's index. Exposed to allow for tracking branches in random level states.'''
         # Create the next balance bucket if we've run out.
         # The bucket stores an index identifying one of the 2-3 molecules
@@ -200,7 +298,34 @@ class RandomInput(Input):
 
     def do_instant_actions(self, cur_cycle):
         if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
-            self.out_pipe[0] = copy.deepcopy(self.input_molecules[self.get_input_molecule_idx()])
+            self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
+
+
+class ProgrammedInput(Input):
+    __slots__ = 'starting_molecules', 'repeating_molecules', 'repeating_idx'
+
+    def __init__(self, input_dict, _type=None, posn=None, is_research=False):
+        super(Input, self).__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)
+
+        assert len(input_dict['repeating-molecules']) != 0, "No repeating molecules in input dict"
+        self.starting_molecules = [Molecule.from_json_string(s) for s in input_dict['starting-molecules']]
+        self.repeating_molecules = [Molecule.from_json_string(s) for s in input_dict['repeating-molecules']]
+        self.repeating_idx = 0
+
+        if is_research:
+            self.input_rate = 1
+        elif 'production-delay' in input_dict:
+            self.input_rate = input_dict['production-delay']
+        else:
+            self.input_rate = 10
+
+    def do_instant_actions(self, cur_cycle):
+        if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+            if not self.starting_molecules:
+                self.out_pipe[0] = copy.deepcopy(self.repeating_molecules[self.repeating_idx])
+                self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
+            else:
+                self.out_pipe[0] = copy.deepcopy(self.starting_molecules.pop(0))
 
 
 class Output(Component):
@@ -215,12 +340,20 @@ class Output(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    def __init__(self, component_type, posn, output_dict):
-        super().__init__(component_type, posn)
+    # Basic __new__ implementation to avoid falling back to the fancy auto-subclassing Component.__new__
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls)
+
+    def __init__(self, output_dict, _type=None, posn=None):
+        super().__init__(output_dict, _type=_type, posn=posn, num_in_pipes=1)
+
+        # CE output components are abstracted one level higher than vanilla output zones; unwrap if needed
+        if 'output-target' in output_dict:
+            output_dict = output_dict['output-target']
+
         self.output_molecule = Molecule.from_json_string(output_dict['molecule'])
         self.target_count = output_dict['count']
         self.current_count = 0
-        self.in_pipes = [None]
 
     def do_instant_actions(self, cur_cycle):
         '''Check for and process any incoming molecule, and return True if this output just completed (in which case
@@ -240,14 +373,57 @@ class Output(Component):
                 return True
 
 
+class PassThroughCounter(Output):
+    __slots__ = 'stored_molecule',
+
+    def __init__(self, output_dict):
+        super(Output, self).__init__(output_dict, num_in_pipes=1, num_out_pipes=1)
+
+        self.output_molecule = Molecule.from_json_string(output_dict['target']['molecule'])
+        self.target_count = output_dict['target']['count']
+        self.current_count = 0
+
+        self.stored_molecule = None
+
+    @property
+    def out_pipe(self):
+        return self.out_pipes[0]
+
+    @out_pipe.setter
+    def out_pipe(self, p):
+        self.out_pipes[0] = p
+
+    def do_instant_actions(self, cur_cycle):
+        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
+        '''
+        if self.in_pipe is None:
+            return
+
+        ret_value = None
+
+        # TODO: I thought from eyeballing it that a molecule should go in and out of a pass-through counter
+        #       within the same cycle, but it seems I had to put this block first to avoid an off-by-1-cycle error.
+        #       Double-check what's going on here, I think this may diverge from SC when the pass-through's pipe gets
+        #       clogged
+        # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
+        if self.stored_molecule is not None and self.out_pipe[-1] is None:
+            self.stored_molecule, self.out_pipe[0] = None, self.stored_molecule
+
+        # If the stored slot is empty, store the next molecule and 'output' it while we do so
+        if self.in_pipe[-1] is not None and self.stored_molecule is None:
+            self.stored_molecule = self.in_pipe[-1]
+            ret_value = super().do_instant_actions(cur_cycle)  # This will set self.in_pipe[-1] to None
+
+        return ret_value
+
 class DisabledOutput(Output):
     '''Used by research levels, which actually crash if a wrong output is used unlike assembly reactors.'''
     __slots__ = ()
 
-    def __init__(self, component_type, posn):
+    def __init__(self, _type, posn):
         # TODO: Should this even be a subclass of Output? I guess it gets the in_pipe property...
-        Component.__init__(self, component_type, posn)
-        self.in_pipes = [None]
+        super(Output, self).__init__(_type=_type, posn=posn, num_in_pipes=1)
         self.output_molecule = None
         self.target_count = None
         self.current_count = None
@@ -262,9 +438,8 @@ class DisabledOutput(Output):
 class Recycler(Component):
     __slots__ = ()
 
-    def __init__(self, component_type, posn):
-        super().__init__(component_type, posn)
-        self.in_pipes = [None, None, None]
+    def __init__(self, _type, posn):
+        super().__init__(_type=_type, posn=posn, num_in_pipes=3)
 
     def do_instant_actions(self, cur_cycle):
         for pipe in self.in_pipes:
@@ -278,17 +453,9 @@ class StorageTank(Component):
     MAX_CAPACITY = 25
     __slots__ = 'contents',
 
-    def __init__(self, component_type, posn, out_pipe=None):
-        super().__init__(component_type, posn)
-        self.in_pipes = [None]
+    def __init__(self, _type, posn):
+        super().__init__(_type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
         self.contents = collections.deque()
-
-        dimensions = COMPONENT_SHAPES[component_type]
-        if out_pipe is not None:
-            self.out_pipes = [out_pipe]
-        else:
-            # Initialize with a 1-long pipe by default
-            self.out_pipes = [Pipe(posns=[(dimensions[0], (dimensions[1] - 1) // 2)])]
 
     # Convenience properties
     @property
@@ -319,7 +486,7 @@ class StorageTank(Component):
             self.out_pipe[0] = self.contents.popleft()
 
     @classmethod
-    def from_export_str(self, export_str):
+    def from_export_str(cls, export_str):
         # First line must be the COMPONENT line
         component_line, pipe_str = export_str.strip().split('\n', maxsplit=1)
         assert component_line.startswith('COMPONENT:'), "StorageTank.from_export_str expects COMPONENT line included"
@@ -329,10 +496,7 @@ class StorageTank(Component):
         component_type = fields[0][len('COMPONENT:'):].strip("'")
         component_posn = Position(int(fields[1]), int(fields[2]))
 
-        return StorageTank(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
-
-
-# TODO: Pass-through output
+        return cls(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
 
 
 class Reactor(Component):
@@ -340,91 +504,156 @@ class Reactor(Component):
     # top-left cell to be at (0,0), and hence the top-left reactor corner is (-0.5, -0.5).
     # Further, treat the walls as being one atom radius closer, so that we can efficiently check if an atom will collide
     # with them given only the atom's center co-ordinates
+    NUM_WALDOS = 2
+    NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
     walls = {Direction.UP: -0.5 + ATOM_RADIUS, Direction.DOWN: 7.5 - ATOM_RADIUS,
              Direction.LEFT: -0.5 + ATOM_RADIUS, Direction.RIGHT: 9.5 - ATOM_RADIUS}
 
     __slots__ = ('in_pipes', 'out_pipes',
                  'waldos', 'molecules',
-                 'large_output', 'bonders', 'bonder_pairs', 'sensors', 'fusers', 'splitters', 'swappers',
+                 'large_output', 'bonders', 'sensors', 'fusers', 'splitters', 'swappers',
+                 'bonder_pluses', 'bonder_minuses', 'bond_plus_pairs', 'bond_minus_pairs',
+                 'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'debug')
 
-    def __init__(self, out_pipes, waldos, large_output=False,
-                 bonders=None, sensors=None, fusers=None, splitters=None, swappers=None,
-                 component_type='', posn=(2, 0),
-                 debug=None):
-        super().__init__(component_type, posn)
-        self.in_pipes = [None, None]
-        self.out_pipes = out_pipes
-        self.waldos = waldos
-        self.large_output = large_output
-        self.bonders = bonders if bonders is not None else []
-        self.sensors = sensors if sensors is not None else []
-        self.fusers = fusers if fusers is not None else []
-        self.splitters = splitters if splitters is not None else []
-        self.swappers = swappers if swappers is not None else []
-        self.debug = debug  # For convenience
+    # Basic __new__ implementation to avoid falling back to the fancy auto-subclassing Component.__new__
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls)
 
-        # Store molecules as dict keys to be ordered (preserving Spacechem's hidden
-        # 'least recently modified' rule) and to have O(1) add/delete.
-        # Values are ignored.
+    def __init__(self, component_dict=None, _type=None, posn=None):
+        '''Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
+        levels with preset reactors.
+        '''
+        if component_dict is None:
+            component_dict = {}
+
+        # If the reactor type is known, look up its properties and merge them (with lower priority) into the given dict
+        _type = _type if _type is not None else component_dict['type']
+        if _type in REACTOR_TYPES:
+            component_dict = {**REACTOR_TYPES[_type], **component_dict}  # TODO: Use py3.9's dict union operator
+
+        # If the has-bottom attributes are unspecified, they default to True, unlike most attribute flags
+        num_in_pipes = 1 if 'has-bottom-input' in component_dict and not component_dict['has-bottom-input'] else 2
+        num_out_pipes = 1 if 'has-bottom-output' in component_dict and not component_dict['has-bottom-output'] else 2
+
+        super().__init__(component_dict,
+                         _type=_type, posn=posn,
+                         num_in_pipes=num_in_pipes, num_out_pipes=num_out_pipes)
+
+        # Place all features
+        cur_col = 0  # For simplicity we will put each feature type in its own column(s)
+        for attr_name, feature_name, feature_width, default_count in (('bonders', 'bonder', 1, None),
+                                                                      ('sensors', 'sensor', 1, 1),
+                                                                      ('fusers', 'fuser', 2, 1),
+                                                                      ('splitters', 'splitter', 2, 1),
+                                                                      ('swappers', 'teleporter', 1, 2),
+                                                                      ('bonder_pluses', 'bonder-plus', 1, None),
+                                                                      ('bonder_minuses', 'bonder-minus', 1, None),):
+            if f'{feature_name}-count' in component_dict:
+                setattr(self, attr_name, [Position(cur_col, i) for i in range(component_dict[f'{feature_name}-count'])])
+            elif f'has-{feature_name}' in component_dict and component_dict[f'has-{feature_name}']:
+                setattr(self, attr_name, [Position(cur_col, i) for i in range(default_count)])
+            else:
+                setattr(self, attr_name, [])
+
+            cur_col += feature_width
+
+        self.calculate_bond_pairs()  # Pre-compute bond pairs
+
+        self.large_output = 'has-large-output' in component_dict and component_dict['has-large-output']
+
+        # Place Waldo starts at default locations
+        self.waldos = [Waldo(idx=i,
+                             position=Position(4, 1 + 5*i),
+                             direction=Direction.LEFT,
+                             instr_map={Position(4, 1 + 5*i): (None, Instruction(InstructionType.START,
+                                                                                 direction=Direction.LEFT))})
+                       for i in range(self.NUM_WALDOS)]
+
+        # Parse any quantum walls from the reactor definition
+        self.quantum_walls_x = []
+        self.quantum_walls_y = []
+        for quantum_walls_key, out_list in [['quantum-walls-x', self.quantum_walls_x],
+                                            ['quantum-walls-y', self.quantum_walls_y]]:
+            if quantum_walls_key in component_dict and component_dict[quantum_walls_key] is not None:
+                # a/b abstract row/col vs col/row while handling the two quantum wall orientations
+                # E.g. "quantum-walls-x": {"row1": [col1, col2, col3]}, "quantum-walls-y": {"col1": [row1, row2, row3]}
+                for a, bs in component_dict[quantum_walls_key].items():
+                    assert len(bs) > 0, "Unexpected empty list in quantum wall definitions"
+                    # Since we consider (0, 0) to be the center of the reactor's top-left cell, all quantum walls are on
+                    # the half-coordinate grid edges
+                    a = int(a) - 0.5  # Unstringify the json key and convert to reactor co-ordinates
+
+                    # Store consecutive quantum walls as one entity. This will reduce collision check operations
+                    bs.sort()
+                    b_min = b_max = bs[0]
+                    for b in bs:
+                        # If there was a break in the wall, store the last well and reset. Else extend the wall
+                        if b > b_max + 1:
+                            out_list.append((a, (b_min - 0.5, b_max + 0.5)))
+                            b_min = b_max = c
+                        else:
+                            b_max = b
+                    # Store the remaining wall
+                    out_list.append((a, (b_min - 0.5, b_max + 0.5)))
+
+        self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
+
+        # Store molecules as dict keys to be ordered (preserving Spacechem's hidden 'least recently modified' rule)
+        # and to have O(1) add/delete. Dict values are ignored.
         self.molecules = {}
 
-        # For convenience/performance, pre-compute a list of (bonder_A, bonder_B, direction) triplets, sorted in the
-        # order that bonds or debonds should occur in
-        self.bonder_pairs = tuple((posn, neighbor_posn, direction)
-                                  for posn in self.bonders
-                                  for neighbor_posn, direction in
-                                  sorted([(posn + direction, direction)
-                                          for direction in (Direction.RIGHT, Direction.DOWN)
-                                          if posn + direction in self.bonders],
-                                         key=lambda x: self.bonders[x[0]]))
+    def calculate_bond_pairs(self):
+        '''Pre-compute and store (bonder_A_posn, bonder_B_posn, dirn) triplets, sorted in priority order.'''
+        # TODO: SC respects the priority order that bond+ vs bond- vs regular bonders are defined in in the solution
+        #       string. We need to do the same here; currently regular bonders are always ending up higher priority
 
-    @classmethod
-    def from_export_str(cls, export_str, features_dict=None):
+        # Store the relevant types of bonders in a dict paired up with their indices for fast lookup/sorting (below)
+        bond_plus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_pluses)}
+        self.bond_plus_pairs = tuple((posn, neighbor_posn, direction)
+                                     for posn in bond_plus_bonders
+                                     for neighbor_posn, direction in
+                                     sorted([(posn + direction, direction)
+                                             for direction in (Direction.RIGHT, Direction.DOWN)
+                                             if posn + direction in bond_plus_bonders],
+                                            key=lambda x: bond_plus_bonders[x[0]]))
+
+        bond_minus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_minuses)}
+        self.bond_minus_pairs = tuple((posn, neighbor_posn, direction)
+                                      for posn in bond_minus_bonders
+                                      for neighbor_posn, direction in
+                                      sorted([(posn + direction, direction)
+                                              for direction in (Direction.RIGHT, Direction.DOWN)
+                                              if posn + direction in bond_minus_bonders],
+                                             key=lambda x: bond_minus_bonders[x[0]]))
+
+    def update_from_export_str(self, export_str):
         export_str = export_str.strip()  # Sanitize
 
-        output_pipes = [None, None]
-        # Level Features
-        # TODO: Now that we pre-compute bond firing orders in Reactor.__init__, just using a list here might be fine
-        #       performance-wise and saves on size/index-handling code
-        bonders = {}  # posn:idx dict for quick lookups
-        sensors = []  # posns
-        fusers = []
-        splitters = []
-        swappers = []
+        features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
+                    'bonder_pluses': [], 'bonder_minuses': []}
 
         # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
-        waldo_starts = NUM_WALDOS * [None]
+        waldo_starts = self.NUM_WALDOS * [None]
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
         # TODO: usage might be cleaner if separate arrow_maps and instr_maps... but probably more space
-        waldo_instr_maps = [{} for _ in range(NUM_WALDOS)]  # Can't use * or else dict gets multi-referenced
+        waldo_instr_maps = [{} for _ in range(self.NUM_WALDOS)]  # Can't use * or else dict gets multi-referenced
 
         feature_posns = set()  # for verifying features were not placed illegally
-        bonder_count = 0  # Track bonder priorities
 
-        # First line must be the COMPONENT line
+        # Break the component string up into its individual sections
         component_line, export_str = export_str.split('\n', maxsplit=1)
-        assert component_line.startswith('COMPONENT:'), "Reactor.from_export_str expects COMPONENT line included"
-        fields = component_line.split(',')
-        assert len(fields) == 4, f"Unrecognized component line format:\n{component_line}"
-
-        component_type = fields[0][len('COMPONENT:'):].strip("'")
-        if features_dict is None:
-            features_dict = REACTOR_TYPES[component_type]
-        component_posn = Position(int(fields[1]), int(fields[2]))
-
-        # TODO: Still don't know what the 4th field does...
-
-        # All members should appear before all pipes
-        members_str, pipes_str = export_str.strip().split('PIPE:', maxsplit=1)
+        members_str, pipes_str = export_str.strip().split('PIPE:', maxsplit=1)  # Members should appear before pipes
         pipes_str = 'PIPE:' + pipes_str  # Awkward
-
         # TODO: Check where Annotations can legally appear. Probably have to be after the pipes?
         annotations_str = ''  # Oof awkward boilerplate
         if 'ANNOTATION:' in pipes_str:
             pipes_str, annotations_str = pipes_str.split('ANNOTATION:', maxsplit=1)
             pipes_str = pipes_str.strip()  # Oooooof
-            annotations_str = 'ANNOTATION:' + annotations_str
+            annotations_str = 'ANNOTATION:' + annotations_str  # Not actually used but
+
+        # Validates COMPONENT line and updates pipes
+        super().update_from_export_str(component_line + '\n' + pipes_str)
 
         # Parse members
         for line in members_str.strip().split('\n'):
@@ -461,23 +690,26 @@ class Reactor(Component):
                     feature_posns.add(position2)
 
                 if member_name == 'feature-bonder':
-                    bonder_count += 1
-                    bonders[position] = bonder_count
+                    features['bonders'].append(position)
                 elif member_name == 'feature-sensor':
-                    sensors.append(position)
+                    features['sensors'].append(position)
                 elif member_name == 'feature-fuser':
-                    fusers.append(position)
+                    features['fusers'].append(position)
                 elif member_name == 'feature-splitter':
-                    splitters.append(position)
+                    features['splitters'].append(position)
                 elif member_name == 'feature-tunnel':
-                    swappers.append(position)
+                    features['swappers'].append(position)
+                elif member_name == 'feature-bonder-plus':
+                    features['bonder_pluses'].append(position)
+                elif member_name == 'feature-bonder-minus':
+                    features['bonder_minuses'].append(position)
                 else:
                     raise Exception(f"Unrecognized member type {member_name}")
 
                 continue
 
-            # Make sure this feature is legal (CE feature)
-            if 'disallowed-instructions' in features_dict and member_name in features_dict['disallowed-instructions']:
+            # Make sure this instruction is legal
+            if member_name in self.disallowed_instrs:
                 raise Exception(f"Disallowed instruction type: {repr(member_name)}")
 
             # Since this member is an instr and not a feature, prep a slot in the instr map
@@ -539,51 +771,24 @@ class Reactor(Component):
             else:
                 raise Exception(f"Unrecognized member type {member_name}")
 
-        waldos = [Waldo(idx=i,
-                        position=waldo_starts[i][0],
-                        direction=waldo_starts[i][1],
-                        instr_map=waldo_instr_maps[i])
-                  for i in range(len(waldo_starts))]
+        self.waldos = [Waldo(idx=i,
+                             position=waldo_starts[i][0],
+                             direction=waldo_starts[i][1],
+                             instr_map=waldo_instr_maps[i])
+                       for i in range(len(waldo_starts))]
 
-        # Parse pipes
-        # Pipe lines may be interleaved; sort them apart and construct the pipes
-        pipe_lines = pipes_str.split('\n')
-        assert all(s.startswith('PIPE:0,') or s.startswith('PIPE:1,') for s in pipe_lines), \
-            f"Unexpected line among component pipes: {pipe_lines}"
-        num_pipes = 1 if component_type == 'drag-assembly-reactor' else 2
-        # Note that Pipe.from_export_str implicitly checks that the constructed pipe is not empty
-        output_pipes = [Pipe.from_export_str('\n'.join(line for line in pipes_str.split('\n')
-                                                       if line.startswith(f'PIPE:{i},')))
-                        for i in range(num_pipes)]
-        # TODO: Verify that each pipe starts from the right relative posn
+        # Sanity-check and set features
+        for attr_name in features.keys():
+            assert len(features[attr_name]) == len(getattr(self, attr_name)), \
+                f"Expected {len(getattr(self, attr_name))} {attr_name} for {self.type} reactor but got {len(features[attr_name])}"
+            setattr(self, attr_name, features[attr_name])
 
-        # TODO: Parse annotations
-
-        # Verify all features are legal and placed
-        assert len(bonders) == features_dict['bonder-count']
-
-        for feature, container, default_count in (('sensor', sensors, 1),
-                                                  ('fuser', fusers, 1),
-                                                  ('splitter', splitters, 1),
-                                                  ('teleporter', swappers, 2)):
-            assert not container or features_dict[f'has-{feature}'], f"Illegal reactor feature {feature}"
-
-            # Regular vs Community Edition sanity checks
-            if f'{feature}-count' in features_dict:
-                assert len(container) == features_dict[f'{feature}-count']
-            elif features_dict[f'has-{feature}']:
-                assert len(container) == default_count
-
-        return Reactor(component_type=component_type, posn=component_posn,
-                       out_pipes=output_pipes, waldos=waldos,
-                       large_output=features_dict['has-large-output'],
-                       bonders=bonders, sensors=sensors, fusers=fusers, splitters=splitters, swappers=swappers)
+        self.calculate_bond_pairs()  # Re-precompute bond pairings based on the changes
 
     def export_str(self):
         '''Represent this reactor in solution export string format.'''
         export_str = f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''"
 
-        # Features
         # TODO: Make reactors more agnostic of feature types
         for posn in self.bonders:
             export_str += f"\nMEMBER:'feature-bonder',-1,0,1,{posn.col},{posn.row},0,0"
@@ -595,18 +800,18 @@ class Reactor(Component):
             export_str += f"\nMEMBER:'feature-splitter',-1,0,1,{posn.col},{posn.row},0,0"
         for posn in self.splitters:
             export_str += f"\nMEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0"
-        # TODO: the special assembly/disassembly bonders
+        for posn in self.bonder_pluses:
+            export_str += f"\nMEMBER:'feature-bonder-plus',-1,0,1,{posn.col},{posn.row},0,0"
+        for posn in self.bonder_minuses:
+            export_str += f"\nMEMBER:'feature-bonder-minus',-1,0,1,{posn.col},{posn.row},0,0"
 
-        # Instructions
-        export_str += ''.join('\n' + waldo.export_str() for waldo in self.waldos)
-
-        # Pipes
-        export_str += ''.join('\n' + pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
+        export_str += '\n' + '\n'.join(waldo.export_str() for waldo in self.waldos)
+        export_str += '\n' + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
 
         return export_str
 
     def __hash__(self):
-        '''Hash of the current reactor state. Ignores cycle/output counts.'''
+        '''Hash of the current reactor state.'''
         return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
                      tuple(self.waldos)))
 
@@ -672,13 +877,13 @@ class Reactor(Component):
                 raise ReactionError("Molecule pulled apart")
 
             # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
-            step_radians = math.pi / (2 * NUM_MOVE_CHECKS)
-            step_distance = 1 / NUM_MOVE_CHECKS
-            for i in range(NUM_MOVE_CHECKS):
+            step_radians = math.pi / (2 * self.NUM_MOVE_CHECKS)
+            step_distance = 1 / self.NUM_MOVE_CHECKS
+            for i in range(self.NUM_MOVE_CHECKS):
                 # Move all molecules currently being held by a waldo forward a step
                 for waldo in self.waldos:
                     if waldo.molecule is not None and not waldo.is_stalled:
-                        waldo.molecule.move_fine(waldo.direction, distance=step_distance)
+                        waldo.molecule.move(waldo.direction, distance=step_distance)
                     elif waldo.is_rotating:
                         waldo.molecule.rotate_fine(pivot_pos=waldo.position,
                                                    direction=waldo.cur_cmd().direction,
@@ -691,7 +896,7 @@ class Reactor(Component):
                 # Note: This only holds true for <= 2 waldos and since we checked that at least one waldo is rotating
                 for waldo in self.waldos:
                     if waldo.is_rotating:
-                        self.check_collisions_fine(waldo.molecule)
+                        self.check_collisions(waldo.molecule)
 
             # After completing all steps of the movement, convert moved molecules back to integer co-ordinates and do
             # any final checks/updates
@@ -699,7 +904,7 @@ class Reactor(Component):
                 if waldo.molecule is not None and not waldo.is_stalled:
                     waldo.molecule.round_posns()
                     # Do the final check we skipped for non-rotating molecules
-                    self.check_collisions(waldo.molecule)
+                    self.check_collisions_lazy(waldo.molecule)
                 elif waldo.is_rotating:
                     waldo.molecule.round_posns()
                     # Rotate atom bonds
@@ -728,17 +933,26 @@ class Reactor(Component):
                     other_waldo = self.waldos[1 - waldo.idx]
                     target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map)
                     if not target_posns.isdisjoint(other_waldo.molecule.atom_map):
-                        raise ReactionError("Molecule collision")
+                        raise ReactionError("Collision between molecules")
 
             # Move all molecules
             for waldo in self.waldos:
                 if waldo.molecule is not None and not waldo.is_stalled:
-                    waldo.molecule.move(waldo.direction)
+                    if ((self.quantum_walls_y and waldo.direction in (Direction.LEFT, Direction.RIGHT))
+                            or (self.quantum_walls_x and waldo_direction in (Direction.UP, Direction.DOWN))):
+                        # Move the molecule halfway, check for quantum wall collisions, then move the last half
+                        waldo.molecule.move(waldo.direction, distance=0.5)
+                        self.check_quantum_wall_collisions(waldo.molecule)
+                        waldo.molecule.move(waldo.direction, distance=0.5)
+                        waldo.molecule.round_posns()
+                    else:
+                        # If we aren't moving perpendicular to any quantum walls, just move the full distance
+                        waldo.molecule.move(waldo.direction)
 
             # Perform collision checks against the moved molecules
             for waldo in self.waldos:
                 if waldo.molecule is not None and not waldo.is_stalled:
-                    self.check_collisions(waldo.molecule)
+                    self.check_collisions_lazy(waldo.molecule)
 
         # Move waldos and mark them as no longer stalled. Note that is_rotated must be left alone to tell it not to
         # rotate twice
@@ -747,12 +961,12 @@ class Reactor(Component):
                 waldo.position += waldo.direction
             waldo.is_stalled = False
 
-    def check_molecule_collisions(self, molecule):
+    def check_molecule_collisions_lazy(self, molecule):
         '''Raise an exception if the given molecule collides with any other molecules.
         Assumes integer co-ordinates in all molecules.
         '''
         for other_molecule in self.molecules.keys():
-            molecule.check_collisions(other_molecule)  # Implicitly ignores self
+            molecule.check_collisions_lazy(other_molecule)  # Implicitly ignores self
 
     def check_wall_collisions(self, molecule):
         '''Raise an exception if the given molecule collides with any walls.'''
@@ -761,21 +975,44 @@ class Reactor(Component):
                    for p in molecule.atom_map):
             raise ReactionError("A molecule has collided with a wall")
 
-    def check_collisions(self, molecule):
+    def check_quantum_wall_collisions(self, molecule):
+        for r, (c1, c2) in self.quantum_walls_x:
+            for p in molecule.atom_map:
+                # If the atom's center (p) is in line with the wall, check its not too close to the wall segment
+                if c1 < p.col < c2:
+                    if abs(p.row - r) < ATOM_RADIUS:
+                        raise ReactionError("A molecule has collided with a quantum wall")
+                # If p is not in line with the wall, we just need to make sure it's not near the wall's endpoints
+                elif max((p.col - c1)**2, (p.col - c2)**2) + (p.row - r)**2 < ATOM_RADIUS**2:
+                    raise ReactionError("A molecule has collided with a quantum wall")
+
+        for c, (r1, r2) in self.quantum_walls_y:
+            for p in molecule.atom_map:
+                # If the atom's center (p) is in line with the wall, check its not too close to the wall segment
+                if r1 < p.row < r2:
+                    if abs(p.col - c) < ATOM_RADIUS:
+                        raise ReactionError("A molecule has collided with a quantum wall")
+                # If p is not in line with the wall, we just need to make sure it's not near the wall's endpoints
+                elif max((p.row - r1)**2, (p.row - r2)**2) + (p.col - c)**2 < ATOM_RADIUS**2:
+                    raise ReactionError("A molecule has collided with a quantum wall")
+
+    def check_collisions_lazy(self, molecule):
         '''Raise an exception if the given molecule collides with any other molecules or walls.
         Assumes integer co-ordinates in all molecules.
         '''
-        self.check_molecule_collisions(molecule)
+        self.check_molecule_collisions_lazy(molecule)
         self.check_wall_collisions(molecule)
+        # Quantum wall collision checks may be skipped since they should only lie on grid edges
 
-    def check_collisions_fine(self, molecule):
+    def check_collisions(self, molecule):
         '''Check that the given molecule isn't colliding with any walls or other molecules.
-        Raise an exception if it does.
+        Raise an exception if it is.
         '''
         for other_molecule in self.molecules:
-            molecule.check_collisions_fine(other_molecule)  # Implicitly ignores self
+            molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
         self.check_wall_collisions(molecule)
+        self.check_quantum_wall_collisions(molecule)
 
     def exec_instrs(self, waldo):
         if waldo.position not in waldo.instr_map:
@@ -836,7 +1073,8 @@ class Reactor(Component):
 
     def input(self, waldo, input_idx):
         # If there is no such pipe or it has no molecule available, stall the waldo
-        if (self.in_pipes[input_idx] is None
+        if (input_idx > len(self.in_pipes) - 1
+                or self.in_pipes[input_idx] is None
                 or self.in_pipes[input_idx][-1] is None):
             waldo.is_stalled = True
             return
@@ -845,20 +1083,26 @@ class Reactor(Component):
         new_molecule = self.in_pipes[input_idx][-1]
         self.in_pipes[input_idx][-1] = None
 
-        # Update the molecule's co-ordinates to those of the correct zone if it came from an opposite output zone
         sample_posn = next(iter(new_molecule.atom_map))
+        # If the molecule came from a previous reactor, shift its columns from output to input co-ordinates
+        # We don't do this immediately on output to save a little work when the molecule is going to an output component
+        # anyway (since output checks are agnostic of absolute co-ordinates)
+        if sample_posn.col >= 6:
+            new_molecule.move(Direction.LEFT, 6)
+        # Update the molecule's co-ordinates to those of the correct zone if it came from an opposite output zone
         if input_idx == 0 and sample_posn.row >= 4:
-            new_molecule.move_fine(Direction.UP, 4)
+            new_molecule.move(Direction.UP, 4)
         elif input_idx == 1 and sample_posn.row < 4:
-            new_molecule.move_fine(Direction.DOWN, 4)
+            new_molecule.move(Direction.DOWN, 4)
 
         self.molecules[new_molecule] = None  # Dummy value
 
-        self.check_molecule_collisions(new_molecule)
+        self.check_molecule_collisions_lazy(new_molecule)
 
     def output(self, waldo, output_idx):
         # If the there is no such output pipe (e.g. assembly reactor, large output research), do nothing
-        if self.out_pipes[output_idx] is None:
+        if (output_idx > len(self.out_pipes) - 1
+                or self.out_pipes[output_idx] is None):
             return
 
         # TODO: It'd be nice to only have to calculate this for molecules that have been
@@ -904,7 +1148,7 @@ class Reactor(Component):
         waldo.molecule = None  # Remove the reference to the molecule
 
     def bond_plus(self):
-        for position, neighbor_posn, direction in self.bonder_pairs:
+        for position, neighbor_posn, direction in self.bond_plus_pairs:
             # Identify the molecule on each bonder (may be same, doesn't matter for now)
             molecule_A = self.get_molecule(position)
             if molecule_A is None:
@@ -959,7 +1203,7 @@ class Reactor(Component):
                 self.molecules[molecules[1]] = None  # dummy value
 
     def bond_minus(self):
-        for position, neighbor_posn, direction in self.bonder_pairs:
+        for position, neighbor_posn, direction in self.bond_minus_pairs:
             molecule = self.get_molecule(position)
 
             # Skip if there isn't a molecule with a bond over this pair
@@ -1101,7 +1345,7 @@ class Reactor(Component):
 
             # Lastly create the new molecule (and check for collisions in its cell)
             new_molecule = Molecule(atom_map={splitter_posn + Direction.RIGHT: Atom(element=elements_dict[new_atomic_num])})
-            self.check_molecule_collisions(new_molecule)
+            self.check_molecule_collisions_lazy(new_molecule)
             self.molecules[new_molecule] = None  # Dummy value
 
     def swap(self):

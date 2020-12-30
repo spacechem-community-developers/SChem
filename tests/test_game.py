@@ -87,7 +87,7 @@ class TestGame(unittest.TestCase):
                     metrics_str += f" | Mem usage: {mem_usage} B ({percent_diff_str(LAST_TEST_RESULTS[test_id]['mem_usage'], mem_usage)})"
                     metrics_str += f" | {test_id}"
                 else:
-                    metrics_str = f"    {min_time:.4f}s (b. of {loops}) (NEW) | Mem usage: {mem_usage} B (NEW)"
+                    metrics_str = f"{min_time:.4f}s (b. of {loops}) (NEW) | Mem usage: {mem_usage} B (NEW) | {test_id}"
                 print(metrics_str)
 
                 LAST_TEST_RESULTS[test_id] = {'loops': loops,
@@ -113,7 +113,7 @@ class TestGame(unittest.TestCase):
                     solution.run()
 
     def test_runtime_collisions(self):
-        '''Tests for solutions that should encounter molecule collision errors when run.'''
+        '''Tests for solutions that should encounter errors when run.'''
         for level_code, solution_code in iter_test_data(test_data.runtime_collisions):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)

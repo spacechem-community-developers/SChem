@@ -60,7 +60,13 @@ class Position(namedtuple("Position", ('col', 'row'))):
         else:
             return Position(self.col + other[0], self.row + other[1])
 
-    def move(self, direction, distance):
+    def __sub__(self, other):
+        return Position(self.col - other[0], self.row - other[1])
+
+    def __abs__(self):
+        return Position(abs(self[0]), abs(self[1]))
+
+    def move(self, direction, distance=1):
         c_delta, r_delta = self.dirn_to_delta[direction]
         return Position(self.col + distance * c_delta, self.row + distance * r_delta)
 

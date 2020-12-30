@@ -87,14 +87,13 @@ class Molecule:
 
     @classmethod
     def from_json_string(cls, json_string):
-        parts = json_string.split(';')
-        name = parts[0]
+        name, _, *atom_strs = json_string.split(';') # The second field is the atomic formula which we can ignore
         atom_map = {}
-        # The second field is the atomic formula which we can ignore (TODO: do something with it)
-        for atom_str in parts[2:]:
+        for atom_str in atom_strs:
+            assert len(atom_str) >= 5, "Invalid atom string in level json"
             # formatted as: {col}{row}{atomic_num}{right_bonds}{down_bonds}
             # Note that atomic_num is variable length (1-3 chars) so we use negative indices for values after it
-            position = Position(int(atom_str[0]), int(atom_str[1]))
+            position = Position(col=int(atom_str[0]), row=int(atom_str[1]))
             atom = Atom(elements_dict[int(atom_str[2:-2])])
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
@@ -103,15 +102,14 @@ class Molecule:
             if down_bonds != 0:
                 atom.bonds[Direction.DOWN] = down_bonds
 
-            # Update other existing atoms
+            # Add up/left bonds; this doubles information but makes working with atoms less complex/asymmetrical
             for dir in Direction.RIGHT, Direction.DOWN:
-                # Check if any existing atoms above and to our left have right/down bonds for us
+                # Add up/left bonds to this atom based on the down/right bonds of its neighbors
                 neighbor_posn = position + dir.opposite()
                 if neighbor_posn in atom_map and dir in atom_map[neighbor_posn].bonds:
                     atom.bonds[dir.opposite()] = atom_map[neighbor_posn].bonds[dir]
 
-                # Check if any existing atoms need our right/down bonds
-                # This doubles information but makes working with atoms less complex/asymmetrical
+                # Add up/left bonds to atoms down/right of this atom
                 neighbor_posn = position + dir
                 if neighbor_posn in atom_map and dir in atom.bonds:
                     atom_map[neighbor_posn].bonds[dir.opposite()] = atom.bonds[dir]
@@ -159,11 +157,7 @@ class Molecule:
             result += ';' + f'{pos.col}{pos.row}' + atom.get_json_str()
         return result
 
-    def move(self, direction):
-        self.atom_map = {posn + direction: atom for posn, atom in self.atom_map.items()}
-        return self
-
-    def move_fine(self, direction, distance):
+    def move(self, direction, distance=1):
         self.atom_map = {posn.move(direction, distance=distance): atom for posn, atom in self.atom_map.items()}
         return self
 
@@ -190,7 +184,7 @@ class Molecule:
         self.atom_map = {posn.round(): atom for posn, atom in self.atom_map.items()}
         return self
 
-    def check_collisions(self, other):
+    def check_collisions_lazy(self, other):
         '''Check for collisions with another molecule, assuming integer co-ordinates in both molecules.
         Do nothing if checked against itself.
         '''
@@ -199,8 +193,8 @@ class Molecule:
                 if posn in other:
                     raise ReactionError("Collision between molecules.")
 
-    def check_collisions_fine(self, other):
-        '''Check for collisions with another molecule while accounting for fine positions.
+    def check_collisions(self, other):
+        '''Check for collisions with another molecule while accounting for potential decimal positions.
         Do nothing if checked against itself.
         '''
         if other is not self:

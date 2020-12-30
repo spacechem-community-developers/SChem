@@ -22,7 +22,7 @@ OVERWORLD_COLS = 32
 # * lists of where inputs, outputs, and other overworld buildings will be spawned if present
 
 
-# itertools.product used to somewhat more compactly specify the co-ordinates in every obstacle
+# itertools.product used to somewhat more compactly specify the co-ordinates in obstacles
 TERRAIN_MAPS = {
     'research':
         {'obstructed': {},
@@ -45,6 +45,8 @@ TERRAIN_MAPS = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('recycler', (24, 17))},
+    # TODO: All of these...
+    4: {'obstructed': {}},
     "An Introduction to Pipelines": {
         'obstructed': {
             # Middle rock
@@ -76,6 +78,12 @@ TERRAIN_MAPS = {
         'fixed-input-zones': (('drag-silo-input', (6, 8)),
                               ('drag-silo-input', (7, 16))),
         'output-zones': (('output', (23, 6)),)},
+    "Settling into the Routine": {
+        'obstructed': {},
+        'fixed-input-zones': (('drag-oceanic-input', (8, 3)),),
+        'output-zones': (('output', (23, 12)),
+                         ('output', (23, 18))),
+    },
     "Challenge: Going Green": {
         'obstructed': {
             # Middle trees
@@ -98,8 +106,7 @@ class Level:
     is appropriate.
     '''
     export_line_len = 74
-    __slots__ = ('dict', 'input_molecules', 'output_molecules', 'output_counts', 'input_random_generators',
-                 'input_random_buckets')
+    __slots__ = 'dict',
 
     def __new__(cls, code):
         '''Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code.'''
@@ -141,7 +148,7 @@ class Level:
         with gzip.GzipFile(fileobj=out, mode="w") as f:
             f.write(json.dumps(self.dict).encode('utf-8'))
         code = base64.b64encode(out.getvalue()).decode()
-        # Split the export code across lines for readability
+        # Line-wrap the export code for readability
         return '\n'.join(code[i:i+self.export_line_len] for i in range(0, len(code), self.export_line_len))
 
     @property
@@ -179,33 +186,14 @@ class ResearchLevel(Level):
 
         assert self['type'].startswith('research')
 
-        self.input_molecules = {}
-        self.input_random_generators = {}
-        self.input_random_buckets = {}
-        for i, input_zone_dict in self['input-zones'].items():
-            i = int(i)
-
-            if len(input_zone_dict['inputs']) > 1:
-                # Create a random generator for this zone (note that all zones use the same seed and thus sequence)
-                self.input_random_generators[i] = SpacechemRandom()
-                self.input_random_buckets[i] = []  # Bucket of indices for the molecules in the current balancing bucket
-
-            # Construct one of each molecule from the input JSON
-            # Input molecules have relative indices to within their zones, so let the ctor know if this is a beta input
-            # zone molecule (will be initialized 4 rows downward)
-            self.input_molecules[i] = [Molecule.from_json_string(input_dict['molecule'])
-                                       for input_dict in input_zone_dict['inputs']]
-
-        self.output_molecules = {}
-        self.output_counts = {}
-
-        for i, output_dict in self['output-zones'].items():
-            i = int(i)
-            self.output_molecules[i] = Molecule.from_json_string(output_dict['molecule'])
-            self.output_counts[i] = output_dict['count']
 
     def get_bonder_count(self):
         return self.dict['bonder-count']
+
+    def output_molecules(self):
+        '''Return a list of Molecule objects demanded by this level.'''
+        return [Molecule.from_json_string(output_dict['molecule'])
+                for _, output_dict in sorted(self['output-zones'].items())]
 
 
 class ProductionLevel(Level):
@@ -232,4 +220,4 @@ class ProductionLevel(Level):
             self['has-nuclear'] = False
             self['has-recycler'] = False
 
-        assert self['type'] == 'production'
+        assert self['type'].startswith('production')
