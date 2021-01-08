@@ -10,7 +10,6 @@ from spacechem import levels
 from spacechem.solution import Solution
 from spacechem.tests import test_data
 from spacechem.components import *
-from spacechem.reactor import *
 
 
 def main():

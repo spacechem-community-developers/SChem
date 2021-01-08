@@ -6,11 +6,10 @@ import copy
 from itertools import product
 import time
 
-from spacechem.components import COMPONENT_SHAPES, Pipe, Input, Output, Recycler, StorageTank
+from spacechem.components import COMPONENT_SHAPES, Pipe, Input, Output, Reactor, Recycler, StorageTank
 from spacechem.exceptions import RunSuccess
 from spacechem.grid import Direction, Position
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS, TERRAIN_MAPS
-from spacechem.reactor import Reactor
 
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
