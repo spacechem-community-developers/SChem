@@ -380,11 +380,15 @@ class Solution:
         # Display each component with #'s
         for component in self.components:
             # Visual bounds set since components are allowed to hang outside the play area (e.g. in Going Green)
-            for posn in product(range(max(0, component.posn.col), min(OVERWORLD_COLS,
+            for c, r in product(range(max(0, component.posn.col), min(OVERWORLD_COLS,
                                                                       component.posn.col + component.dimensions[0])),
                                 range(max(0, component.posn.row), min(OVERWORLD_ROWS,
                                                                       component.posn.row + component.dimensions[1]))):
-                grid[posn[1]][posn[0]] = '#'  # row, col
+                grid[r][c] = '#'
+            if isinstance(component, Output):
+                # Display the output count in the component. All output are 2x3 so we should have room
+                for i, s in enumerate(reversed(str(component.current_count))):
+                    grid[component.posn.row + 1][component.posn.col + 1 - i] = s
 
             # Display each pipe with -, \, /, +, |, or a . for tiles containing a molecule
             for pipe in component.out_pipes:

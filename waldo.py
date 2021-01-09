@@ -117,7 +117,8 @@ class Waldo:
                      tuple(self.flipflop_states.values())))
 
     def __repr__(self):
-        return f'Waldo({self.idx}, pos={self.position}, dir={self.direction}, is_stalled={self.is_stalled})'
+        return (f'Waldo({self.idx}, pos={self.position}, dir={self.direction}, is_stalled={self.is_stalled}'
+                + f', instr_map={self.instr_map})')
 
     def __len__(self):
         return sum(1 for cell_instrs in self.instr_map.values()
