@@ -154,13 +154,21 @@ class Solution:
                     output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
                     output_dict['count'] *= 4  # Zach pls
 
-                component_type, component_posn = TERRAIN_MAPS[terrain_id]['output-zones'][i]
+                component_type, component_posn = TERRAIN_MAPS[terrain_id][output_zone_type][i]
                 posn_to_component[component_posn] = Output(output_dict=output_dict,
                                                            _type=component_type, posn=component_posn)
         else:
             for output_dict in self.level[output_zone_type]:
                 new_component = Output(output_dict=output_dict)
                 posn_to_component[new_component.posn] = new_component
+
+        # Add disabled output components for the unused outputs of research levels (crash if given a molecule)
+        if self.level['type'].startswith('research') and not ('has-large-output' in self.level
+                                                              and self.level['has-large-output']):
+            for i in range(2):
+                if i not in set(int(x) for x in self.level[output_zone_type]):
+                    _, component_posn = TERRAIN_MAPS[terrain_id][output_zone_type][i]
+                    posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
 
         # Preset reactors
         if self.level['type'].startswith('research'):

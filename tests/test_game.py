@@ -118,7 +118,7 @@ class TestGame(unittest.TestCase):
             level = spacechem.level.Level(level_code)
             solution = spacechem.solution.Solution(level, solution_code)
             with self.subTest(msg=f'{level.name} - {solution.name}'):
-                with self.assertRaises(spacechem.exceptions.ReactionError):
+                with self.assertRaises(Exception):
                     solution.run()
 
     def test_import_errors(self):

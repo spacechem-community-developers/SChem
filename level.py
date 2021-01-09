@@ -28,6 +28,8 @@ TERRAIN_MAPS = {
         {'obstructed': {},
          'input-zones': (('research-input', (0, 1)),  # hacks hacks hacks
                          ('research-input', (0, 2))),
+         # TODO: These are actually each 1 row lower, we're only doing it this way because the pipe-connecting
+         #       code is currently making a bad assumption about component shapes that doesn't play nice with 1x1's
          'output-zones': (('research-output', (7, 0)),
                           ('research-output', (7, 1)),)},  # :thonk:
     0: {'obstructed': {

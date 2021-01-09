@@ -2141,6 +2141,24 @@ MEMBER:'instr-arrow',0,0,64,3,3,0,0
 MEMBER:'instr-arrow',180,0,64,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    # Solution which completes successfully unless the disabled output correctly causes a crash
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,disabled output crash
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,0,3,0,0
+MEMBER:'instr-start',90,0,32,1,0,0,0
+MEMBER:'instr-input',-1,0,128,0,1,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,0,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,1,0,0
+MEMBER:'instr-output',-1,0,128,5,1,0,0
+MEMBER:'instr-grab',-1,1,32,1,1,0,0
+MEMBER:'instr-arrow',0,0,16,1,4,0,0
+MEMBER:'instr-grab',-1,2,32,6,4,0,0
+MEMBER:'instr-input',-1,0,128,0,2,0,0
+MEMBER:'instr-output',-1,1,32,7,4,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
     # Solution where blue causes a crash after red does the 10th output. Intended to crash in v1013+
     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,last_cycle_crash
 COMPONENT:'empty-research-reactor',2,0,''

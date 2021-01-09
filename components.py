@@ -17,13 +17,14 @@ from spacechem.waldo import Waldo, Instruction, InstructionType
 # Dimensions of component types
 COMPONENT_SHAPES = {
     # SpaceChem stores co-ordinates as col, row
+    'research-input': (1, 1),   # Hacky way to make sure research levels don't have colliding output components
+    'research-output': (1, 1),  # ditto
+    'disabled-output': (1, 1),  # ditto
     'reactor': (4, 4),
     'output': (2, 3),  # All production level outputs appear to be 2x3
     'recycler': (5, 5),
     'drag-storage-tank': (3, 3),
     'freeform-counter': (2, 3),
-    'research-output': (1, 1),  # Hacky way to make sure research levels don't have colliding output components
-    'research-input': (1, 1),   # ditto
     'drag-arbitrary-input': (2, 3),
     'drag-silo-input': (5, 5),
     'drag-atmospheric-input': (2, 2),
@@ -159,7 +160,7 @@ class Component:
             raise ValueError(f"Dimensions of component {self.type} are unknown")
 
         pipe_start_posn = Position(col=self.dimensions[0], row=(self.dimensions[1] - 1) // 2)
-        if 'output-pipes' in component_dict:
+        if component_dict is not None and 'output-pipes' in component_dict:
             assert len(component_dict['output-pipes']) == num_out_pipes, f"Unexpected number of output pipes for {self.type}"
             for pipe_dirns_str in component_dict['output-pipes']:
                 self.out_pipes.append(Pipe.from_preset_string(pipe_start_posn, pipe_dirns_str))
