@@ -2280,4 +2280,15 @@ PIPE:0,6,3
 PIPE:0,6,4
 PIPE:0,6,5
 ''',
+    '''SOLUTION:Settling into the Routine,Zig,1613-3-26,illegal flip-flop
+COMPONENT:'drag-disassembly-reactor',12,2,''
+MEMBER:'instr-start',-90,0,128,2,3,0,0
+MEMBER:'instr-start',180,0,32,1,6,0,0
+MEMBER:'instr-toggle',0,0,64,0,0,0,0
+MEMBER:'feature-bonder-minus',-1,0,1,8,1,0,0
+MEMBER:'feature-bonder-minus',-1,0,1,9,1,0,0
+MEMBER:'feature-bonder-minus',-1,0,1,8,7,0,0
+MEMBER:'feature-bonder-minus',-1,0,1,9,6,0,0
+PIPE:0,4,1
+PIPE:1,4,2'''
 ]

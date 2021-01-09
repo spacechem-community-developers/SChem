@@ -178,7 +178,7 @@ class Solution:
                 component_type, component_posn = TERRAIN_MAPS[terrain_id]['recycler']
                 posn_to_component[component_posn] = Recycler(_type=component_type, posn=component_posn)
 
-            # Community Edition presettable components
+            # Preset components
             for component_list_key in ('pass-through-counters', 'components-with-output', 'other-components'):
                 if component_list_key in self.level:
                     for component_dict in self.level[component_list_key]:
@@ -187,6 +187,10 @@ class Solution:
                             i = int(component_dict['type'].split('-')[-1]) - 1
                             # TODO: Use py3.9's dict union operator
                             component_dict = {**self.level['custom-reactors'][i], **component_dict}
+
+                        # As a convenience, propagate top-level "disallowed-instructions" into each component if defined
+                        if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
+                            component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
 
                         new_component = Component(component_dict)
                         posn_to_component[new_component.posn] = Component(component_dict)
@@ -214,13 +218,19 @@ class Solution:
                                 and component_type in self.level['allowed-reactor-types'])), \
                         f"Cannot create new component of type {component_type} at {component_posn}"
 
+                    component_dict = {}
                     if component_type.startswith('freeform-custom-reactor-'):
                         # Add custom reactor attributes if needed
                         i = int(component_type.split('-')[-1]) - 1
-                        posn_to_component[component_posn] = Component(self.level['custom-reactors'][i],
-                                                                      _type=component_type, posn=component_posn)
-                    else:
-                        posn_to_component[component_posn] = Component(_type=component_type, posn=component_posn)
+                        component_dict = self.level['custom-reactors'][i]
+
+                    # As a convenience for defining early game levels without needing custom reactors, propagate
+                    # any top-level "disallowed-instructions" value from the level into each reactor
+                    if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
+                        component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
+
+                    posn_to_component[component_posn] = Component(component_dict,
+                                                                  _type=component_type, posn=component_posn)
 
                 # Update the existing component (e.g. its pipes or reactor internals)
                 posn_to_component[component_posn].update_from_export_str(component_str)
