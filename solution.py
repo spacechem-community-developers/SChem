@@ -112,6 +112,9 @@ class Solution:
             raise ValueError(f"Unknown level type {self.level['type']}")
 
         for input_zone_type in input_zone_types:
+            if input_zone_type not in self.level:
+                continue
+
             if isinstance(self.level[input_zone_type], dict):
                 for i, input_dict in self.level[input_zone_type].items():
                     i = int(i)
