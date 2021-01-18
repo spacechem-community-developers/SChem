@@ -9,7 +9,8 @@ import time
 from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
 from spacechem.exceptions import RunSuccess
 from spacechem.grid import Direction, Position
-from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS, TERRAIN_MAPS
+from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS
+from spacechem.terrains import terrains
 
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
@@ -88,7 +89,7 @@ class Solution:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
             terrain_id = level['name'] if ('terrain' not in level
-                                           and level['name'] in TERRAIN_MAPS) else level['terrain']
+                                           and level['name'] in terrains) else level['terrain']
         else:
             terrain_id = 'research'  # BIG HACKS
 
@@ -133,7 +134,7 @@ class Solution:
                         continue
 
                     # Fetch the component type and posn from the terrain's presets based on this input's index
-                    component_type, component_posn = TERRAIN_MAPS[terrain_id][input_zone_type][i]
+                    component_type, component_posn = terrains[terrain_id][input_zone_type][i]
 
                     posn_to_component[component_posn] = Input(input_dict=input_dict,
                                                               _type=component_type, posn=component_posn,
@@ -157,7 +158,7 @@ class Solution:
                     output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
                     output_dict['count'] *= 4  # Zach pls
 
-                component_type, component_posn = TERRAIN_MAPS[terrain_id][output_zone_type][i]
+                component_type, component_posn = terrains[terrain_id][output_zone_type][i]
                 posn_to_component[component_posn] = Output(output_dict=output_dict,
                                                            _type=component_type, posn=component_posn)
         else:
@@ -170,7 +171,7 @@ class Solution:
                                                               and self.level['has-large-output']):
             for i in range(2):
                 if i not in set(int(x) for x in self.level[output_zone_type]):
-                    _, component_posn = TERRAIN_MAPS[terrain_id][output_zone_type][i]
+                    _, component_posn = terrains[terrain_id][output_zone_type][i]
                     posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
 
         # Preset reactors
@@ -186,7 +187,7 @@ class Solution:
         else:
             # Recycler
             if 'has-recycler' in self.level and self.level['has-recycler']:
-                component_type, component_posn = TERRAIN_MAPS[terrain_id]['recycler']
+                component_type, component_posn = terrains[terrain_id]['recycler']
                 posn_to_component[component_posn] = Recycler(_type=component_type, posn=component_posn)
 
             # Preset components
@@ -254,7 +255,7 @@ class Solution:
 
         # Add impassable terrain
         if not self.level['type'].startswith('research'):
-            blocked_posns.update(TERRAIN_MAPS[terrain_id]['obstructed'])
+            blocked_posns.update(terrains[terrain_id]['obstructed'])
 
         # Check for component/pipe collisions
         for component in posn_to_component.values():
