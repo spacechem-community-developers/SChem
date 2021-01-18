@@ -13,7 +13,8 @@ class Element(namedtuple("Element", ('atomic_num', 'symbol', 'max_bonds'))):
     __repr__ = __str__
 
 
-elements = [Element(1, 'H', 1),
+elements = [Element(0, '?', 12),
+            Element(1, 'H', 1),
             Element(2, 'He', 0),
             Element(3, 'Li', 1),
             Element(4, 'Be', 2),
@@ -127,48 +128,30 @@ elements = [Element(1, 'H', 1),
             Element(200, 'Θ', 12),
             Element(201, 'Ω', 12),
             Element(202, 'Σ', 12),
-            Element(203, 'Δ', 12),
-
-            # Australium
-            # Not included because it has the same properties as gold and will cause problems
-            #Element(-79, '<Insert kangaroo>', 5),
-
-            # Element ?
-            Element(0, '?', 12)
-            ]
+            Element(203, 'Δ', 12)]
 
 
-# A Class for O(1) lookup of elements via either their atomic number or their symbol
-# It's only used for handling user-input for now, but it'll come in much more handy later with
-# fission/fusion
-class ElementDict:
-    '''A set of Elements, with O(1) atomic # or symbol lookup.'''
+class ElementDict(dict):
+    '''Class for looking up elements by atomic number, augmented internally to allow lookup by atomic symbol too.'''
+    __slots__ = 'symbol_dict',
+
     def __init__(self, elements):
-        self.atomic_num_element_dict = {}
-        self.symbol_element_dict = {}
+        self.symbol_dict = {}
         for element in elements:
-            self.atomic_num_element_dict[element.atomic_num] = element
-            self.symbol_element_dict[element.symbol] = element
+            self[element.atomic_num] = self.symbol_dict[element.symbol] = element
 
     def __contains__(self, key):
-        return key in self.atomic_num_element_dict or key in self.symbol_element_dict
+        return super().__contains__(key) or key in self.symbol_dict
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            return self.atomic_num_element_dict[key]
+            return super().__getitem__(key)
         elif isinstance(key, str):
-            return self.symbol_element_dict[key]
+            return self.symbol_dict[key]
         else:
             raise TypeError(f"Elements must be looked up by atomic # or symbol; received {key}")
 
-    def __len__(self):
-        return len(self.atomic_num_element_dict.values())
-
-    def __iter__(self):
-        return iter(self.atomic_num_element_dict.values())
-
-    def __str__(self):
-        return f"[{', '.join(str(e) for e in self)}]"
-
 
 elements_dict = ElementDict(elements)
+# Australium is stored as element 204 but has the same properties as gold; add it separately to avoid overriding it
+elements_dict[204] = elements_dict.symbol_dict['Av'] = Element(79, 'Av', 5)  # 🦘

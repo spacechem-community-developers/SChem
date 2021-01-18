@@ -222,10 +222,19 @@ S/otkWtLwCcJS4Tm8Vmn+5w3iReJwtUVQm3DgIGQARCQ8VcxIDBZT2IqBF7sRaaiWBRocSEFRC
 YKgA99oLSx/3aS1n90Y2g8D6VFkpM0qf1ZXLE5FrZ179p37kOz26mfb13BAzNhAQAA''',
     # TODO "Ω-Pseudoethyne": '''''',
     # TODO "Σ-Ethylene": '''''',
-    # TODO: Moustachium
-    #"Moustachium 602": '''''',
-    #"Moustachium 604": '''''',
-    #"Moustachium 608": '''''',
+    # Moustachium
+    "Moustachium 602": '''H4sIAJKwBWAA/6XPSwrCMBAG4KvIrBtIQnHRrnoATyAuYhraQJopeSha6tmdFBdC3bn5YR58zC
+xg/ZwTe6I3EZoFeImtR+V5gQmd0dkZaKDLMQXlbJ7a7tYKIXnNOVSgMfsEjZDrZa1A/AeQgDnt
+T/piTkiO0iM5hyOXZL0oN07yVu5YXtAr+t4E9unVFaTHXLBgolFBj7Tv1fSDp0Fvo3IO76Zn1t
+MLWSeLvrwHW80SDgOddlnfKsLGPk8BAAA=''',
+    "Moustachium 604": '''H4sIAKawBWAA/6WPwQ6CMAyGX8X0zJINiQc48QA+geEwxwJLxkrGplGCz26HHEzw5qXN3zbf33
+8G48YY2BOdnqCcgaeyzkheZhjQahWthhLqOAUvrYlDVd8qIXJecA4ZKIwuQCnypVkyEP8BiIAx
+7F/6wpyROFL1xDmceEGsF1WecDn/YKnnWz/ubHgyuaJrtWfbrMggPMYE93rS0que7p0cftjRoj
+WTtBbvumXGUaSogkGX4sKqWcCuo1eb5Q2JDNyoXwEAAA==''',
+    "Moustachium 608": '''H4sIAH+wBWAA/6WQwWrDMAyGX2XonICsljLiUx5gT1B6cB3TGByrJPZGG9JnrxxyGO1uu0h8sv
+n8yzP4eM2pvnN0EzQzYCnrTPA4w8DB2RwcNNDmKY0m+Dzo9lsrRbhHhAos55igUbSclgrU/wRi
+4JzeI/3SfLF4jO3F83HAT3E9pGLREW1apWllpXcrk0YqjFptnba+o9cYWEKcOXZurLfZvoJ0u5
+bHRzc5M9pe7kcz/BFHDjo/mRD4x3W1j7JytslzLN8BK9eJLxdZ5bQ8AY2rd/h/AQAA''',
     # 63 Corvi
     "QT-1": '''H4sIAKHS+l8C/42Qy2oEIRBFf0VcW6CdTAKZH5htILvQC7GLGcFHj5YMnab/PaUQQnbZFNRRzr
 26S5/WRvCVE1b5Jnapxxy0g89dxhzQtYC8yQsG3+L5gmdjJq2lEtLllojPzHTMx8EgN/qrNGP+

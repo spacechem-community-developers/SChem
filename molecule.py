@@ -33,7 +33,7 @@ class Atom:
 
     def get_json_str(self):
         '''Return a string representing this atom in the level json's format.'''
-        return (f'{self.element.atomic_num}'
+        return (f'{self.element.atomic_num if self.element.symbol != "Av" else 204}'  # Necessary hack I think
                 f'{0 if Direction.RIGHT not in self.bonds else self.bonds[Direction.RIGHT]}'
                 f'{0 if Direction.DOWN not in self.bonds else self.bonds[Direction.DOWN]}')
 
