@@ -202,4 +202,6 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('drag-recyler', (26, 17))},
+    "Ω-Pseudoethyne": {'obstructed': {}},
+    "Σ-Ethylene": {'obstructed': {}},
 }

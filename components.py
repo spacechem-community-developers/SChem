@@ -30,7 +30,8 @@ COMPONENT_SHAPES = {
     'drag-atmospheric-input': (2, 2),
     'drag-oceanic-input': (2, 2),
     'drag-powerplant-input': (14, 15),
-    'drag-mining-input': (3, 2)}
+    'drag-mining-input': (3, 2),
+    'drag-ancient-input': (2, 2)}
 
 # Production level codes don't specify available reactor properties like research levels; encode them here
 REACTOR_TYPES = {

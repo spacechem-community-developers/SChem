@@ -228,7 +228,7 @@ class Solution:
                             # Misleadingly, allowed-reactor-types includes storage tanks
                             or ('allowed-reactor-types' in self.level
                                 and component_type in self.level['allowed-reactor-types'])), \
-                        f"Cannot create new component of type {component_type} at {component_posn}"
+                        f"New component type {component_type} (at {component_posn}) is not legal in this level"
 
                     component_dict = {}
                     if component_type.startswith('freeform-custom-reactor-'):
