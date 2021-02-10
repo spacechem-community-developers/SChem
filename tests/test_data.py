@@ -2219,7 +2219,7 @@ MEMBER:'instr-output',-1,1,32,2,2,0,0
 MEMBER:'instr-output',-1,1,128,2,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Ω-Pseudoethyne,Zig,1258-2-144,Cycles
+    '''SOLUTION:Ω-Pseudoethyne,Zig,1258-2-144,Ignorable pipe modifications
 COMPONENT:'drag-advanced-reactor',11,7,''
 MEMBER:'instr-start',-90,0,128,0,4,0,0
 MEMBER:'instr-start',-90,0,32,0,6,0,0
@@ -2360,6 +2360,8 @@ PIPE:1,4,2
 PIPE:0,5,1
 PIPE:0,5,0
 PIPE:0,6,0
+PIPE:1,4,3
+PIPE:1,3,3
 ANNOTATION:0,1,-200,218,'1,2:0,6;1,1:0,201;1,3:0,1;2,1:0,1;0,1:0,1;1,0:0,1;\n0,1,1:1;1,0,0:1;1,2,0:1;1,1,1:1;1,1,0:3;\r0,3:0,6;1,1:0,6;0,1:0,201;0,2:0,201;\n0,1,1:2;0,2,0:1;0,1,0:1;\r1,2:0,201;0,0:0,6;0,1:0,201;1,1:0,6;\n0,0,0:2;1,1,0:2;0,1,1:2;\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 COMPONENT:'drag-advanced-reactor',18,5,''
@@ -2404,15 +2406,11 @@ PIPE:0,-2,-1
 PIPE:0,-2,0
 PIPE:0,-2,1
 PIPE:0,-1,1
-PIPE:1,5,2
-PIPE:1,5,3
-PIPE:1,5,4
-PIPE:1,5,5
+PIPE:1,4,3
+PIPE:1,4,4
 PIPE:1,4,5
-PIPE:1,3,5
-PIPE:1,3,6
-PIPE:1,3,7
-PIPE:1,3,8
+PIPE:1,4,6
+PIPE:1,4,7
 PIPE:1,4,8''',
     '''SOLUTION:Σ-Ethylene,Zig,2028-2-102,Cycles
 COMPONENT:'drag-fusion-reactor',12,10,''

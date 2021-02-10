@@ -245,7 +245,11 @@ class Solution:
                                                                   _type=component_type, posn=component_posn)
 
                 # Update the existing component (e.g. its pipes or reactor internals)
-                posn_to_component[component_posn].update_from_export_str(component_str)
+                # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
+                # mutating a preset reactor's 1-long pipe whereas custom levels allow it.
+                # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
+                update_pipes = 'mutable-pipes' not in self.level or self.level['mutable-pipes']
+                posn_to_component[component_posn].update_from_export_str(component_str, update_pipes=update_pipes)
 
         # Now that we're done updating components, check that all components/pipes are validly placed
         # TODO: Should probably just be a method validating self.components, and also called at start of run()
@@ -399,10 +403,10 @@ class Solution:
 
                     if molecule is not None:
                         grid[posn.row][posn.col] = '.'
-                    elif posn.row == last_posn.row:
-                        grid[posn.row][posn.col] = '-'
                     elif posn.col == last_posn.col:
                         grid[posn.row][posn.col] = '|'
+                    else:  # first pipe from component won't match last_posn
+                        grid[posn.row][posn.col] = '-'
 
                     last_posn = posn
 

@@ -171,8 +171,10 @@ class Component:
                 self.out_pipes.append(Pipe(posns=[pipe_start_posn]))
                 pipe_start_posn += Direction.DOWN
 
-    def update_from_export_str(self, export_str):
-        '''Given a matching export string, update this component.'''
+    def update_from_export_str(self, export_str, update_pipes=True):
+        '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
+        for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
+        '''
         component_line, pipes_str = export_str.split('\n', maxsplit=1)
 
         # Parse COMPONENT line
@@ -192,15 +194,16 @@ class Component:
         new_out_pipes = Pipe.pipe_list_from_export_str(pipes_str)
         assert len(new_out_pipes) == len(self.out_pipes), f"Unexpected number of pipes for component {self.type}"
 
-        for i, pipe in enumerate(new_out_pipes):
-            # Preset pipes of length > 1 are immutable
-            # TODO: This doesn't prevent research level pipes from being modified
-            if len(self.out_pipes[i]) == 1:
-                # Ensure this pipe starts from the correct position
-                assert pipe.posns[0] == Position(col=self.dimensions[0], row=((self.dimensions[1] - 1) // 2) + i), \
-                    f"Invalid start position for pipe {i} of component {self.type}"
+        if update_pipes:
+            for i, pipe in enumerate(new_out_pipes):
+                # Preset pipes of length > 1 are immutable
+                # TODO: This doesn't prevent research level pipes from being modified
+                if len(self.out_pipes[i]) == 1:
+                    # Ensure this pipe starts from the correct position
+                    assert pipe.posns[0] == Position(col=self.dimensions[0], row=((self.dimensions[1] - 1) // 2) + i), \
+                        f"Invalid start position for pipe {i} of component {self.type}"
 
-                self.out_pipes[i] = pipe
+                    self.out_pipes[i] = pipe
 
     def __str__(self):
         return f'{self.type},{self.posn}'
@@ -629,7 +632,7 @@ class Reactor(Component):
                                               if posn + direction in bond_minus_bonders],
                                              key=lambda x: bond_minus_bonders[x[0]]))
 
-    def update_from_export_str(self, export_str):
+    def update_from_export_str(self, export_str, update_pipes=True):
         export_str = export_str.strip()  # Sanitize
 
         features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
@@ -655,7 +658,7 @@ class Reactor(Component):
             annotations_str = 'ANNOTATION:' + annotations_str  # Not actually used but
 
         # Validates COMPONENT line and updates pipes
-        super().update_from_export_str(component_line + '\n' + pipes_str)
+        super().update_from_export_str(component_line + '\n' + pipes_str, update_pipes=update_pipes)
 
         # Parse members
         for line in members_str.strip().split('\n'):
