@@ -41,7 +41,7 @@ class Solution:
 
     @classmethod
     def parse_metadata_line(cls, s):
-        '''Given the SOLUTION line from the top of a solution export, return the level name, author, expected score,
+        '''Given a solution export string or its SOLUTION line, return the level name, author, expected score,
         and solution name (or None if either of the latter are not set).
         Due to the use of comma-separated values in export lines, commas in the level or author name may cause
         errors in the parsing. To combat this, it is assumed that author names contain no commas, and that the first
@@ -51,7 +51,7 @@ class Solution:
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
         '''
-        s = s.strip()
+        s = s.strip().split('\n', maxsplit=1)[0]
         assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution metadata"
         fields = s[len('SOLUTION:'):].split(',')
         assert len(fields) >= 3, "Missing fields in solution metadata"
@@ -205,7 +205,14 @@ class Solution:
                             component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
 
                         new_component = Component(component_dict)
-                        posn_to_component[new_component.posn] = Component(component_dict)
+
+                        if component_dict['type'] == 'drag-qpipe-in':
+                            # TODO: Bit hacky but since user levels can't use this, just going to make sure the
+                            #       Teleporter output is defined before its input in "Teleporters"
+                            new_component.destination = posn_to_component[Position(col=component_dict['destination-x'],
+                                                                                   row=component_dict['destination-y'])]
+
+                        posn_to_component[new_component.posn] = new_component
 
         # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
         if soln_export_str is not None:
@@ -350,11 +357,21 @@ class Solution:
                 # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
                 # component is always 1 up and right of its input pipe, plus one more row for lower inputs (up to 3 for
                 # recycler). Blindly check the 3 possible positions for components that could connect to this pipe
+
+                # Exception: Teleporter component from Corvi's "Teleporters"
+                # TODO: Calculate components' actual in pipe locations same way we do for out pipes
+                component_posn = pipe_end + (1, 0)
+                if component_posn in posn_to_component:
+                    other_component = posn_to_component[component_posn]
+                    if other_component.dimensions[1] == 1 and len(other_component.in_pipes) == 1:
+                        other_component.in_pipes[0] = pipe
+                    continue
+
                 for i in range(3):
                     component_posn = pipe_end + (1, -1 - i)
                     if component_posn in posn_to_component:
                         other_component = posn_to_component[component_posn]
-                        if len(other_component.in_pipes) >= i + 1:
+                        if other_component.dimensions[1] > 1 and len(other_component.in_pipes) >= i + 1:
                             other_component.in_pipes[i] = pipe
                         break
 

@@ -20,10 +20,12 @@ def iter_test_data(solution_codes):
     for solution_code in solution_codes:
         num_subtests += 1
 
-        level_name = spacechem.solution.Solution.get_level_name(solution_code)
+        # Parse only the metadata line so we can error out from the appropriate subTest if the full parse fails
+        level_name, _, _, solution_name = spacechem.solution.Solution.parse_metadata_line(solution_code)
+        test_id = f'{level_name} - {solution_name}'
         level_code = spacechem.levels.levels[level_name] if level_name in spacechem.levels.levels else test_data.test_levels[level_name]
 
-        yield level_code, solution_code
+        yield test_id, level_code, solution_code
 
 
 def percent_diff_str(last_metric, cur_metric):
@@ -46,11 +48,10 @@ def percent_diff_str(last_metric, cur_metric):
 class TestGame(unittest.TestCase):
     def test_valid_solutions(self):
         '''Tests for solutions that should run to completion and match the expected score.'''
-        for level_code, solution_code in iter_test_data(test_data.valid_solutions):
-            level = spacechem.level.Level(level_code)
-            solution = spacechem.solution.Solution(level, solution_code)
-            test_id = f'{level.name} - {solution.name}'
+        for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
             with self.subTest(msg=test_id):
+                level = spacechem.level.Level(level_code)
+                solution = spacechem.solution.Solution(level, solution_code)
                 self.assertEqual(solution.run(), solution.expected_score)
 
                 # TODO: This is only measuring the final object, we don't know the max runtime mem usage
@@ -96,38 +97,36 @@ class TestGame(unittest.TestCase):
 
     def test_infinite_loops(self):
         '''Tests for solutions that should exceed run()'s timeout.'''
-        for level_code, solution_code in iter_test_data(test_data.infinite_loops):
-            level = spacechem.level.Level(level_code)
-            solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.name} - {solution.name}'):
+        for test_id, level_code, solution_code in iter_test_data(test_data.infinite_loops):
+            with self.subTest(msg=test_id):
+                level = spacechem.level.Level(level_code)
+                solution = spacechem.solution.Solution(level, solution_code)
                 with self.assertRaises(TimeoutError):  # TODO: spacechem.exceptions.InfiniteLoopError
                     solution.run()
 
     def test_invalid_outputs(self):
         '''Tests for solutions that should produce an InvalidOutput error.'''
-        for level_code, solution_code in iter_test_data(test_data.invalid_outputs):
-            level = spacechem.level.Level(level_code)
-            solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.name} - {solution.name}'):
+        for test_id, level_code, solution_code in iter_test_data(test_data.invalid_outputs):
+            with self.subTest(msg=test_id):
+                level = spacechem.level.Level(level_code)
+                solution = spacechem.solution.Solution(level, solution_code)
                 with self.assertRaises(spacechem.exceptions.InvalidOutputError):
                     solution.run()
 
     def test_runtime_collisions(self):
         '''Tests for solutions that should encounter errors when run.'''
-        for level_code, solution_code in iter_test_data(test_data.runtime_collisions):
-            level = spacechem.level.Level(level_code)
-            solution = spacechem.solution.Solution(level, solution_code)
-            with self.subTest(msg=f'{level.name} - {solution.name}'):
+        for test_id, level_code, solution_code in iter_test_data(test_data.runtime_collisions):
+            with self.subTest(msg=test_id):
+                level = spacechem.level.Level(level_code)
+                solution = spacechem.solution.Solution(level, solution_code)
                 with self.assertRaises(Exception):
                     solution.run()
 
     def test_import_errors(self):
         '''Tests for solutions that shouldn't import successfully.'''
-        for level_code, solution_code in iter_test_data(test_data.import_errors):
-            level = spacechem.level.Level(level_code)
-            # Extract the solution name manually so we can label the test with it
-            soln_name = solution_code.strip().split('\n', maxsplit=1)[0].split(',', maxsplit=3)[3]
-            with self.subTest(msg=f'{level.name} - {soln_name}'):
+        for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):
+            with self.subTest(msg=test_id):
+                level = spacechem.level.Level(level_code)
                 with self.assertRaises(Exception):
                     spacechem.solution.Solution(level, solution_code)
 

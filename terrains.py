@@ -14,12 +14,10 @@ from itertools import product
 terrains = {
     'research':
         {'obstructed': {},
-         'input-zones': (('research-input', (0, 1)),  # hacks hacks hacks
+         'input-zones': (('research-input', (0, 1)),  # actually these have empty type in SC but fuck that
                          ('research-input', (0, 2))),
-         # TODO: These are actually each 1 row lower, we're only doing it this way because the pipe-connecting
-         #       code is currently making a bad assumption about component shapes that doesn't play nice with 1x1's
-         'output-zones': (('research-output', (7, 0)),
-                          ('research-output', (7, 1)),)},  # :thonk:
+         'output-zones': (('research-output', (7, 1)),
+                          ('research-output', (7, 2)),)},
     0: {'obstructed': {
         # Mid-left rock
         *product(range(4, 6), (8,)),
@@ -202,6 +200,31 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('drag-recyler', (26, 17))},
-    "Ω-Pseudoethyne": {'obstructed': {}},
+    "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so terrain may be empty
     "Σ-Ethylene": {'obstructed': {}},
+    "Teleporters": {
+        'obstructed': {
+            # Top wall
+            *product(range(0, 32), (0,)),
+            *product(range(0, 8), (1,)),
+            # Raised platform's edges
+            *product(range(9, 11), range(1, 8)),
+            *product(range(9, 32), range(8, 10)),
+        },
+        'fixed-input-zones': (('drag-spaceship-input', (4, 18)),),
+        'output-zones': (('output', (23, 3)),),
+        'recycler': ('drag-recycler', (26, 17))},
+    "Precursor Compounds": {
+        'obstructed': {
+            # Top wall
+            *product(range(0, 32), (0,)),
+            *product(range(0, 8), (1,)),
+            # Raised platform's edges
+            *product(range(9, 11), range(1, 8)),
+            *product(range(9, 32), range(8, 10)),
+        },
+        'random-input-zones': (('drag-spaceship-input', (1, 9)),),
+        'fixed-input-zones': (('drag-spaceship-input', (4, 19)),),
+        'output-zones': (('output', (23, 12)),
+                         ('output', (23, 18)))},
 }

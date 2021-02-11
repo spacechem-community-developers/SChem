@@ -17,9 +17,9 @@ from spacechem.waldo import Waldo, Instruction, InstructionType
 # Dimensions of component types
 COMPONENT_SHAPES = {
     # SpaceChem stores co-ordinates as col, row
-    'research-input': (1, 1),   # Hacky way to make sure research levels don't have colliding output components
-    'research-output': (1, 1),  # ditto
-    'disabled-output': (1, 1),  # ditto
+    'research-input': (1, 1),
+    'research-output': (1, 1),
+    'disabled-output': (1, 1),
     'reactor': (4, 4),
     'output': (2, 3),  # All production level outputs appear to be 2x3
     'drag-recycler': (5, 5),
@@ -31,7 +31,10 @@ COMPONENT_SHAPES = {
     'drag-oceanic-input': (2, 2),
     'drag-powerplant-input': (14, 15),
     'drag-mining-input': (3, 2),
-    'drag-ancient-input': (2, 2)}
+    'drag-ancient-input': (2, 2),
+    'drag-spaceship-input': (2, 2),  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
+    'drag-qpipe-in': (3, 1),
+    'drag-qpipe-out': (3, 1)}
 
 # Production level codes don't specify available reactor properties like research levels; encode them here
 REACTOR_TYPES = {
@@ -123,6 +126,10 @@ class Component:
 
     def __new__(cls, component_dict=None, _type=None, *args, **kwargs):
         '''Return a new object of the appropriate subclass based on the component type.'''
+        # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
+        if cls != Component:
+            return object.__new__(cls)
+
         if _type is None:
             _type = component_dict['type']
 
@@ -139,6 +146,10 @@ class Component:
             return super().__new__(StorageTank)
         elif _type == 'freeform-counter':
             return super().__new__(PassThroughCounter)
+        elif _type == 'drag-qpipe-in':
+            return super().__new__(TeleporterInput)
+        elif _type == 'drag-qpipe-out':
+            return super().__new__(TeleporterOutput)
         else:
             raise ValueError(f"Unrecognized component type {_type}")
 
@@ -345,10 +356,6 @@ class Output(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    # Basic __new__ implementation to avoid falling back to the fancy auto-subclassing Component.__new__
-    def __new__(cls, *args, **kwargs):
-        return object.__new__(cls)
-
     def __init__(self, output_dict, _type=None, posn=None):
         super().__init__(output_dict, _type=_type, posn=posn, num_in_pipes=1)
 
@@ -411,6 +418,8 @@ class PassThroughCounter(Output):
         #       within the same cycle, but it seems I had to put this block first to avoid an off-by-1-cycle error.
         #       Double-check what's going on here, I think this may diverge from SC when the pass-through's pipe gets
         #       clogged
+        #       Probably because it can't be teleported in the same cycle or it will be moved that cycle too, which
+        #       effectively makes it move twice
         # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
         if self.stored_molecule is not None and self.out_pipe[-1] is None:
             self.stored_molecule, self.out_pipe[0] = None, self.stored_molecule
@@ -504,6 +513,61 @@ class StorageTank(Component):
         return cls(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
 
 
+class TeleporterInput(Component):
+    __slots__ = 'destination',
+
+    def __init__(self, component_dict):
+        super().__init__(component_dict, num_in_pipes=1)
+
+    # Convenience properties
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
+
+    @in_pipe.setter
+    def in_pipe(self, p):
+        self.in_pipes[0] = p
+
+    def do_instant_actions(self, cur_cycle):
+        '''Note that the teleporter pair behaves differently from a pass-through counter insofar as the pass-through
+        counter stores any molecule it receives internally when its output pipe is clogged, whereas the teleporter
+        refuses to accept the next molecule until the output pipe is clear (i.e. behaves like a single discontinuous
+        pipe that also happens to only allow single atoms through).
+        '''
+        if self.in_pipe is None:
+            return
+
+        if self.in_pipe[-1] is not None and self.destination.out_pipe[0] is None:
+            assert len(self.in_pipe[-1]) == 1, f"An invalid molecule was passed to Teleporter (Input): {molecule}"
+
+            self.in_pipe[-1], self.destination.molecule = None, self.in_pipe[-1]
+
+
+class TeleporterOutput(Component):
+    # TODO: Needing an internal molecule slot is awkward but I couldn't find a cleaner way to avoid the molecule
+    #       being both teleported and moved in the same cycle if the teleporters have the wrong relative component
+    #       priorities
+    __slots__ = 'destination', 'molecule'
+
+    def __init__(self, component_dict):
+        super().__init__(component_dict, num_out_pipes=1)
+        self.molecule = None
+
+    # Convenience properties
+    @property
+    def out_pipe(self):
+        return self.out_pipes[0]
+
+    @out_pipe.setter
+    def out_pipe(self, p):
+        self.out_pipes[0] = p
+
+    def move_contents(self):
+        # Move pipe contents first, then add the teleported molecule to the front to avoid double-moving it
+        super().move_contents()
+        self.molecule, self.out_pipe[0] = None, self.molecule
+
+
 class Reactor(Component):
     # For convenience during float-precision rotation co-ordinates, we consider the center of the
     # top-left cell to be at (0,0), and hence the top-left reactor corner is (-0.5, -0.5).
@@ -520,10 +584,6 @@ class Reactor(Component):
                  'bonder_pluses', 'bonder_minuses', 'bond_plus_pairs', 'bond_minus_pairs',
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'debug')
-
-    # Basic __new__ implementation to avoid falling back to the fancy auto-subclassing Component.__new__
-    def __new__(cls, *args, **kwargs):
-        return object.__new__(cls)
 
     def __init__(self, component_dict=None, _type=None, posn=None):
         '''Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
