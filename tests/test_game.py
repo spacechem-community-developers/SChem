@@ -21,7 +21,7 @@ def iter_test_data(solution_codes):
         num_subtests += 1
 
         # Parse only the metadata line so we can error out from the appropriate subTest if the full parse fails
-        level_name, _, _, solution_name = spacechem.solution.Solution.parse_metadata_line(solution_code)
+        level_name, _, _, solution_name = spacechem.solution.Solution.parse_metadata(solution_code)
         test_id = f'{level_name} - {solution_name}'
         level_code = spacechem.levels.levels[level_name] if level_name in spacechem.levels.levels else test_data.test_levels[level_name]
 

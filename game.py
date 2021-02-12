@@ -14,6 +14,80 @@ from spacechem.tests import test_data
 from spacechem.components import *
 
 
+def run(soln_str, level_code=None, verbose=False, debug=False):
+    """Given a solution string, run it against the specified level and return a Score."""
+    level_name, _, expected_score, _ = Solution.parse_metadata(soln_str)
+
+    matching_levels = []
+    if level_code is not None:
+        level = Level(level_code)
+
+        if verbose and level_name != level.name:
+            print(f"Warning: Running solution against level {repr(level.name)} that was originally"
+                  + f" constructed for level {repr(level_name)}.")
+
+        matching_levels.append(level)
+    else:
+        # Determine the built-in game level to run the solution against based on the level name in its metadata
+        if level_name in levels.levels:
+            if isinstance(levels.levels[level_name], str):
+                matching_levels.append(Level(levels.levels[level_name]))
+            else:
+                matching_levels.extend(Level(export_str) for export_str in levels.levels[level_name])
+
+            if verbose and len(matching_levels) > 1:
+                print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
+        elif level_name in test_data.test_levels:
+            if verbose:
+                print(f"No canonical level found, running in level '{level_name}' from test data")
+            if isinstance(test_data.test_levels[level_name], str):
+                matching_levels.append(Level(test_data.test_levels[level_name]))
+            else:
+                matching_levels.extend(Level(export_str) for export_str in test_data.test_levels[level_name])
+
+            if verbose and len(matching_levels) > 1:
+                print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
+        else:
+            raise Exception(f"No known level `{level_name}`")
+
+    score = None
+    exceptions = []
+    # TODO: Differentiate import error vs runtime error
+
+    for level in matching_levels:
+        try:
+            solution = Solution(level=level, soln_export_str=soln_str)
+            score = solution.run(debug=debug)
+
+            # Exit early if the first level we checked matched the expected score
+            if score == expected_score:
+                return score
+        except Exception as e:
+            exceptions.append(e)
+
+    # If the solution ran successfully in any level, return that score. Otherwise, return the first failure
+    if score is not None:
+        return score
+    else:
+        raise exceptions[0]
+
+def validate(soln_str, level_code=None, verbose=True, debug=False):
+    level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
+    # TODO: Should use level_code's name if conflicting
+    soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
+
+    try:
+        score = run(soln_str, level_code=level_code, verbose=verbose, debug=debug)
+    except BaseException as e:
+        if verbose:
+            print(f"Error while validating {soln_descr}")
+        raise e
+
+    assert score == expected_score, (f"Expected score {'-'.join(str(x) for x in expected_score)}"
+                                     f" but got {'-'.join(str(x) for x in score)}")
+    if verbose:
+        print(f"Validated {soln_descr}")
+
 def main():
     parser = argparse.ArgumentParser(description="Validate the solution copied to the clipboard or in the given file",
                                      formatter_class=argparse.RawTextHelpFormatter)
@@ -23,23 +97,35 @@ def main():
                              + "\nrN: Debug the reactor with idx N (if unspecified, overworld is shown in production lvls)."
                              + "\ncM: Start debugging from cycle M. Default 0."
                              + "\nE.g. --debug=r0,c1000 will start debugging the first reactor on cycle 1000")
-    # TODO: Accept files with multiple solutions
     parser.add_argument('solution_file', type=Path, nargs='?',
-                        help="File containing the solution to execute."
+                        help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
-    parser.add_argument('--level_file', type=Path, help="Optional file containing the puzzle to check the solution against")
+    parser.add_argument('--level_file', type=Path,
+                        help="Optional file containing the puzzle to check the solution(s) against")
     args = parser.parse_args()
+
+    debug = False
+    if args.debug is not None:
+        DebugOptions = namedtuple("DebugOptions", ('reactor', 'cycle'))
+        reactor = None
+        cycle = 0
+        for s in args.debug.split(','):
+            if s and s[0] == 'r':
+                reactor = int(s[1:])
+            elif s and s[0] == 'c':
+                cycle = int(s[1:])
+        debug = DebugOptions(reactor, cycle)
 
     if args.solution_file:
         if not args.solution_file.is_file():
             raise FileNotFoundError("Solution file not found")
 
         with args.solution_file.open() as f:
-            solution_export_str = f.read()
+            solutions_str = f.read()
     else:
-        solution_export_str = clipboard.paste().replace('\r', '')  # Make sure windows doesn't crap in our string
+        solutions_str = clipboard.paste().replace('\r', '')  # Make sure windows doesn't crap in our string
 
-    checked_levels = []
+    level_code = None
     if args.level_file:
         if not args.level_file.is_file():
             raise FileNotFoundError("Solution file not found")
@@ -48,50 +134,13 @@ def main():
             print("Warning: Parsing file without extension .puzzle as a SpaceChem level")
 
         with args.level_file.open() as f:
-            checked_levels.append(Level(f.read().decode('utf-8')))
-    else:
-        # Determine the built-in game level to run the solution against based on its metadata
-        level_name = Solution.get_level_name(solution_export_str)
-        if level_name in levels.levels:
-            if isinstance(levels.levels[level_name], str):
-                checked_levels.append(Level(levels.levels[level_name]))
-            else:
-                checked_levels.extend(Level(export_str) for export_str in levels.levels[level_name])
+            level_code = f.read().decode('utf-8')
 
-            if len(checked_levels) > 1:
-                print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
-        elif level_name in test_data.test_levels:
-            print(f"No canonical level found, running in level '{level_name}' from test data")
-            if isinstance(test_data.test_levels[level_name], str):
-                checked_levels.append(Level(test_data.test_levels[level_name]))
-            else:
-                checked_levels.extend(Level(export_str) for export_str in test_data.test_levels[level_name])
-
-            if len(checked_levels) > 1:
-                print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
-        else:
-            raise Exception(f"No known level {level_name}")
-
-    for level in checked_levels:
+    for solution_str in Solution.split_solutions(solutions_str):
         try:
-            solution = Solution(level=level, soln_export_str=solution_export_str)
-
-            debug = False
-            DebugOptions = namedtuple("DebugOptions", ('reactor', 'cycle'))
-            if args.debug is not None:
-                # Default --debug with no args to the first reactor in research levels
-                reactor = 0 if level['type'].startswith('research') else None
-                cycle = 0
-                for s in args.debug.split(','):
-                    if s and s[0] == 'r':
-                        reactor = int(s[1:])
-                    elif s and s[0] == 'c':
-                        cycle = int(s[1:])
-                debug = DebugOptions(reactor, cycle)
-
-            solution.validate(debug=debug, verbose=True)
-        except Exception as e:
-            print(e)
+            validate(solution_str, level_code=level_code, verbose=True, debug=debug)
+        except BaseException as e:
+            print(repr(e))
 
 
 if __name__ == '__main__':

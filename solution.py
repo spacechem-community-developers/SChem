@@ -40,7 +40,7 @@ class Solution:
                  'level', 'components')
 
     @classmethod
-    def parse_metadata_line(cls, s):
+    def parse_metadata(cls, s):
         '''Given a solution export string or its SOLUTION line, return the level name, author, expected score,
         and solution name (or None if either of the latter are not set).
         Due to the use of comma-separated values in export lines, commas in the level or author name may cause
@@ -51,8 +51,8 @@ class Solution:
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
         '''
-        s = s.strip().split('\n', maxsplit=1)[0]
-        assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution metadata"
+        s = s.strip().split('\n', maxsplit=1)[0].strip()
+        assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
         fields = s[len('SOLUTION:'):].split(',')
         assert len(fields) >= 3, "Missing fields in solution metadata"
 
@@ -64,17 +64,30 @@ class Solution:
         level_name = ','.join(fields[:score_field_idx - 1])
         author_name = fields[score_field_idx - 1]
         # The game stores unsolved solutions as '0-0-0'
+
         expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] != '0-0-0' else None
         soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
 
         return level_name, author_name, expected_score, soln_name
 
     @classmethod
-    def get_level_name(cls, soln_export_str):
-        '''Helper to extract the level name from a given solution name. Should be used to ensure the correct level is
-        being passed to Solution.__init__ in case of ambiguities.
-        '''
-        return cls.parse_metadata_line(soln_export_str.strip().split('\n', maxsplit=1)[0])[0]
+    def describe(cls, level_name, author, expected_score, soln_name):
+        """Return a pretty-printed string describing the given solution metadata."""
+        soln_descr = f"[{level_name}] {expected_score}"
+        if soln_name is not None:
+            soln_descr += f' "{soln_name}"'
+        soln_descr += f" by {author}"
+
+        return soln_descr
+
+    @classmethod
+    def split_solutions(cls, soln_str):
+        """Given a string potentially containing multiple solutions, return an iterator of them."""
+        soln_str = soln_str.strip()
+        assert soln_str.startswith('SOLUTION:'), "Given text is not a SpaceChem solution"
+
+        # Split with newline prefix in case some fucker names themselves SOLUTION:
+        return (f'SOLUTION:{s}'.strip() for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])
 
     def __init__(self, level, soln_export_str=None):
         self.level = level
@@ -218,7 +231,7 @@ class Solution:
         if soln_export_str is not None:
             # Parse solution metadata from the first line
             soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
-            self.level_name, self.author, self.expected_score, self.name = self.parse_metadata_line(soln_metadata_str)
+            self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
             # TODO: Disallow mutating pipes in research levels or on certain flidais preset components, even if length 1
             for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
@@ -463,6 +476,10 @@ class Solution:
 
         # TODO: Should re-check for component/pipe collisions every time we run it; run() should be a source of truth,
         #       and shouldn't be confoundable by modifying the solution after the ctor validations
+
+        # Default debug view to the reactor's interior in research levels
+        if debug and self.level['type'].startswith('research'):
+            debug.reactor = 0
 
         self.validate_components()
 
