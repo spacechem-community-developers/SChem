@@ -909,10 +909,10 @@ class Reactor(Component):
                 grid[r][c] = f'({grid[r][c][1:]}'
                 grid[r][c + 1] = f'){grid[r][c + 1][1:]}'
 
-        result = f" {num_cols * '___'}_ \n"
+        result = f" {num_cols * ' __'}  \n"
         for row in grid:
             result += f"|{''.join(row)}|\n"
-        result += f" {num_cols * '‾‾‾'}‾ \n"
+        result += f" {num_cols * ' ‾‾'}  \n"
 
         return result
 
@@ -982,37 +982,39 @@ class Reactor(Component):
             # * OR The final destination of a moved molecule overlaps the initial position of another moving molecule,
             #      and the offending waldos were not moving in the same direction
 
-            # Given that either is moving, if the waldos share a molecule they must move in the same direction
-            if (self.waldos[0].molecule is self.waldos[1].molecule
-                    and (any(waldo.is_stalled for waldo in self.waldos)
-                         or self.waldos[0].direction != self.waldos[1].direction)):
-                raise ReactionError("A molecule has been grabbed by both waldos and pulled apart.")
+            if self.waldos[0].molecule is self.waldos[1].molecule:
+                # Given that we know one is moving, if the waldos share a molecule they must move in the same direction
+                if (any(waldo.is_stalled for waldo in self.waldos)
+                        or self.waldos[0].direction != self.waldos[1].direction):
+                    raise ReactionError("A molecule has been grabbed by both waldos and pulled apart.")
 
-            # Check if any molecule being moved will bump into the back of another moving molecule
-            if (all(waldo.molecule is not None and not waldo.is_stalled
-                    for waldo in self.waldos)
-                    and self.waldos[0].direction != self.waldos[1].direction):
-                for waldo in self.waldos:
-                    # Intersect the target positions of this waldo's molecule with the current positions of the other
-                    # waldo's molecules
-                    other_waldo = self.waldos[1 - waldo.idx]
-                    target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map)
-                    if not target_posns.isdisjoint(other_waldo.molecule.atom_map):
-                        raise ReactionError("Collision between molecules")
+                # Only mark one waldo as moving a molecule so we don't move their molecule twice
+                waldos_moving_molecules = [self.waldos[0]]
+            else:
+                waldos_moving_molecules = [w for w in self.waldos if not w.is_stalled and w.molecule is not None]
+                # (skipped if both waldos holding same molecule)
+                # Check if a molecule being moved will bump into the back of another moving molecule
+                if (len(waldos_moving_molecules) == 2 and self.waldos[0].direction != self.waldos[1].direction):
+                    for waldo in self.waldos:
+                        # Intersect the target positions of this waldo's molecule with the current positions of the
+                        # other waldo's molecules
+                        other_waldo = self.waldos[1 - waldo.idx]
+                        target_posns = set(posn + waldo.direction for posn in waldo.molecule.atom_map)
+                        if not target_posns.isdisjoint(other_waldo.molecule.atom_map):
+                            raise ReactionError("Collision between molecules")
 
             # Move all molecules
-            for waldo in self.waldos:
-                if waldo.molecule is not None and not waldo.is_stalled:
-                    if ((self.quantum_walls_y and waldo.direction in (Direction.LEFT, Direction.RIGHT))
-                            or (self.quantum_walls_x and waldo_direction in (Direction.UP, Direction.DOWN))):
-                        # Move the molecule halfway, check for quantum wall collisions, then move the last half
-                        waldo.molecule.move(waldo.direction, distance=0.5)
-                        self.check_quantum_wall_collisions(waldo.molecule)
-                        waldo.molecule.move(waldo.direction, distance=0.5)
-                        waldo.molecule.round_posns()
-                    else:
-                        # If we aren't moving perpendicular to any quantum walls, just move the full distance
-                        waldo.molecule.move(waldo.direction)
+            for waldo in waldos_moving_molecules:
+                # If we're moving perpendicular to any quantum walls, check for collisions with them
+                if ((self.quantum_walls_y and waldo.direction in (Direction.LEFT, Direction.RIGHT))
+                        or (self.quantum_walls_x and waldo_direction in (Direction.UP, Direction.DOWN))):
+                    # Move the molecule halfway, check for quantum wall collisions, then move the last half
+                    waldo.molecule.move(waldo.direction, distance=0.5)
+                    self.check_quantum_wall_collisions(waldo.molecule)
+                    waldo.molecule.move(waldo.direction, distance=0.5)
+                    waldo.molecule.round_posns()
+                else:
+                    waldo.molecule.move(waldo.direction)
 
             # Perform collision checks against the moved molecules
             for waldo in self.waldos:

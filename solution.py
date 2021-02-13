@@ -7,7 +7,7 @@ from itertools import product
 import time
 
 from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
-from spacechem.exceptions import RunSuccess
+from spacechem.exceptions import RunSuccess, ReactionError
 from spacechem.grid import Direction, Position
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS
 from spacechem.terrains import terrains
@@ -501,13 +501,22 @@ class Solution:
             while cycle < max_cycles:
                 # Move molecules/waldos
                 for component in self.components:
-                    component.move_contents()
+                    try:
+                        component.move_contents()
+                    except Exception as e:
+                        # Mention the originating reactor in errors when possible
+                        if isinstance(component, Reactor):
+                            for i, reactor in enumerate(reactors):
+                                if component is reactor:
+                                    # Mention the reactor index via a chained exception of the same type
+                                    raise type(e)(f"Reactor {i}: {e}") from e
+                        raise e
 
                 if debug and cycle >= debug.cycle:
                     if debug.reactor is None:
-                        self.debug_print(cycle, duration=0.0625)
+                        self.debug_print(cycle, duration=0.0625 / debug.speed)
                     else:
-                        reactors[debug.reactor].debug_print(cycle, duration=0.0625)
+                        reactors[debug.reactor].debug_print(cycle, duration=0.0625 / debug.speed)
 
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
@@ -520,9 +529,9 @@ class Solution:
 
                 if debug and cycle >= debug.cycle:
                     if debug.reactor is None:
-                        self.debug_print(cycle, duration=0.0625)
+                        self.debug_print(cycle, duration=0.0625 / debug.speed)
                     else:
-                        reactors[debug.reactor].debug_print(cycle, duration=0.0625)
+                        reactors[debug.reactor].debug_print(cycle, duration=0.0625 / debug.speed)
 
                 cycle += 1
 
@@ -537,6 +546,9 @@ class Solution:
             #       `cycle % rate == 0`, so that they don't input on cycle 0 (before the waldos have moved).
             #       For now putting the +1 here looks less awkward...
             return Score(cycle + 1, len(reactors), symbols)
+        except Exception as e:
+            # Mention the cycle number on error via a chained exception of the same type
+            raise type(e)(f"Cycle {cycle}: {e}") from e
         finally:
             # Persist the last debug printout
             if debug:
@@ -554,12 +566,6 @@ class Solution:
                   + f" constructed for level {repr(self.level_name)}.")
 
         score = self.run(debug=debug)
-        assert score == self.expected_score, (f"Expected score {'-'.join(str(x) for x in self.expected_score)}"
-                                              f" but got {'-'.join(str(x) for x in score)}")
+        assert score == self.expected_score, f"Expected score {self.expected_score} but got {score}"
         if verbose:
-            out_str = f"Validated [{self.level.name}] {score}"
-            if self.name is not None:
-                out_str += f' "{self.name}"'
-            out_str += f" by {self.author}"
-
-            print(out_str)
+            print(f"Validated {describe(self)}")

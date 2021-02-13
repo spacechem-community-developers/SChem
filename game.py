@@ -78,10 +78,9 @@ def validate(soln_str, level_code=None, verbose=True, debug=False):
 
     try:
         score = run(soln_str, level_code=level_code, verbose=verbose, debug=debug)
-    except BaseException as e:
-        if verbose:
-            print(f"Error while validating {soln_descr}")
-        raise e
+    except Exception as e:
+        # Mention the invalid solution via a chained exception of the same type
+        raise type(e)(f"Error while validating {soln_descr}: {e}") from e
 
     assert score == expected_score, (f"Expected score {'-'.join(str(x) for x in expected_score)}"
                                      f" but got {'-'.join(str(x) for x in score)}")
@@ -106,15 +105,18 @@ def main():
 
     debug = False
     if args.debug is not None:
-        DebugOptions = namedtuple("DebugOptions", ('reactor', 'cycle'))
+        DebugOptions = namedtuple("DebugOptions", ('reactor', 'cycle', 'speed'))
         reactor = None
         cycle = 0
+        speed = 1
         for s in args.debug.split(','):
             if s and s[0] == 'r':
                 reactor = int(s[1:])
             elif s and s[0] == 'c':
                 cycle = int(s[1:])
-        debug = DebugOptions(reactor, cycle)
+            elif s and s[0] == 's':
+                speed = float(s[1:])
+        debug = DebugOptions(reactor, cycle, speed)
 
     if args.solution_file:
         if not args.solution_file.is_file():
@@ -136,11 +138,15 @@ def main():
         with args.level_file.open() as f:
             level_code = f.read().decode('utf-8')
 
-    for solution_str in Solution.split_solutions(solutions_str):
+    solutions = list(Solution.split_solutions(solutions_str))
+    for solution_str in solutions:
         try:
             validate(solution_str, level_code=level_code, verbose=True, debug=debug)
-        except BaseException as e:
-            print(repr(e))
+        except Exception as e:
+            if len(solutions) == 1:
+                raise e
+            else:
+                print(repr(e))
 
 
 if __name__ == '__main__':
