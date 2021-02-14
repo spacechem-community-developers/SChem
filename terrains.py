@@ -3,6 +3,8 @@
 
 from itertools import product
 
+MAX_TERRAIN_INT = 5
+
 # Terrain obstacles and default component positions. The positions of obstacles within the level is uniquely identified by the terrain type for
 # all ResearchNet and custom levels, but each main game level has a unique terrain layout.
 # This dict will store, for each type indexed by either its level name (main game) or its
@@ -18,23 +20,155 @@ terrains = {
                          ('research-input', (0, 2))),
          'output-zones': (('research-output', (7, 1)),
                           ('research-output', (7, 2)),)},
-    0: {'obstructed': {
-        # Mid-left rock
-        *product(range(4, 6), (8,)),
-        *product(range(3, 7), (9,)),
-        *product(range(2, 8), range(10, 13)),
-        *product(range(5, 7), (13,)),
-        # Bottom rock
-    },
+    0: {  # Sernimir IV
+        'obstructed': {
+            # Top-left rock
+            *product(range(0, 10), (0,)),
+            *product(range(0, 9), (1,)),
+            *product(range(0, 8), (2,)),
+            *product(range(2, 7), (3,)),
+            # Mid-left rock
+            *product(range(4, 6), (8,)),
+            *product(range(3, 7), (9,)),
+            *product(range(2, 8), range(10, 13)),
+            *product(range(5, 7), (13,)),
+            # Bottom rock
+            *product(range(18, 21), (16,)),
+            *product(range(14, 22), range(17, 19)),
+            *product(range(15, 22), (19,)),
+            *product(range(17, 21), (20,)),
+            # Top-right rock
+            *product(range(26, 32), range(0, 2)),
+            *product(range(27, 32), (2,)),
+            *product(range(28, 32), (3,)),
+            *product(range(29, 32), (4,)),
+            # Mid-right rock
+            *product(range(30, 32), (13, 19)),
+            *product((29,), (14, 18)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
         'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
                               ('drag-arbitrary-input', (3, 18))),
-        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('recycler', (24, 17))},
-    # TODO: All of these...
-    4: {'obstructed': {}},
+    1: {  # Danopth
+        'obstructed': {
+            # Top-left rock/pit
+            *product(range(3, 5), (0,)),
+            *product(range(2, 6), (1,)),
+            *product(range(1, 12), range(2, 4)),
+            *product(range(1, 11), (4,)),
+            *product(range(3, 5), (5,)),
+            # Top-middle rock
+            *product(range(19, 23), range(0, 2)),
+            # Bottom-left rock
+            *product(range(0, 2), range(15, 19)),
+            *product((0,), range(19, 21)),
+            *product(range(0, 7), (21,)),
+            # Bottom-right rock
+            *product((31,), (15,)),
+            *product(range(29, 32), range(16, 19)),
+            *product(range(30, 32), (19,)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
+        'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
+                              ('drag-arbitrary-input', (3, 18))),
+        'output-zones': (('output', (23, 2)),
+                         ('output', (23, 7)),
+                         ('output', (23, 12))),
+        'recycler': ('recycler', (24, 17))},
+    2: {  # Alkonost
+        'obstructed': {
+            # Left tree column
+            *product((0,), range(0, 22)),
+            # Top-left trees
+            *product(range(1, 6), range(0, 3)),
+            *product(range(1, 5), (3,)),
+            # Bottom-left trees
+            *product((1,), range(14, 18)),
+            *product((2,), range(15, 17)),
+            *product((1,), range(20, 22)),
+            # Middle trees
+            (14, 10),
+            *product(range(12, 16), (11,)),
+            *product(range(9, 16), range(12, 15)),
+            *product(range(10, 16), (15,)),
+            # Top-mid trees
+            *product(range(13, 19), (0,)),
+            *product(range(14, 18), (1,)),
+            # Right trees
+            *product((29,), range(4, 6)),
+            *product((30,), range(2, 7)),
+            *product((31,), range(2, 10)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
+        'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
+                              ('drag-arbitrary-input', (3, 18))),
+        'output-zones': (('output', (23, 2)),
+                         ('output', (23, 7)),
+                         ('output', (23, 12))),
+        'recycler': ('recycler', (24, 17))},
+    3: {  # Sikutar
+        'obstructed': {
+            # Left ravine
+            *product((0,), range(6, 8)),
+            *product(range(0, 4), (8,)),
+            *product(range(7, 9), (8,)),
+            *product(range(0, 9), range(9, 12)),
+            *product(range(0, 2), (12,)),
+            # Middle snow
+            *product(range(13, 16), range(7, 10)),
+            # Top-right water
+            *product(range(24, 32), (0,)),
+            *product(range(26, 32), (0,)),
+            # Right rocks
+            (31, 11),
+            *product(range(30, 32), range(12, 15)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
+        'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
+                              ('drag-arbitrary-input', (3, 18))),
+        'output-zones': (('output', (23, 2)),
+                         ('output', (23, 7)),
+                         ('output', (23, 12))),
+        'recycler': ('recycler', (24, 17))},
+    4: {  # Hephaestus IV
+        'obstructed': {
+            # Bottom-left lava
+            *product((0,), range(14, 20)),
+            *product((1,), range(15, 19)),
+            # Middle lava
+            *product(range(10, 13), range(4, 8)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
+        'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
+                              ('drag-arbitrary-input', (3, 18))),
+        'output-zones': (('output', (23, 2)),
+                         ('output', (23, 7)),
+                         ('output', (23, 12))),
+        'recycler': ('recycler', (24, 17))},
+    5: {  # Flidais
+        'obstructed': {
+            # Bottom-left creeper
+            *product(range(0, 2), range(16, 18)),
+            # Middle creeper
+            *product(range(10, 17), range(7, 10)),
+            *product(range(10, 16), (10,)),
+            # Right creeper
+            *product(range(26, 29), (11,)),
+            *product((26,), range(12, 14)),
+            *product(range(27, 32), range(12, 16)),
+            (31, 16),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
+        'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),
+                              ('drag-arbitrary-input', (3, 18))),
+        'output-zones': (('output', (23, 2)),
+                         ('output', (23, 7)),
+                         ('output', (23, 12))),
+        'recycler': ('recycler', (24, 17))},
     "An Introduction to Pipelines": {
         'obstructed': {
             # Middle rock

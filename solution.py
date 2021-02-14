@@ -10,7 +10,7 @@ from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Outpu
 from spacechem.exceptions import RunSuccess, ReactionError
 from spacechem.grid import *
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS
-from spacechem.terrains import terrains
+from spacechem.terrains import terrains, MAX_TERRAIN_INT
 
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
@@ -103,6 +103,10 @@ class Solution:
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
             terrain_id = level['name'] if ('terrain' not in level
                                            and level['name'] in terrains) else level['terrain']
+
+            # SC caps oversized terrain IDs
+            if isinstance(terrain_id, int) and terrain_id > MAX_TERRAIN_INT:
+                terrain_id = MAX_TERRAIN_INT
         else:
             terrain_id = 'research'  # BIG HACKS
 
@@ -250,6 +254,9 @@ class Solution:
                                 and component_type in self.level['allowed-reactor-types'])), \
                         f"New component type {component_type} (at {component_posn}) is not legal in this level"
 
+                    # TODO: Ensure the component is within the overworld bounds (note that presets don't have this
+                    #       restriction, e.g. Going Green)
+
                     component_dict = {}
                     if component_type.startswith('freeform-custom-reactor-'):
                         # Add custom reactor attributes if needed
@@ -270,6 +277,8 @@ class Solution:
                 # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
                 update_pipes = 'mutable-pipes' not in self.level or self.level['mutable-pipes']
                 posn_to_component[component_posn].update_from_export_str(component_str, update_pipes=update_pipes)
+
+                # TODO: Ensure the updated component pipes are within the overworld bounds
 
         # Now that we're done updating components, check that all components/pipes are validly placed
         # TODO: Should probably just be a method validating self.components, and also called at start of run()
