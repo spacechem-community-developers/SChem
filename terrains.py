@@ -169,6 +169,7 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('recycler', (24, 17))},
+    # TODO: I only did the most central terrain obstacles on my first pass through the main game; add the edge bits
     "An Introduction to Pipelines": {
         'obstructed': {
             # Middle rock
@@ -344,6 +345,13 @@ terrains = {
             # Raised platform's edges
             *product(range(9, 11), range(1, 8)),
             *product(range(9, 32), range(8, 10)),
+            # Right end of platform
+            *product(range(28, 32), range(1, 8)),
+            # TODO: Very hacky
+            # Due to our simplifying assumptions aboout component pipe positions, we made drag-spaceship-input one row
+            # shorter than it should be to handle its pipe being in its top row
+            # Add terrain where the rest of it should be
+            *product(range(4, 6), (20,)),
         },
         'fixed-input-zones': (('drag-spaceship-input', (4, 18)),),
         'output-zones': (('output', (23, 3)),),
@@ -356,6 +364,12 @@ terrains = {
             # Raised platform's edges
             *product(range(9, 11), range(1, 8)),
             *product(range(9, 32), range(8, 10)),
+            # Right end of platform
+            *product(range(28, 32), range(1, 8)),
+            # TODO: Very hacky
+            # See above note about drag-spaceship-input
+            *product(range(1, 3), (11,)),
+            *product(range(4, 6), (21,)),
         },
         'random-input-zones': (('drag-spaceship-input', (1, 9)),),
         'fixed-input-zones': (('drag-spaceship-input', (4, 19)),),
