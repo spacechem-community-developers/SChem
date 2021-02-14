@@ -431,6 +431,7 @@ class PassThroughCounter(Output):
 
         return ret_value
 
+
 class DisabledOutput(Output):
     '''Used by research levels, which actually crash if a wrong output is used unlike assembly reactors.'''
     __slots__ = ()

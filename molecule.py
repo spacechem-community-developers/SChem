@@ -8,7 +8,9 @@ from spacechem.grid import *
 from spacechem.elements_data import elements_dict
 
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
-ATOM_DIAMETER = 0.762
+# Lower bound: 0.7465 (hard bound) based on a rotating 7x3 molecule colliding with an atom (5, 5) away from the waldo
+# Upper bound: 0.7538 (or possibly a little higher due to limited collision checks) based on 9x3 missing (9, 0)
+ATOM_DIAMETER = 0.75
 ATOM_DIAMETER_SQUARED = ATOM_DIAMETER**2
 ATOM_RADIUS = ATOM_DIAMETER / 2  # Convenience
 
