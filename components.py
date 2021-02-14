@@ -1298,7 +1298,7 @@ class Reactor(Component):
     def defrag_molecule(self, molecule, posn):
         '''Given a molecule that has had some of its bonds broken from the given position, update reactor.molecules
         based on any molecules that broke off. Note that this always at least moves the molecule to the back of the
-        priority queue, even if it did not break apart (this should be safe since defrag should only called when the
+        priority queue, even if it did not break apart (this should be safe since defrag should only be called when the
         molecule is modified).
         '''
         # Update the reactor molecules based on how the molecule broke apart
@@ -1329,30 +1329,37 @@ class Reactor(Component):
         self.defrag_molecule(molecule, posn)
 
     def reduce_excess_bonds(self, posn):
-        '''Helper used by fuse and split to reduce bonds on a mutated atom down to its new count, and break up its
+        '''Helper used by fuse and split to reduce bonds on a mutated atom down to its new max count, and break up its
         molecule if needed.
         '''
         molecule = self.get_molecule(posn)
         atom = molecule.atom_map[posn]
 
         excess_bonds = sum(atom.bonds.values()) - atom.element.max_bonds
-        max_bond_count = max(atom.bonds.values(), default=0)
+        max_bond_size = max(atom.bonds.values(), default=0)
         bonds_broke = False
+        neighbor_atoms = {}  # So we don't have to repeatedly incur the get_molecule cost
         while excess_bonds > 0:
             # The order here is deliberately hardcoded to match empirical observations of SpaceChem's behavior
             for dirn in (Direction.RIGHT, Direction.LEFT, Direction.UP, Direction.DOWN):
                 # Reduce triple bonds first, then double bonds, etc.
-                if dirn in atom.bonds and atom.bonds[dirn] == max_bond_count:
+                if dirn in atom.bonds and atom.bonds[dirn] == max_bond_size:
+                    if dirn not in neighbor_atoms:
+                        neighbor_posn = posn + dirn
+                        neighbor_atoms[dirn] = self.get_molecule(neighbor_posn)[neighbor_posn]
+
                     atom.bonds[dirn] -= 1
+                    neighbor_atoms[dirn].bonds[dirn.opposite()] -= 1
                     if atom.bonds[dirn] == 0:
                         del atom.bonds[dirn]
+                        del neighbor_atoms[dirn].bonds[dirn.opposite()]
                         bonds_broke = True
 
                     excess_bonds -= 1
                     if excess_bonds == 0:
                         break
 
-            max_bond_count -= 1
+            max_bond_size -= 1
 
         if bonds_broke:
             # Update the reactor molecules based on how the molecule broke apart (if at all)
@@ -1384,7 +1391,8 @@ class Reactor(Component):
             # Remove all bonds from the left atom
             self.delete_atom_bonds(left_posn)
 
-            # Delete the left atom. Note that the molecule handle will have changed after delete_atom_bonds
+            # Delete the left molecule (now just a single atom). Note that the molecule handle will have changed after
+            # delete_atom_bonds. The right atom may be part of a new molecule but its handle shouldn't have changed
             left_molecule = self.get_molecule(left_posn)
             for waldo in self.waldos:
                 if waldo.molecule is left_molecule:

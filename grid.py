@@ -36,6 +36,7 @@ class Direction(IntEnum):
             return Direction(4 + ((self.value + 2) % 4))
 
 
+# Convenience
 CARDINAL_DIRECTIONS = (Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT)
 
 

@@ -4,7 +4,7 @@
 from collections import Counter
 
 from spacechem.exceptions import ReactionError
-from spacechem.grid import Position, Direction
+from spacechem.grid import *
 from spacechem.elements_data import elements_dict
 
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
@@ -288,9 +288,11 @@ class Molecule:
                          Direction.DOWN: None}
 
         # Search in an order that ensures other directions get put in the 'middle' or 'down' molecules first if possible
+        # (see `not considered "debonded"` and rule 1 above for why middle and down are prioritized first)
         for search_dirn in ((0, 0), Direction.DOWN, Direction.LEFT, Direction.UP, Direction.RIGHT):
             start_posn = modified_posn + search_dirn
-            # If we already found this posn attached to one of the other posns, or it doesn't exist, skip it
+            # If we already found this posn attached to one of the other posns and removed it,
+            # or it did't exist in the first places, skip it
             if start_posn not in self.atom_map:
                 continue
 
@@ -306,8 +308,8 @@ class Molecule:
                     if neighbor_posn not in visited_posns:
                         visit_queue.append(neighbor_posn)
 
-            # If the molecule was broken apart, create a new molecule from the positions that were accessible
-            # from the disconnected neighbor, and remove those positions from this molecule
+            # Create a new molecule from the positions that were accessible from start_posn, and remove those positions
+            # from this molecule
             new_atom_map = {}
             for posn in visited_posns:
                 new_atom_map[posn] = self.atom_map[posn]
