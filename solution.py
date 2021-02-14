@@ -249,9 +249,6 @@ class Solution:
                                 and component_type in self.level['allowed-reactor-types'])), \
                         f"New component type {component_type} (at {component_posn}) is not legal in this level"
 
-                    # TODO: Ensure the component is within the overworld bounds (note that presets don't have this
-                    #       restriction, e.g. Going Green)
-
                     component_dict = {}
                     if component_type.startswith('freeform-custom-reactor-'):
                         # Add custom reactor attributes if needed
@@ -263,8 +260,20 @@ class Solution:
                     if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
                         component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
 
-                    posn_to_component[component_posn] = Component(component_dict,
-                                                                  _type=component_type, posn=component_posn)
+                    component = Component(component_dict, _type=component_type, posn=component_posn)
+
+                    # Ensure the component is within the overworld bounds (note that presets don't have this
+                    #       restriction, e.g. Going Green). Its pipes will be bounds-checked later since even pipes of
+                    #       preset components should have bounds checks.
+                    # Note: It looks like other than in Going Green, SC deletes out-of-bound preset components
+                    #       However, so long as its at the puzzle level and not the solution, being a little more
+                    #       permissive than SC should be okay
+                    component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
+                                                  range(component.posn[1], component.posn[1] + component.dimensions[1])))
+                    assert all(0 <= p[0] < OVERWORLD_COLS and 0 <= p[1] < OVERWORLD_ROWS
+                               for p in component_posns), f"Component {component_type} is out of bounds"
+
+                    posn_to_component[component_posn] = component
 
                 # Update the existing component (e.g. its pipes or reactor internals)
                 # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
@@ -310,10 +319,12 @@ class Solution:
                 assert pipe.posns[0] == (component.dimensions[0], ((component.dimensions[1] - 1) // 2) + i), \
                     f"Pipe {i} is not connected to parent component {component.type} at {component.posn}"
 
-                # Ensure this pipe doesn't collide with a component or terrain
+                # Ensure this pipe doesn't collide with a component, terrain, or the overworld edges
                 # Recall that pipe posns are defined relative to their parent component's posn
                 cur_pipe_posns = set((component.posn[0] + pipe_posn[0], component.posn[1] + pipe_posn[1])
                                      for pipe_posn in pipe.posns)
+                assert all(0 <= p[0] < OVERWORLD_COLS and 0 <= p[1] < OVERWORLD_ROWS
+                           for p in cur_pipe_posns), f"Component {component.type} pipe {i} is out of bounds"
                 assert cur_pipe_posns.isdisjoint(blocked_posns), \
                     f"Collision(s) between pipe and terrain/component at {cur_pipe_posns & blocked_posns}"
 
