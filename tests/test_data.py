@@ -112,6 +112,27 @@ MEMBER:'instr-arrow',-90,0,16,1,2,0,0
 MEMBER:'instr-output',-1,0,32,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Ignorable pipe modifications
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,2,5,0,0
+MEMBER:'instr-start',-90,0,32,2,2,0,0
+MEMBER:'instr-arrow',0,0,64,2,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,1,0,0
+MEMBER:'instr-arrow',0,0,16,2,1,0,0
+MEMBER:'instr-arrow',180,0,16,6,1,0,0
+MEMBER:'instr-grab',-1,1,32,2,1,0,0
+MEMBER:'instr-grab',-1,2,32,6,1,0,0
+MEMBER:'instr-output',-1,0,32,3,1,0,0
+MEMBER:'instr-input',-1,0,32,4,1,0,0
+MEMBER:'instr-input',-1,0,128,2,4,0,0
+MEMBER:'instr-rotate',-1,0,32,5,1,0,0
+MEMBER:'instr-rotate',-1,0,128,4,1,0,0
+MEMBER:'instr-output',-1,0,128,5,1,0,0
+PIPE:0,4,1
+PIPE:0,4,0
+PIPE:1,4,2''',
     '''SOLUTION:An Introduction to Bonding,Zig,154-1-10,Symbols
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',180,0,128,3,5,0,0
@@ -843,7 +864,7 @@ MEMBER:'instr-rotate',-1,0,32,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,4,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Settling into the Routine,Zig,1613-3-26,Symbols
+    '''SOLUTION:Settling into the Routine,Zig,1628-3-33,Symbols + wrong assembly output
 COMPONENT:'drag-disassembly-reactor',12,2,''
 MEMBER:'instr-start',-90,0,128,2,3,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -893,8 +914,8 @@ PIPE:0,5,17
 ANNOTATION:0,1,220,-63,'2,2:0,1;2,1:0,6;2,0:0,1;1,1:0,1;\n2,1,0:1;1,1,1:1;2,0,0:1;\r\n\r\n\r'
 ANNOTATION:1,1,218,67,'3,0:0,1;\n\r\n\r\n\r'
 COMPONENT:'drag-assembly-reactor',18,12,''
-MEMBER:'instr-start',180,0,128,5,0,0,0
-MEMBER:'instr-start',180,0,32,1,6,0,0
+MEMBER:'instr-start',180,0,128,9,0,0,0
+MEMBER:'instr-start',0,0,32,0,0,0,0
 MEMBER:'feature-bonder-plus',-1,0,1,3,0,0,0
 MEMBER:'feature-bonder-plus',-1,0,1,4,0,0,0
 MEMBER:'feature-bonder-plus',-1,0,1,8,7,0,0
@@ -904,8 +925,15 @@ MEMBER:'instr-grab',-1,1,128,3,0,0,0
 MEMBER:'instr-arrow',0,0,64,3,0,0,0
 MEMBER:'instr-arrow',180,0,64,7,0,0,0
 MEMBER:'instr-grab',-1,2,128,7,0,0,0
-MEMBER:'instr-bond',-1,0,32,0,6,0,0
+MEMBER:'instr-bond',-1,0,32,8,7,0,0
 MEMBER:'instr-output',-1,0,128,6,0,0,0
+MEMBER:'instr-grab',-1,1,32,3,0,0,0
+MEMBER:'instr-input',-1,0,32,1,0,0,0
+MEMBER:'instr-sync',-1,0,32,2,0,0,0
+MEMBER:'instr-sync',-1,0,128,8,0,0,0
+MEMBER:'instr-arrow',90,0,16,8,0,0,0
+MEMBER:'instr-grab',-1,2,32,8,4,0,0
+MEMBER:'instr-output',-1,1,32,8,5,0,0
 PIPE:0,4,1
 COMPONENT:'drag-assembly-reactor',18,18,''
 MEMBER:'instr-start',180,0,32,1,6,0,0

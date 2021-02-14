@@ -197,10 +197,6 @@ class Solution:
             # TODO: _type='reactor' is hacky but ensures Component.__init__ knows what it's dealing with
             new_component = Reactor(self.level.dict, _type='reactor', posn=Position(col=2, row=0))
             posn_to_component[new_component.posn] = new_component
-
-            # TODO: Add a disabled output to every unused output zone. The distinction from a non-existent pipe (e.g.
-            #       assembly reactor) being that the level actually crashes if a molecule is passed to that output,
-            #       instead of stalling or ignoring the output command
         else:
             # Recycler
             if 'has-recycler' in self.level and self.level['has-recycler']:
@@ -237,7 +233,6 @@ class Solution:
             soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
             self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
-            # TODO: Disallow mutating pipes in research levels or on certain flidais preset components, even if length 1
             for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
                 component_metadata = component_str.split('\n', maxsplit=1)[0]
                 fields = component_metadata.split(',')
@@ -275,7 +270,9 @@ class Solution:
                 # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
                 # mutating a preset reactor's 1-long pipe whereas custom levels allow it.
                 # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
-                update_pipes = 'mutable-pipes' not in self.level or self.level['mutable-pipes']
+                update_pipes = (not self.level['type'].startswith('research')
+                                and ('mutable-pipes' not in self.level
+                                     or self.level['mutable-pipes']))
                 posn_to_component[component_posn].update_from_export_str(component_str, update_pipes=update_pipes)
 
                 # TODO: Ensure the updated component pipes are within the overworld bounds
@@ -407,6 +404,7 @@ class Solution:
         # Exclude inputs whose pipes are length 1 (unmodified), outputs, and the recycler.
         # I'm probably forgetting another case.
         # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
+        #       Really it's probably just every unmodified preset component
         for component in self.components:
             if not (isinstance(component, Output)
                     or (isinstance(component, Input)

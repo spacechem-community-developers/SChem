@@ -199,7 +199,7 @@ class Molecule:
 
     def get_json_str(self):
         '''Return a string representing this molecule in the level json's format.'''
-        # TODO: formula?
+        # TODO: formula stuff. Actually the game seems to use slashes in formulas of unknown molecules
         result = f'{self.name};{self.formula.get_json_str()}'
         for pos, atom in self.atom_map.items():
             result += ';' + f'{pos.col}{pos.row}' + atom.get_json_str()

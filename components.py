@@ -208,7 +208,6 @@ class Component:
         if update_pipes:
             for i, pipe in enumerate(new_out_pipes):
                 # Preset pipes of length > 1 are immutable
-                # TODO: This doesn't prevent research level pipes from being modified
                 if len(self.out_pipes[i]) == 1:
                     # Ensure this pipe starts from the correct position
                     assert pipe.posns[0] == Position(col=self.dimensions[0], row=((self.dimensions[1] - 1) // 2) + i), \
