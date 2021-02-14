@@ -34,8 +34,8 @@ class Atom:
     def get_json_str(self):
         '''Return a string representing this atom in the level json's format.'''
         return (f'{self.element.atomic_num if self.element.symbol != "Av" else 204}'  # Necessary hack I think
-                f'{0 if Direction.RIGHT not in self.bonds else self.bonds[Direction.RIGHT]}'
-                f'{0 if Direction.DOWN not in self.bonds else self.bonds[Direction.DOWN]}')
+                f'{0 if RIGHT not in self.bonds else self.bonds[RIGHT]}'
+                f'{0 if DOWN not in self.bonds else self.bonds[DOWN]}')
 
     def hashable_repr(self):
         '''Return a hashable object representing this molecule, for use in comparing run states.'''
@@ -98,12 +98,12 @@ class Molecule:
             right_bonds = int(atom_str[-2])
             down_bonds = int(atom_str[-1])
             if right_bonds != 0:
-                atom.bonds[Direction.RIGHT] = right_bonds
+                atom.bonds[RIGHT] = right_bonds
             if down_bonds != 0:
-                atom.bonds[Direction.DOWN] = down_bonds
+                atom.bonds[DOWN] = down_bonds
 
             # Add up/left bonds; this doubles information but makes working with atoms less complex/asymmetrical
-            for dir in Direction.RIGHT, Direction.DOWN:
+            for dir in RIGHT, DOWN:
                 # Add up/left bonds to this atom based on the down/right bonds of its neighbors
                 neighbor_posn = position + dir.opposite()
                 if neighbor_posn in atom_map and dir in atom_map[neighbor_posn].bonds:
@@ -120,7 +120,53 @@ class Molecule:
 
     def __repr__(self):
         return f'Molecule({self.atom_map})'
-    __str__ = __repr__
+
+    def __str__(self):
+        """Represent this molecule in a grid. Since this is usually used for debugging, show any inconsistencies
+        between neighboring atoms' bonds.
+        """
+        s = ''
+        hor_bond_sym = {0: ' ', 1: '-', 2: '=', 3: '≡'}
+        ver_bond_sym = {0: '    ', 1: '  | ', 2: ' || ', 3: ' |‖ '}
+
+        # Identify the bounds of the grid we have to draw
+        min_col = min(posn.col for posn in self.atom_map)
+        max_col = max(posn.col for posn in self.atom_map)
+        min_row = min(posn.row for posn in self.atom_map)
+        max_row = max(posn.row for posn in self.atom_map)
+
+        for row in range(min_row, max_row + 1):
+            # Add upper bonds
+            for col in range(min_col, max_col + 1):
+                posn = Position(col=col, row=row)
+                if posn in self and UP in self[posn].bonds:
+                    s += ver_bond_sym[self[posn].bonds[UP]]
+                else:
+                    s += '    '
+            s += '\n'
+
+            # Add this row's atoms and horizontal bonds
+            for col in range(min_col, max_col + 1):
+                posn = Position(col=col, row=row)
+                if posn in self:
+                    atom = self[posn]
+                    s += hor_bond_sym[atom.bonds[LEFT]] if LEFT in atom.bonds else ' '
+                    s += atom.element.symbol.rjust(2)
+                    s += hor_bond_sym[atom.bonds[RIGHT]] if RIGHT in atom.bonds else ' '
+                else:
+                    s += '    '
+            s += '\n'
+
+            # Add lower bonds
+            for col in range(min_col, max_col + 1):
+                posn = Position(col=col, row=row)
+                if posn in self and DOWN in self[posn].bonds:
+                    s += ver_bond_sym[self[posn].bonds[DOWN]]
+                else:
+                    s += '    '
+            s += '\n'
+
+        return s
 
     def __len__(self):
         '''Return the # of atoms in this molecule.'''
@@ -281,15 +327,15 @@ class Molecule:
         # but populated in an order that respects the fact that anything attached to the modified atom counts as
         # 'middle', and that otherwise South's rule dominates the other directions' default orderings.
         # Note: the (0, 0) is a quick hack since it behaves like a Direction.NONE when added to a Position.
-        new_molecules = {Direction.LEFT: None,
-                         Direction.UP: None,
+        new_molecules = {LEFT: None,
+                         UP: None,
                          (0, 0): None,
-                         Direction.RIGHT: None,
-                         Direction.DOWN: None}
+                         RIGHT: None,
+                         DOWN: None}
 
         # Search in an order that ensures other directions get put in the 'middle' or 'down' molecules first if possible
         # (see `not considered "debonded"` and rule 1 above for why middle and down are prioritized first)
-        for search_dirn in ((0, 0), Direction.DOWN, Direction.LEFT, Direction.UP, Direction.RIGHT):
+        for search_dirn in ((0, 0), DOWN, LEFT, UP, RIGHT):
             start_posn = modified_posn + search_dirn
             # If we already found this posn attached to one of the other posns and removed it,
             # or it did't exist in the first places, skip it
@@ -319,10 +365,10 @@ class Molecule:
 
         # Per priority rule 3 above, if the right neighbor was not found in any of the other searches, force its
         # molecule to be second in the returned list
-        mol_iter = (m for k, m in new_molecules.items() if m is not None and k != Direction.RIGHT)
+        mol_iter = (m for k, m in new_molecules.items() if m is not None and k != RIGHT)
         out = [next(mol_iter)]
-        if new_molecules[Direction.RIGHT] is not None:
-            out.append(new_molecules[Direction.RIGHT])
+        if new_molecules[RIGHT] is not None:
+            out.append(new_molecules[RIGHT])
         out += [m for m in mol_iter]
 
         return out

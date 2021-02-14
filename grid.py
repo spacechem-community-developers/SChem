@@ -37,16 +37,16 @@ class Direction(IntEnum):
 
 
 # Convenience
-CARDINAL_DIRECTIONS = (Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT)
+CARDINAL_DIRECTIONS = UP, RIGHT, DOWN, LEFT = (Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT)
 
 
 class Position(namedtuple("Position", ('col', 'row'))):
     '''Grid position, with (col, row) 0-indexed from the top left of the reactor or overworld.'''
 
-    dirn_to_delta = {Direction.UP: (0, -1),
-                     Direction.RIGHT: (1, 0),
-                     Direction.DOWN: (0, 1),
-                     Direction.LEFT: (-1, 0)}
+    dirn_to_delta = {UP: (0, -1),
+                     RIGHT: (1, 0),
+                     DOWN: (0, 1),
+                     LEFT: (-1, 0)}
 
     __slots__ = ()
 

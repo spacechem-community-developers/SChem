@@ -8,7 +8,7 @@ import time
 
 from spacechem.elements_data import elements_dict
 from spacechem.exceptions import *
-from spacechem.grid import CARDINAL_DIRECTIONS, Position, Direction
+from spacechem.grid import *
 from spacechem.molecule import Molecule, Atom, ATOM_RADIUS
 from spacechem.spacechem_random import SpacechemRandom
 from spacechem.waldo import Waldo, Instruction, InstructionType
@@ -72,7 +72,7 @@ class Pipe(list):
         (U = Up, R = Right, D = Down, L = Left) from the start_posn (should be relative to the parent component's posn).
         '''
         posns = [start_posn]
-        char_to_dirn = {'U': Direction.UP, 'R': Direction.RIGHT, 'D': Direction.DOWN, 'L': Direction.LEFT}
+        char_to_dirn = {'U': UP, 'R': RIGHT, 'D': DOWN, 'L': LEFT}
         for dirn_char in dirns_str:
             posns.append(posns[-1] + char_to_dirn[dirn_char])
 
@@ -176,11 +176,11 @@ class Component:
             assert len(component_dict['output-pipes']) == num_out_pipes, f"Unexpected number of output pipes for {self.type}"
             for pipe_dirns_str in component_dict['output-pipes']:
                 self.out_pipes.append(Pipe.from_preset_string(pipe_start_posn, pipe_dirns_str))
-                pipe_start_posn += Direction.DOWN
+                pipe_start_posn += DOWN
         else:
             for _ in range(num_out_pipes):
                 self.out_pipes.append(Pipe(posns=[pipe_start_posn]))
-                pipe_start_posn += Direction.DOWN
+                pipe_start_posn += DOWN
 
     def update_from_export_str(self, export_str, update_pipes=True):
         '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
@@ -575,8 +575,8 @@ class Reactor(Component):
     # with them given only the atom's center co-ordinates
     NUM_WALDOS = 2
     NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
-    walls = {Direction.UP: -0.5 + ATOM_RADIUS, Direction.DOWN: 7.5 - ATOM_RADIUS,
-             Direction.LEFT: -0.5 + ATOM_RADIUS, Direction.RIGHT: 9.5 - ATOM_RADIUS}
+    walls = {UP: -0.5 + ATOM_RADIUS, DOWN: 7.5 - ATOM_RADIUS,
+             LEFT: -0.5 + ATOM_RADIUS, RIGHT: 9.5 - ATOM_RADIUS}
 
     __slots__ = ('in_pipes', 'out_pipes',
                  'waldos', 'molecules',
@@ -630,9 +630,9 @@ class Reactor(Component):
         # Place Waldo starts at default locations
         self.waldos = [Waldo(idx=i,
                              position=Position(4, 1 + 5*i),
-                             direction=Direction.LEFT,
+                             direction=LEFT,
                              instr_map={Position(4, 1 + 5*i): (None, Instruction(InstructionType.START,
-                                                                                 direction=Direction.LEFT))})
+                                                                                 direction=LEFT))})
                        for i in range(self.NUM_WALDOS)]
 
         # Parse any quantum walls from the reactor definition
@@ -679,7 +679,7 @@ class Reactor(Component):
                                      for posn in bond_plus_bonders
                                      for neighbor_posn, direction in
                                      sorted([(posn + direction, direction)
-                                             for direction in (Direction.RIGHT, Direction.DOWN)
+                                             for direction in (RIGHT, DOWN)
                                              if posn + direction in bond_plus_bonders],
                                             key=lambda x: bond_plus_bonders[x[0]]))
 
@@ -688,7 +688,7 @@ class Reactor(Component):
                                       for posn in bond_minus_bonders
                                       for neighbor_posn, direction in
                                       sorted([(posn + direction, direction)
-                                              for direction in (Direction.RIGHT, Direction.DOWN)
+                                              for direction in (RIGHT, DOWN)
                                               if posn + direction in bond_minus_bonders],
                                              key=lambda x: bond_minus_bonders[x[0]]))
 
@@ -748,7 +748,7 @@ class Reactor(Component):
 
                 # Sanity check the other half of double-size features
                 if member_name in ('feature-fuser', 'feature-splitter'):
-                    position2 = position + Direction.RIGHT
+                    position2 = position + RIGHT
                     assert position2.col < 10, f"Member {member_name} is out-of-bounds"
                     if position2 in feature_posns:
                         raise Exception(f"Solution contains overlapping features at {position2}")
@@ -928,10 +928,10 @@ class Reactor(Component):
 
         # If the waldo is facing a wall, mark it as stalled (may also be stalled due to sync, input, etc.)
         for waldo in self.waldos:
-            if ((waldo.direction == Direction.UP and waldo.position.row == 0)
-                    or (waldo.direction == Direction.DOWN and waldo.position.row == 7)
-                    or (waldo.direction == Direction.LEFT and waldo.position.col == 0)
-                    or (waldo.direction == Direction.RIGHT and waldo.position.col == 9)):
+            if ((waldo.direction == UP and waldo.position.row == 0)
+                    or (waldo.direction == DOWN and waldo.position.row == 7)
+                    or (waldo.direction == LEFT and waldo.position.col == 0)
+                    or (waldo.direction == RIGHT and waldo.position.col == 9)):
                 waldo.is_stalled = True
 
         # If any waldo is about to rotate a molecule, don't skimp on collision checks
@@ -1006,8 +1006,8 @@ class Reactor(Component):
             # Move all molecules
             for waldo in waldos_moving_molecules:
                 # If we're moving perpendicular to any quantum walls, check for collisions with them
-                if ((self.quantum_walls_y and waldo.direction in (Direction.LEFT, Direction.RIGHT))
-                        or (self.quantum_walls_x and waldo_direction in (Direction.UP, Direction.DOWN))):
+                if ((self.quantum_walls_y and waldo.direction in (LEFT, RIGHT))
+                        or (self.quantum_walls_x and waldo_direction in (UP, DOWN))):
                     # Move the molecule halfway, check for quantum wall collisions, then move the last half
                     waldo.molecule.move(waldo.direction, distance=0.5)
                     self.check_quantum_wall_collisions(waldo.molecule)
@@ -1037,8 +1037,8 @@ class Reactor(Component):
 
     def check_wall_collisions(self, molecule):
         '''Raise an exception if the given molecule collides with any walls.'''
-        if not all(self.walls[Direction.UP] < p.row < self.walls[Direction.DOWN]
-                   and self.walls[Direction.LEFT] < p.col < self.walls[Direction.RIGHT]
+        if not all(self.walls[UP] < p.row < self.walls[DOWN]
+                   and self.walls[LEFT] < p.col < self.walls[RIGHT]
                    for p in molecule.atom_map):
             raise ReactionError("A molecule has collided with a wall")
 
@@ -1155,12 +1155,12 @@ class Reactor(Component):
         # We don't do this immediately on output to save a little work when the molecule is going to an output component
         # anyway (since output checks are agnostic of absolute co-ordinates)
         if sample_posn.col >= 6:
-            new_molecule.move(Direction.LEFT, 6)
+            new_molecule.move(LEFT, 6)
         # Update the molecule's co-ordinates to those of the correct zone if it came from an opposite output zone
         if input_idx == 0 and sample_posn.row >= 4:
-            new_molecule.move(Direction.UP, 4)
+            new_molecule.move(UP, 4)
         elif input_idx == 1 and sample_posn.row < 4:
-            new_molecule.move(Direction.DOWN, 4)
+            new_molecule.move(DOWN, 4)
 
         self.molecules[new_molecule] = None  # Dummy value
 
@@ -1341,7 +1341,7 @@ class Reactor(Component):
         neighbor_atoms = {}  # So we don't have to repeatedly incur the get_molecule cost
         while excess_bonds > 0:
             # The order here is deliberately hardcoded to match empirical observations of SpaceChem's behavior
-            for dirn in (Direction.RIGHT, Direction.LEFT, Direction.UP, Direction.DOWN):
+            for dirn in (RIGHT, LEFT, UP, DOWN):
                 # Reduce triple bonds first, then double bonds, etc.
                 if dirn in atom.bonds and atom.bonds[dirn] == max_bond_size:
                     if dirn not in neighbor_atoms:
@@ -1375,7 +1375,7 @@ class Reactor(Component):
             if left_molecule is None:
                 continue
 
-            right_posn = left_posn + Direction.RIGHT
+            right_posn = left_posn + RIGHT
             right_molecule = self.get_molecule(right_posn)
             if right_molecule is None:
                 continue
@@ -1419,7 +1419,7 @@ class Reactor(Component):
             self.reduce_excess_bonds(splitter_posn)  # Reduce the left atom's bonds if its new bond count is too low
 
             # Lastly create the new molecule (and check for collisions in its cell)
-            new_molecule = Molecule(atom_map={splitter_posn + Direction.RIGHT: Atom(element=elements_dict[new_atomic_num])})
+            new_molecule = Molecule(atom_map={splitter_posn + RIGHT: Atom(element=elements_dict[new_atomic_num])})
             self.check_molecule_collisions_lazy(new_molecule)
             self.molecules[new_molecule] = None  # Dummy value
 

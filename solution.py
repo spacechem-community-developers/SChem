@@ -8,7 +8,7 @@ import time
 
 from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
 from spacechem.exceptions import RunSuccess, ReactionError
-from spacechem.grid import Direction, Position
+from spacechem.grid import *
 from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS
 from spacechem.terrains import terrains
 
@@ -327,7 +327,7 @@ class Solution:
                 #                 crossovers (note that no components have pipes on their top/bottom edges so this is
                 #                 safe).
                 #                 This also ensures that a 1-long pipe will count as horizontal and not vertical.
-                for prev, cur, next_ in zip([pipe.posns[0] + Direction.LEFT] + pipe.posns[:-1],
+                for prev, cur, next_ in zip([pipe.posns[0] + LEFT] + pipe.posns[:-1],
                                             pipe.posns,
                                             pipe.posns[1:] + [pipe.posns[-1]]):
                     real_posn = component.posn + cur
@@ -337,13 +337,13 @@ class Solution:
 
                     # Pipe is not vertical (blocks the horizontal direction)
                     if not (prev.col == cur.col == next_.col):
-                        assert Direction.RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
-                        pipe_posns_to_dirns[real_posn].add(Direction.RIGHT)
+                        assert RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                        pipe_posns_to_dirns[real_posn].add(RIGHT)
 
                     # Pipe is not horizontal (blocks the vertical direction)
                     if not (prev.row == cur.row == next_.row):
-                        assert Direction.UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
-                        pipe_posns_to_dirns[real_posn].add(Direction.UP)
+                        assert UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                        pipe_posns_to_dirns[real_posn].add(UP)
 
         # Store all components, sorting them left-to-right then top-to-bottom to ensure correct I/O priorities
         # (since posns are col first then row, this is just a regular sort on the posn tuples)
@@ -363,8 +363,8 @@ class Solution:
                 # pipe collisions. The end of a pipe is always 'straight', so if there are two directions occupied in
                 # the cell this pipe ends in, we know there are two pipes here. We must ignore this pipe if its second
                 # last segment is not to the left of its last segment.
-                if (pipe_posns_to_dirns[pipe_end] == {Direction.UP, Direction.RIGHT}
-                        and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + Direction.LEFT):
+                if (pipe_posns_to_dirns[pipe_end] == {UP, RIGHT}
+                        and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + LEFT):
                     continue
 
                 # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
