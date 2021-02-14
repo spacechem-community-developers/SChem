@@ -3,9 +3,9 @@
 
 from collections import Counter
 
-from spacechem.exceptions import ReactionError
-from spacechem.grid import *
-from spacechem.elements_data import elements_dict
+from schem.exceptions import ReactionError
+from schem.grid import *
+from schem.elements_data import elements_dict
 
 # Diameter of an atom relative to a grid cell, per https://www.reddit.com/r/spacechem/wiki/gamemechanics#wiki_collisions
 # Lower bound: 0.7465 (hard bound) based on a rotating 7x3 molecule colliding with an atom (5, 5) away from the waldo

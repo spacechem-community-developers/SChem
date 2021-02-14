@@ -6,12 +6,12 @@ import copy
 import math
 import time
 
-from spacechem.elements_data import elements_dict
-from spacechem.exceptions import *
-from spacechem.grid import *
-from spacechem.molecule import Molecule, Atom, ATOM_RADIUS
-from spacechem.spacechem_random import SpacechemRandom
-from spacechem.waldo import Waldo, Instruction, InstructionType
+from schem.elements_data import elements_dict
+from schem.exceptions import *
+from schem.grid import *
+from schem.molecule import Molecule, Atom, ATOM_RADIUS
+from schem.schem_random import SChemRandom
+from schem.waldo import Waldo, Instruction, InstructionType
 
 
 # Dimensions of component types
@@ -82,7 +82,7 @@ class Pipe(list):
 
     @classmethod
     def from_export_str(cls, export_str):
-        '''Note that a pipe's solution lines may not be contiguous. It is expected that the caller filters
+        '''Note that a pipe's solution lines might not be contiguous. It is expected that the caller filters
         out the lines for a single pipe and passes them as a single string to this method.
         '''
         lines = export_str.strip().split('\n')
@@ -289,7 +289,7 @@ class RandomInput(Input):
 
         # Create a random generator with the given seed. Most levels default to seed 0
         seed = input_dict['random-seed'] if 'random-seed' in input_dict else 0
-        self.random_generator = SpacechemRandom(seed=seed)
+        self.random_generator = SChemRandom(seed=seed)
         self.random_bucket = []  # Bucket of indices for the molecules in the current balancing bucket
 
         molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'

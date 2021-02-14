@@ -33,7 +33,7 @@ from typing import List
 import numpy as np
 
 
-class SpacechemRandom:
+class SChemRandom:
     '''Class for providing random values, which mimics the windows PRNG used by Spacechem.'''
     __slots__ = 'inext', 'inextp', 'SeedArray'
 

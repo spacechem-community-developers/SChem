@@ -6,11 +6,11 @@ import copy
 from itertools import product
 import time
 
-from spacechem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
-from spacechem.exceptions import RunSuccess, ReactionError
-from spacechem.grid import *
-from spacechem.level import OVERWORLD_COLS, OVERWORLD_ROWS
-from spacechem.terrains import terrains, MAX_TERRAIN_INT
+from schem.components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
+from schem.exceptions import RunSuccess, ReactionError
+from schem.grid import *
+from schem.level import OVERWORLD_COLS, OVERWORLD_ROWS
+from schem.terrains import terrains, MAX_TERRAIN_INT
 
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):

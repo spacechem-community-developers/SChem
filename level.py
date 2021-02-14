@@ -7,8 +7,7 @@ import io
 import json
 import zlib
 
-from spacechem.molecule import Molecule
-from spacechem.spacechem_random import SpacechemRandom
+from schem.molecule import Molecule
 
 OVERWORLD_ROWS = 22
 OVERWORLD_COLS = 32

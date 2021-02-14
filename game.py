@@ -7,11 +7,11 @@ from pathlib import Path
 
 import clipboard
 
-from spacechem.level import Level
-from spacechem import levels
-from spacechem.solution import Solution
-from spacechem.tests import test_data
-from spacechem.components import *
+from schem.level import Level
+from schem import levels
+from schem.solution import Solution
+from schem.tests import test_data
+from schem.components import *
 
 
 def run(soln_str, level_code=None, verbose=False, debug=False):
