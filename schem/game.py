@@ -14,7 +14,10 @@ from .components import *
 
 
 def run(soln_str, level_code=None, verbose=False, debug=False):
-    """Given a solution string, run it against the specified level and return a Score."""
+    """Given a solution string, run it against the given level. If none is provided, use the level name from the
+    solution metadata to look for and use a built-in game level. Return the score as (cycles, reactors, symbols) or
+    raise an exception if the solution does not run to completion.
+    """
     level_name, _, expected_score, _ = Solution.parse_metadata(soln_str)
 
     matching_levels = []
@@ -61,6 +64,10 @@ def run(soln_str, level_code=None, verbose=False, debug=False):
         raise exceptions[0]
 
 def validate(soln_str, level_code=None, verbose=True, debug=False):
+    """Given a solution string, run it against the given level. If none is provided, use the level name from the
+    solution metadata to look for and use a built-in game level.
+    Raise an exception if the score does not match that indicated in the solution metadata.
+    """
     level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
     # TODO: Should use level_code's name if conflicting
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
@@ -71,8 +78,9 @@ def validate(soln_str, level_code=None, verbose=True, debug=False):
         # Mention the invalid solution via a chained exception of the same type
         raise type(e)(f"Error while validating {soln_descr}: {e}") from e
 
-    assert score == expected_score, (f"Expected score {'-'.join(str(x) for x in expected_score)}"
-                                     f" but got {'-'.join(str(x) for x in score)}")
+    if score != expected_score:
+        raise Exception(f"Expected score {expected_score} but got {score}")
+
     if verbose:
         print(f"Validated {soln_descr}")
 
