@@ -1,0 +1,9 @@
+
+cffi==1.14.3
+clipboard==0.0.4
+greenlet==0.4.13
+numpy==1.19.4
+protobuf==3.14.0
+pyperclip==1.8.1
+readline==6.2.4.1
+six==1.15.0
