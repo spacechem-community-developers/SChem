@@ -3,9 +3,10 @@
 
 from pathlib import Path
 import pickle
-from pympler import asizeof
 from timeit import Timer
 import unittest
+import gc
+import resource
 import sys
 
 # Insert the parent directory so schem is accessible even if it's not available system-wide
@@ -101,13 +102,19 @@ class TestGame(unittest.TestCase):
         Also outputs runtime performance stats.
         '''
         for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
+            # Before beginning the solution, run garbage collection.
+            gc.collect()
+
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
                 self.assertEqual(solution.run(), solution.expected_score)
 
-                # TODO: This is only measuring the final object, we don't know the max runtime mem usage
-                mem_usage = asizeof.asizeof(solution)
+                # Measure the current memory usage. Because we GC before
+                # beginning the solution, this should be representative
+                # of the solution's memory usage.
+                mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
 
                 # Check the time performance of the solver
                 timer = Timer(('l=schem.Level(level_code)'
