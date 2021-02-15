@@ -7,7 +7,7 @@ import io
 import json
 import zlib
 
-from schem.molecule import Molecule
+from .molecule import Molecule
 
 OVERWORLD_ROWS = 22
 OVERWORLD_COLS = 32

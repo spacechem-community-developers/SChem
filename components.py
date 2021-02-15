@@ -6,12 +6,12 @@ import copy
 import math
 import time
 
-from schem.elements_data import elements_dict
-from schem.exceptions import *
-from schem.grid import *
-from schem.molecule import Molecule, Atom, ATOM_RADIUS
-from schem.schem_random import SChemRandom
-from schem.waldo import Waldo, Instruction, InstructionType
+from .elements import elements_dict
+from .exceptions import *
+from .grid import *
+from .molecule import Molecule, Atom, ATOM_RADIUS
+from .schem_random import SChemRandom
+from .waldo import Waldo, Instruction, InstructionType
 
 
 # Dimensions of component types

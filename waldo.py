@@ -4,7 +4,7 @@
 from collections import namedtuple
 from enum import Enum
 
-from schem.grid import Direction
+from .grid import Direction
 
 
 class InstructionType(Enum):

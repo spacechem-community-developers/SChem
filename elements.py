@@ -154,4 +154,5 @@ class ElementDict(dict):
 
 elements_dict = ElementDict(elements)
 # Australium is stored as element 204 but has the same properties as gold; add it separately to avoid overriding it
+elements.append(Element(79, 'Av', 5))
 elements_dict[204] = elements_dict.symbol_dict['Av'] = Element(79, 'Av', 5)  # 🦘

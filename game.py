@@ -7,11 +7,11 @@ from pathlib import Path
 
 import clipboard
 
-from schem.level import Level
-from schem import levels
-from schem.solution import Solution
-from schem.tests import test_data
-from schem.components import *
+from .level import Level
+from . import levels
+from .solution import Solution
+from .tests import test_data
+from .components import *
 
 
 def run(soln_str, level_code=None, verbose=False, debug=False):
