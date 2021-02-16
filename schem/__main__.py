@@ -8,21 +8,23 @@ from pathlib import Path
 import clipboard
 
 from .game import validate
+from .solution import Solution
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate the solution copied to the clipboard or in the given file",
+    parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--debug', nargs='?', const='', type=str,
-                        help="Print an updating view of the solution while it runs."
-                             + "\nCan accept a comma-separated string with any of the following options:"
-                             + "\nrN: Debug the reactor with idx N (if unspecified, overworld is shown in production lvls)."
-                             + "\ncM: Start debugging from cycle M. Default 0."
-                             + "\nE.g. --debug=r0,c1000 will start debugging the first reactor on cycle 1000")
     parser.add_argument('solution_file', type=Path, nargs='?',
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('--level_file', type=Path,
                         help="Optional file containing the puzzle to check the solution(s) against")
+    parser.add_argument('--debug', nargs='?', const='', type=str,
+                        help="Print an updating view of the solution while it runs."
+                             + "\nCan accept a comma-separated string with any of the following options:"
+                             + "\nrR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls)."
+                             + "\ncC: Start debugging from cycle C. Default 0."
+                             + "\nsS: Change the default debug cycles/second by a factor of S."
+                             + "\nE.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at 0.5x speed")
     args = parser.parse_args()
 
     debug = False
@@ -47,7 +49,7 @@ def main():
         with args.solution_file.open() as f:
             solutions_str = f.read()
     else:
-        solutions_str = clipboard.paste().replace('\r', '')  # Make sure windows doesn't crap in our string
+        solutions_str = clipboard.paste().replace('\r\n', '\n')  # Make sure windows doesn't crap in our string
 
     level_code = None
     if args.level_file:

@@ -49,7 +49,7 @@ def percent_diff_str(last_metric, cur_metric):
     return f'{percent_formatting}{percent_diff:.0%}{format_end}'
 
 
-class TestGame(unittest.TestCase):
+class TestSolution(unittest.TestCase):
     def test_import_errors(self):
         '''Tests for solutions that shouldn't import successfully.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):

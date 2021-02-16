@@ -15,5 +15,5 @@ This is equivalent to:
 
 ```
 import schem
-schem.validate(soln_str)
+schem.validate(soln_str, verbose=True)
 ```
