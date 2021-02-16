@@ -3,12 +3,13 @@
 
 from pathlib import Path
 import pickle
-from pympler import asizeof
 from timeit import Timer
 import unittest
 import sys
 
-# Insert the parent directory so schem is accessible even if it's not available system-wide
+from pympler import asizeof
+
+# Insert the parent directory to sys path so schem is accessible even if it's not available system-wide
 sys.path.insert(1, str(Path(__file__).parent.parent))
 
 import schem

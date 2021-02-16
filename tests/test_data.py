@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''Spacechem test data. Structured as dicts of level_code:tuple(solution_codes).'''
+'''Spacechem test data. Dict of test levels and lists of solutions.'''
 
 # Custom levels used for certain tests
 test_levels = {
