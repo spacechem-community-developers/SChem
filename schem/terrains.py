@@ -52,7 +52,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     1: {  # Danopth
         'obstructed': {
             # Top-left rock/pit
@@ -78,7 +78,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     2: {  # Alkonost
         'obstructed': {
             # Left tree column
@@ -109,7 +109,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     3: {  # Sikutar
         'obstructed': {
             # Left ravine
@@ -133,7 +133,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     4: {  # Hephaestus IV
         'obstructed': {
             # Bottom-left lava
@@ -148,7 +148,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     5: {  # Flidais
         'obstructed': {
             # Bottom-left creeper
@@ -168,7 +168,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('recycler', (24, 17))},
+        'recycler': ('drag-recycler', (24, 17))},
     # TODO: I only did the most central terrain obstacles on my first pass through the main game; add the edge bits
     "An Introduction to Pipelines": {
         'obstructed': {
