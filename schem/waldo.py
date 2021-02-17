@@ -101,18 +101,6 @@ class Waldo:
         '''A waldo's run state is uniquely identified by its position, direction,
         whether it's holding a molecule, whether it's rotating, and its flip-flop states.
         '''
-        # TODO: It is preferable if a hash not only uniquely identifies a cycle's behavior, but (at least in a
-        #       deterministic solution) a cycle's behaviour will only be the same if it started with the same hash.
-        #       Having waldo direction in here breaks that nicety, as e.g. ending on an arrow will not have the same
-        #       hash as ending on that arrow when arriving from a different direction (even though for both the next
-        #       cycle will have the waldo moving in the same direction). To avoid needing to jerry-rig the hash value,
-        #       the simplest fix is to do hash checks after updating the direction each cycle (maybe even after instant
-        #       instructions? need to think about how this affects the random input state tree. I think we want to
-        #       snapshot right before calling any inputs so that we can guarantee we will encounter the hash before
-        #       a certain input no matter what the previous cycle's position/direction was, if it ends on that input
-        #       command and facing the same way)
-        #       That said the current code *should* work, it's just making more random input nodes/segments than it
-        #       needs to and/or detecting loops 1 cycle later than necessary...
         return hash((self.position, self.direction, self.molecule is None, self.is_rotating,
                      tuple(self.flipflop_states.values())))
 

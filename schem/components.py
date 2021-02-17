@@ -775,13 +775,22 @@ class Reactor(Component):
 
             # Make sure this instruction is legal
             if member_name in self.disallowed_instrs:
-                raise Exception(f"Disallowed instruction type: {repr(member_name)}")
+                raise ValueError(f"Disallowed instruction type: {repr(member_name)}")
 
             # Since this member is an instr and not a feature, prep a slot in the instr map
             if position not in waldo_instr_maps[waldo_idx]:
                 waldo_instr_maps[waldo_idx][position] = [None, None]
 
+            if member_name == 'instr-arrow':
+                assert waldo_instr_maps[waldo_idx][position][0] is None, f"Overlapping arrows at {position}"
+                waldo_instr_maps[waldo_idx][position][0] = direction
+                continue
+
+            assert waldo_instr_maps[waldo_idx][position][1] is None, f"Overlapping commands at {position}"
+
             if member_name == 'instr-start':
+                if waldo_starts[waldo_idx] is not None:
+                    raise ValueError(f"Duplicate waldo Start command: {line}")
                 waldo_starts[waldo_idx] = (position, direction)
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.START, direction=direction)
                 continue
@@ -789,9 +798,7 @@ class Reactor(Component):
             # Note: Some similar instructions have the same name but are sub-typed by the
             #       second integer field
             instr_sub_type = int(fields[2])
-            if member_name == 'instr-arrow':
-                waldo_instr_maps[waldo_idx][position][0] = direction
-            elif member_name == 'instr-input':
+            if member_name == 'instr-input':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT, target_idx=instr_sub_type)
             elif member_name == 'instr-output':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.OUTPUT,

@@ -4482,7 +4482,30 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
 ]
 
+# Solutions that should raise an exception upon initialization of a Solution object
 import_errors = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Duplicate Start cmd
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',0,0,128,0,2,0,0
+MEMBER:'instr-start',180,0,32,1,6,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting arrows
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,1,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting non-arrow cmds
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,1,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-grab',-1,0,128,1,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,illegal flip-flop
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
