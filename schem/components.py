@@ -431,16 +431,17 @@ class PassThroughCounter(Output):
         return ret_value
 
 
-class DisabledOutput(Output):
+# It's less confusing for output counting and user-facing purposes if this is not an Output subclass
+class DisabledOutput(Component):
     '''Used by research levels, which actually crash if a wrong output is used unlike assembly reactors.'''
     __slots__ = ()
 
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
+
     def __init__(self, _type, posn):
-        # TODO: Should this even be a subclass of Output? I guess it gets the in_pipe property...
-        super(Output, self).__init__(_type=_type, posn=posn, num_in_pipes=1)
-        self.output_molecule = None
-        self.target_count = None
-        self.current_count = None
+        super().__init__(_type=_type, posn=posn, num_in_pipes=1)
 
     def do_instant_actions(self, cur_cycle):
         # Technically should check for `in_pipe is None` first but I'd also be curious to see this crash since disabled

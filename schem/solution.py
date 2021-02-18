@@ -39,6 +39,19 @@ class Solution:
     __slots__ = ('level_name', 'author', 'expected_score', 'name',
                  'level', 'components')
 
+    # Convenience properties
+    @property
+    def inputs(self):
+        return (component for component in self.components if isinstance(component, Input))
+
+    @property
+    def reactors(self):
+        return (component for component in self.components if isinstance(component, Reactor))
+
+    @property
+    def outputs(self):
+        return (component for component in self.components if isinstance(component, Output))
+
     @classmethod
     def parse_metadata(cls, s):
         '''Given a solution export string or its SOLUTION line, return the level name, author, expected score,
@@ -507,8 +520,7 @@ class Solution:
             debug.reactor = 0
 
         self.validate_components()
-
-        reactors = [component for component in self.components if isinstance(component, Reactor)]
+        reactors = list(self.reactors)
 
         # Set the maximum runtime to ensure a broken solution can't infinite loop forever
         if self.expected_score is not None:
@@ -519,8 +531,8 @@ class Solution:
                       for component in self.components
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
         cycle = 0
+        num_outputs = len(list(self.outputs))
         completed_outputs = 0
-        num_outputs = len([c for c in self.components if isinstance(c, Output) and not isinstance(c, DisabledOutput)])
 
         try:
             while cycle < max_cycles:
