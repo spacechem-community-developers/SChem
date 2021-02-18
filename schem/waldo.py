@@ -87,13 +87,22 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
 class Waldo:
     __slots__ = 'idx', 'instr_map', 'flipflop_states', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
 
-    def __init__(self, idx, position, direction, instr_map):
+    def __init__(self, idx, instr_map):
         self.idx = idx
         self.instr_map = instr_map  # Position map of tuples containing arrow (direction) and 'command' (non-arrow) instructions
-        self.flipflop_states = {posn: False for posn, (_, cmd) in instr_map.items()
-                                if cmd is not None and cmd.type == InstructionType.FLIP_FLOP}
-        self.position = position
-        self.direction = direction
+        self.flipflop_states = {}
+        self.position = None  # Dummy init so we can check for duplicate Start
+        for posn, (_, cmd) in instr_map.items():
+            if cmd is not None:
+                if cmd.type == InstructionType.FLIP_FLOP:
+                    self.flipflop_states[posn] = False
+                elif cmd.type == InstructionType.START:
+                    assert self.position is None, "Duplicate waldo Start instruction"
+                    self.position = posn
+                    self.direction = cmd.direction
+        assert self.position is not None, "Missing waldo Start instruction"
+
+
         self.molecule = None
         self.is_stalled = False  # Updated if the waldo is currently stalled on a sync, output, wall, etc.
         self.is_rotating = False  # Used to distinguish the first vs second cycle on a rotate command

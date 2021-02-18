@@ -628,11 +628,8 @@ class Reactor(Component):
         self.large_output = 'has-large-output' in component_dict and component_dict['has-large-output']
 
         # Place Waldo starts at default locations
-        self.waldos = [Waldo(idx=i,
-                             position=Position(4, 1 + 5*i),
-                             direction=LEFT,
-                             instr_map={Position(4, 1 + 5*i): (None, Instruction(InstructionType.START,
-                                                                                 direction=LEFT))})
+        self.waldos = [Waldo(idx=i, instr_map={Position(4, 1 + 5*i): (None, Instruction(InstructionType.START,
+                                                                                        direction=LEFT))})
                        for i in range(self.NUM_WALDOS)]
 
         # Parse any quantum walls from the reactor definition
@@ -698,8 +695,6 @@ class Reactor(Component):
         features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
                     'bonder_pluses': [], 'bonder_minuses': []}
 
-        # Store waldo Starts as (posn, dirn) pairs for quick access when initializing reactor waldos
-        waldo_starts = self.NUM_WALDOS * [None]
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
         # TODO: usage might be cleaner if separate arrow_maps and instr_maps... but probably more space
         waldo_instr_maps = [{} for _ in range(self.NUM_WALDOS)]  # Can't use * or else dict gets multi-referenced
@@ -789,9 +784,6 @@ class Reactor(Component):
             assert waldo_instr_maps[waldo_idx][position][1] is None, f"Overlapping commands at {position}"
 
             if member_name == 'instr-start':
-                if waldo_starts[waldo_idx] is not None:
-                    raise ValueError(f"Duplicate waldo Start command: {line}")
-                waldo_starts[waldo_idx] = (position, direction)
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.START, direction=direction)
                 continue
 
@@ -845,11 +837,7 @@ class Reactor(Component):
             else:
                 raise Exception(f"Unrecognized member type {member_name}")
 
-        self.waldos = [Waldo(idx=i,
-                             position=waldo_starts[i][0],
-                             direction=waldo_starts[i][1],
-                             instr_map=waldo_instr_maps[i])
-                       for i in range(len(waldo_starts))]
+        self.waldos = [Waldo(idx=i, instr_map=waldo_instr_maps[i]) for i in range(self.NUM_WALDOS)]
 
         # Sanity-check and set features
         for attr_name in features.keys():
