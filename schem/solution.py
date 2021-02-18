@@ -67,6 +67,9 @@ class Solution:
 
         expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] != '0-0-0' else None
         soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
+        # Game single-quotes solution names if they contain a comma, strip this
+        if soln_name is not None and ',' in soln_name and soln_name[0] == soln_name[-1] == "'":
+            soln_name = soln_name[1:-1]
 
         return level_name, author_name, expected_score, soln_name
 
@@ -409,7 +412,11 @@ class Solution:
         # Solution metadata
         export_str = f"SOLUTION:{self.level['name']},{self.author},{self.expected_score}"
         if self.name is not None:
-            export_str += f',{self.name}'
+            # SC expects single-quotes surrounding solution names that contain a comma
+            if ',' in self.name:
+                export_str += f",'{self.name}'"
+            else:
+                export_str += f",{self.name}"
 
         # Components
         # Exclude inputs whose pipes are length 1 (unmodified), outputs, and the recycler.
