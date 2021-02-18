@@ -42,11 +42,15 @@ def run(soln_str, level_code=None, verbose=False, debug=False):
     for level in matching_levels:
         try:
             solution = Solution(level=level, soln_export_str=soln_str)
-            score = solution.run(debug=debug)
+            cur_score = solution.run(debug=debug)
 
-            # Exit early if the first level we checked matched the expected score
-            if score == expected_score:
-                return score
+            # Return the successful score if there was no expected score or it matched
+            if expected_score is None or cur_score == expected_score:
+                return cur_score
+
+            # If the expected score is never found, preserve and return the first successful score
+            if score is None:
+                score = cur_score
         except Exception as e:
             exceptions.append(e)
 
@@ -62,6 +66,10 @@ def validate(soln_str, level_code=None, verbose=False, debug=False):
     Raise an exception if the score does not match that indicated in the solution metadata.
     """
     level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
+    if expected_score is None:
+        raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
+                         + " please update it or use run() instead.")
+
     # TODO: Should use level_code's name if conflicting
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
 
