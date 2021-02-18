@@ -4406,6 +4406,21 @@ PIPE:0,4,1
 PIPE:1,4,2''',
 ]
 
+# Solutions which should raise PauseException when run
+pauses = [
+    '''SOLUTION:A Brief History of SpaceChem,Zig,0-0-0,Pause
+COMPONENT:'drag-starter-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,4,1,0,0
+MEMBER:'instr-start',180,0,32,4,6,0,0
+MEMBER:'feature-bonder',-1,0,1,4,3,0,0
+MEMBER:'feature-bonder',-1,0,1,5,3,0,0
+MEMBER:'feature-bonder',-1,0,1,4,4,0,0
+MEMBER:'feature-bonder',-1,0,1,5,4,0,0
+MEMBER:'instr-debug',-1,0,128,3,1,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+]
+
 slow_solutions = [
     '''SOLUTION:Molecular Foundry,Andy,27878965-1-32,1R Symbols (bogosort)
 COMPONENT:'drag-mining-input',1,7,''

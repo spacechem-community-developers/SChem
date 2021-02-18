@@ -24,6 +24,7 @@ class InstructionType(Enum):
     FUSE = 'fus'
     SPLIT = 'spl'
     SWAP = 'swp'
+    PAUSE = 'P'
 
     def __repr__(self):
         return self.name

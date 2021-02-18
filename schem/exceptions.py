@@ -15,3 +15,7 @@ class InvalidOutputError(Exception):
 
 class ReactionError(Exception):
     pass
+
+class PauseException(Exception):
+    """Raised when a Pause command is encountered by a waldo"""
+    pass

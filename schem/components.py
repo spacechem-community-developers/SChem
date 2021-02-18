@@ -840,6 +840,8 @@ class Reactor(Component):
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SWAP)
             elif member_name == 'instr-toggle':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP, direction=direction)
+            elif member_name == 'instr-debug':
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.PAUSE)
             else:
                 raise Exception(f"Unrecognized member type {member_name}")
 
@@ -1144,6 +1146,8 @@ class Reactor(Component):
             waldo.flipflop_states[waldo.position] = not waldo.flipflop_states[waldo.position]  # ...flip it
         elif cmd.type == InstructionType.SWAP:
             self.swap()
+        elif cmd.type == InstructionType.PAUSE:
+            raise PauseException("Pause command encountered")
 
     def input(self, waldo, input_idx):
         # If there is no such pipe or it has no molecule available, stall the waldo

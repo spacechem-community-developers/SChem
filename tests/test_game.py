@@ -31,6 +31,7 @@ class TestGame(unittest.TestCase):
         for test_id, soln_str in iter_game_test_data(test_data.duplicate_level_name_solutions):
             with self.subTest(msg=test_id):
                 schem.validate(soln_str, verbose=False)
+                print(f"✅  {test_id}")
 
 
 if __name__ == '__main__':
