@@ -39,6 +39,8 @@ class Solution:
     __slots__ = ('level_name', 'author', 'expected_score', 'name',
                  'level', 'components')
 
+    DEFAULT_MAX_CYCLES = 1_000_000  # Default timeout for solutions whose expected cycle count is unknown
+
     # Convenience properties
     @property
     def inputs(self):
@@ -514,7 +516,7 @@ class Solution:
             assert sum(1 if isinstance(component, Reactor) else 0
                        for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
-    def run(self, max_cycles=1000000, debug=False):
+    def run(self, max_cycles=None, debug=False):
         '''Run this solution, returning a score tuple or else raising an exception if the level was not solved.'''
         # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
         #       and waldo.position/waldo.direction before each run, or otherwise prevent these from persisting.
@@ -523,16 +525,19 @@ class Solution:
         # TODO: Should re-check for component/pipe collisions every time we run it; run() should be a source of truth,
         #       and shouldn't be confoundable by modifying the solution after the ctor validations
 
+        # Set the maximum runtime if unspecified to ensure a broken solution can't infinite loop forever
+        if max_cycles is None:
+            if self.expected_score is not None:
+                max_cycles = 2 * self.expected_score.cycles
+            else:
+                max_cycles = self.DEFAULT_MAX_CYCLES
+
         # Default debug view to the reactor's interior in research levels
         if debug and self.level['type'].startswith('research'):
             debug.reactor = 0
 
         self.validate_components()
         reactors = list(self.reactors)
-
-        # Set the maximum runtime to ensure a broken solution can't infinite loop forever
-        if self.expected_score is not None:
-            max_cycles = 2 * self.expected_score.cycles
 
         # Run the level
         symbols = sum(sum(len(waldo) for waldo in component.waldos)

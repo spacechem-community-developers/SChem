@@ -7,7 +7,7 @@ from .exceptions import ScoreError
 from .solution import Solution
 
 
-def run(soln_str, level_code=None, verbose=False, debug=False):
+def run(soln_str, level_code=None, max_cycles=None, verbose=False, debug=False):
     """Given a solution string, run it against the given level. If none is provided, use the level name from the
     solution metadata to look for and use a built-in game level. Return the score as (cycles, reactors, symbols) or
     raise an exception if the solution does not run to completion.
@@ -43,7 +43,7 @@ def run(soln_str, level_code=None, verbose=False, debug=False):
     for level in matching_levels:
         try:
             solution = Solution(level=level, soln_export_str=soln_str)
-            cur_score = solution.run(debug=debug)
+            cur_score = solution.run(max_cycles=max_cycles, debug=debug)
 
             # Return the successful score if there was no expected score or it matched
             if expected_score is None or cur_score == expected_score:
