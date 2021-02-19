@@ -4504,6 +4504,13 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 
 # Solutions that should raise an exception upon initialization of a Solution object
 import_errors = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Doubly-defined component
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',0,0,32,0,2,0,0
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',0,0,32,0,2,0,0''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Missing Start cmd
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0

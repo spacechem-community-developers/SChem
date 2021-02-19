@@ -253,8 +253,15 @@ class Solution:
             if components_str:
                 assert components_str.startswith('COMPONENT:'), "Unexpected data on line 1"
 
+            soln_defined_component_posns = set()  # Used to check that the solution doesn't doubly-define a component
+
             for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:')[1:]):
                 component_type, component_posn = Component.parse_metadata(component_str)
+
+                # Ensure this component hasn't already been created/updated by the solution
+                if component_posn in soln_defined_component_posns:
+                    raise ValueError(f"Solution defines component at {component_posn} twice")
+                soln_defined_component_posns.add(component_posn)
 
                 # Create a raw instance of the component if it doesn't exist yet
                 if not component_posn in posn_to_component:
