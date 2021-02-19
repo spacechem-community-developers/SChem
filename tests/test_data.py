@@ -37,6 +37,11 @@ NXK+VH87sgwp+HY/vCCcZbYa8f5/AXz5TzJ5qwUclOq2x7kpDNMK7ay2Q6tduRYjLs6KYtre66
 9RydUEtqCsHncX3k7YbC24cxPIgYBamymYcztkxZV1pjv9wRi0cnD3gEssxYiVF2IONx18XD/n
 ZPJnTqKmZSO7wv/j49WLj3/Fx+sXH3/Fx/PbMXod8VGQXnHXUMh5QNCqwe23q3enhav3YMMjyr
 yr8HpOyUdehrubFwXHB9LhkOj4Hdp2SZRJCgAA''',
+    "Fastest Puzzle": '''H4sIAChPL2AA/42Pu07EMBBFfwVNHUsJUGV7tCU1iGKwZ4Ol+KHxWNrsKv/O5IHYpaLzvO45vg
+JjdCkYH3MVY1PIKVKUAv37FUIaydaR7ivo4Tg5TgPFw/HQdV3bQgM21SjQd4/zR/MTWogc9G0D
+mZOrVnyKxtGIk+5pN1VZoNnnlQCglzLlBeAYB4P86YWRp81OIec1Tc+fF8p+/0d67wryQCr0X+
+/5nl0CjqO58d7zVoenX4eAZ8OEVhKXVU6IGX3c3lvgTYq6hhq9TIacXzoaGDEsWy9YhIo8vNbL
+RWUbwCpfiXXy5gctnT+dvP5DFN3O3xxQYjq5AQAA''',
     "Suddenly, Welding?": '''H4sIAKJi918A/+1WXW/aMBT9K5GfieQY2jLyMLXVqj2tVTuJh6mqTHKBSImd+WMUVey379pOgN
 AW0bKPlz0QKze+vuccH1/zRBQXuaziQtTWxJmsailAGE1G355IJUvIbAndNzIiY25ApZ9/Unad
 JskwSdKEJZSmLMEn6ZFMWmHIKGGr+15bQQPkZER7pFYyt5kppIhzKPkS5/WItMYBqIvaVyMEE8
@@ -55,7 +60,7 @@ kVv/f+wGn9xdv3kxnRZ4NRqsRle/AD7f1uKNCwAA'''
 }
 
 valid_solutions = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,Basic
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,No pipes
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -65,9 +70,7 @@ MEMBER:'instr-grab',-1,2,128,6,1,0,0
 MEMBER:'instr-input',-1,0,128,1,1,0,0
 MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-output',-1,0,128,5,1,0,0
-MEMBER:'instr-rotate',-1,0,128,4,1,0,0
-PIPE:0,4,1
-PIPE:1,4,2''',
+MEMBER:'instr-rotate',-1,0,128,4,1,0,0''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,2,5,0,0
@@ -3151,6 +3154,8 @@ MEMBER:'instr-arrow',0,0,64,0,4,0,0
 MEMBER:'instr-arrow',90,0,64,0,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    # Valid solution that consists of only a solution line, also a fun performance test
+    '''SOLUTION:Fastest Puzzle,Zig,1-0-0,Fastest solution''',
     # 2020 Tournament level with a comma in the name and that uses pass-through counters.
     # Solution also includes moving a molecule that is held by both waldos
     '''SOLUTION:Suddenly, Welding?,anningmay,3199-3-162,anningmay: 3R - 4 cycle save
@@ -4508,7 +4513,7 @@ PIPE:1,4,2''',
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,128,0,2,0,0
-MEMBER:'instr-start',180,0,32,1,6,0,0
+MEMBER:'instr-start',0,0,32,0,3,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting arrows

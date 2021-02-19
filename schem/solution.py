@@ -246,14 +246,15 @@ class Solution:
         # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
         if soln_export_str is not None:
             # Parse solution metadata from the first line
-            soln_metadata_str, components_str = soln_export_str.strip().split('\n', maxsplit=1)
+            soln_metadata_str, *split_remainder = soln_export_str.strip().split('\n', maxsplit=1)
+            components_str = '' if not split_remainder else split_remainder[0]
             self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
-            for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:') if s):
-                component_metadata = component_str.split('\n', maxsplit=1)[0]
-                fields = component_metadata.split(',')
-                component_type = fields[0].strip('COMPONENT:').strip("'")
-                component_posn = Position(int(fields[1]), int(fields[2]))
+            if components_str:
+                assert components_str.startswith('COMPONENT:'), "Unexpected data on line 1"
+
+            for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:')[1:]):
+                component_type, component_posn = Component.parse_metadata(component_str)
 
                 # Create a raw instance of the component if it doesn't exist yet
                 if not component_posn in posn_to_component:
@@ -598,6 +599,10 @@ class Solution:
         '''Run this solution and assert that the resulting score matches the expected score that was included in its
         solution code.
         '''
+        if self.expected_score is None:
+            raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
+                             + " please update it or use run() instead.")
+
         if self.level_name != self.level.name:
             print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")

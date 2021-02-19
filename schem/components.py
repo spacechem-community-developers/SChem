@@ -107,7 +107,7 @@ class Pipe(list):
 
     @classmethod
     def pipe_list_from_export_str(cls, export_str):
-        lines = export_str.split('\n')
+        lines = export_str.strip().split('\n')
         assert all(s.startswith('PIPE:0') or s.startswith('PIPE:1') for s in lines if s), \
             f"Unexpected data in component pipes export string:\n{export_str}"
         pipe_export_strs = ['\n'.join(s for s in lines if s.startswith(f'PIPE:{i},'))
@@ -182,11 +182,10 @@ class Component:
                 self.out_pipes.append(Pipe(posns=[pipe_start_posn]))
                 pipe_start_posn += DOWN
 
-    def update_from_export_str(self, export_str, update_pipes=True):
-        '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
-        for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
-        '''
-        component_line, pipes_str = export_str.split('\n', maxsplit=1)
+    @classmethod
+    def parse_metadata(cls, s):
+        '''Given a component export string or its COMPONENT line, return its component type and posn.'''
+        component_line = s.strip().split('\n', maxsplit=1)[0]
 
         # Parse COMPONENT line
         assert component_line.startswith('COMPONENT:'), "Missing COMPONENT line in export string"
@@ -195,17 +194,33 @@ class Component:
 
         component_type = fields[0][len('COMPONENT:'):].strip("'")
         component_posn = Position(int(fields[1]), int(fields[2]))
+        # TODO: Still don't know what the 4th field does...
+
+        return component_type, component_posn
+
+    def update_from_export_str(self, export_str, update_pipes=True):
+        '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
+        for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
+        '''
+
+        component_line, *split_remainder = export_str.strip().split('\n', maxsplit=1)
+        pipes_str = '' if not split_remainder else split_remainder[0]
+
+        component_type, component_posn = self.parse_metadata(component_line)
         assert component_posn == self.posn, f"No component at posn {component_posn}"
         # TODO: Is ignoring component type checks unsafe?
         #assert component_type == self.type, \
         #    f"Component of type {self.type} cannot be overwritten with component of type {component_type}"
-        # TODO: Still don't know what the 4th field does...
-
-        # Expect the remaining lines to define the component's output pipes
-        new_out_pipes = Pipe.pipe_list_from_export_str(pipes_str)
-        assert len(new_out_pipes) == len(self.out_pipes), f"Unexpected number of pipes for component {self.type}"
 
         if update_pipes:
+            # Expect the remaining lines to define the component's output pipes
+            # If the pipes on an existing component are updatable, all of them must be specified during an update
+            # (as testable by playing around with preset reactors in CE production levels)
+            # Whereas when updating presets with non-updatable pipes (e.g. research reactors), all pipes must be included
+            assert pipes_str, f"Some pipes are missing for component {self.type}"
+            new_out_pipes = Pipe.pipe_list_from_export_str(pipes_str)
+            assert len(new_out_pipes) == len(self.out_pipes), f"Unexpected number of pipes for component {self.type}"
+
             for i, pipe in enumerate(new_out_pipes):
                 # Preset pipes of length > 1 are immutable
                 if len(self.out_pipes[i]) == 1:
@@ -703,15 +718,13 @@ class Reactor(Component):
         feature_posns = set()  # for verifying features were not placed illegally
 
         # Break the component string up into its individual sections
-        component_line, export_str = export_str.split('\n', maxsplit=1)
-        members_str, pipes_str = export_str.strip().split('PIPE:', maxsplit=1)  # Members should appear before pipes
-        pipes_str = 'PIPE:' + pipes_str  # Awkward
-        # TODO: Check where Annotations can legally appear. Probably have to be after the pipes?
-        annotations_str = ''  # Oof awkward boilerplate
-        if 'ANNOTATION:' in pipes_str:
-            pipes_str, annotations_str = pipes_str.split('ANNOTATION:', maxsplit=1)
-            pipes_str = pipes_str.strip()  # Oooooof
-            annotations_str = 'ANNOTATION:' + annotations_str  # Not actually used but
+        component_line, *split_remainder = export_str.strip().split('\n', maxsplit=1)
+        members_str = '' if not split_remainder else split_remainder[0]
+
+        members_str, *split_remainder = members_str.split('PIPE:', maxsplit=1)
+        pipes_str = '' if not split_remainder else 'PIPE:' + split_remainder[0]
+
+        pipes_str = pipes_str.split('ANNOTATION:', maxsplit=1)[0]  # Annotations currently unused
 
         # Validates COMPONENT line and updates pipes
         super().update_from_export_str(component_line + '\n' + pipes_str, update_pipes=update_pipes)
