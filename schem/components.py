@@ -202,7 +202,6 @@ class Component:
         '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
         for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
         '''
-
         component_line, *split_remainder = export_str.strip().split('\n', maxsplit=1)
         pipes_str = '' if not split_remainder else split_remainder[0]
 
@@ -706,8 +705,6 @@ class Reactor(Component):
                                              key=lambda x: bond_minus_bonders[x[0]]))
 
     def update_from_export_str(self, export_str, update_pipes=True):
-        export_str = export_str.strip()  # Sanitize
-
         features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
                     'bonder_pluses': [], 'bonder_minuses': []}
 
@@ -730,8 +727,11 @@ class Reactor(Component):
         super().update_from_export_str(component_line + '\n' + pipes_str, update_pipes=update_pipes)
 
         # Parse members
+        if not members_str:
+            raise ValueError(f"Missing MEMBER lines in reactor component")
+
         for line in members_str.strip().split('\n'):
-            assert line.startswith('MEMBER:'), f"Unexpected line in reactor component string:\n{line}"
+            assert line.startswith('MEMBER:'), f"Unexpected line in reactor component string: `{line}`"
             fields = line.split(',')
 
             if len(fields) != 8:
