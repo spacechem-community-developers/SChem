@@ -7,7 +7,7 @@ from itertools import product
 import time
 
 from .components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
-from .exceptions import RunSuccess, ReactionError
+from .exceptions import ScoreError
 from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
 from .terrains import terrains, MAX_TERRAIN_INT
@@ -567,10 +567,18 @@ class Solution:
                 for component in self.components:
                     if component.do_instant_actions(cycle):
                         # Outputs return true the first time they reach their target count; count these occurrences and
-                        # raise success when they've all completed
+                        # end when they've all completed
                         completed_outputs += 1
                         if completed_outputs == num_outputs:
-                            raise RunSuccess()
+                            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
+                            #       potentially misleading. Maybe run() and validate() should be the same thing.
+                            # TODO: The cycle + 1 here is a hack since we're inconsistent with SC's displayed count. Given that
+                            #       waldos move one tile before inputs populate their pipe (and the cycle is already displayed as 1
+                            #       while they do that first move), I think the only way to match SC exactly is to do instant actions
+                            #       before move actions, but to have inputs trigger when `(cycle - 1) % rate == 0` instead of
+                            #       `cycle % rate == 0`, so that they don't input on cycle 0 (before the waldos have moved).
+                            #       For now putting the +1 here looks less awkward...
+                            return Score(cycle + 1, len(reactors), symbols)
 
                 if debug and cycle >= debug.cycle:
                     if debug.reactor is None:
@@ -581,16 +589,6 @@ class Solution:
                 cycle += 1
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
-        except RunSuccess:
-            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
-            #       potentially misleading. Maybe run() and validate() should be the same thing.
-            # TODO: The cycle + 1 here is a hack since we're inconsistent with SC's displayed count. Given that
-            #       waldos move one tile before inputs populate their pipe (and the cycle is already displayed as 1
-            #       while they do that first move), I think the only way to match SC exactly is to do instant actions
-            #       before move actions, but to have inputs trigger when `(cycle - 1) % rate == 0` instead of
-            #       `cycle % rate == 0`, so that they don't input on cycle 0 (before the waldos have moved).
-            #       For now putting the +1 here looks less awkward...
-            return Score(cycle + 1, len(reactors), symbols)
         except Exception as e:
             # Mention the cycle number on error via a chained exception of the same type
             raise type(e)(f"Cycle {cycle}: {e}") from e
@@ -602,7 +600,7 @@ class Solution:
                 else:
                     print(str(reactors[debug.reactor]))
 
-    def validate(self, verbose=True, debug=False):
+    def validate(self, verbose=False, debug=False):
         '''Run this solution and assert that the resulting score matches the expected score that was included in its
         solution code.
         '''
@@ -610,11 +608,14 @@ class Solution:
             raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
                              + " please update it or use run() instead.")
 
-        if self.level_name != self.level.name:
+        if verbose and self.level_name != self.level.name:
             print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")
 
         score = self.run(debug=debug)
-        assert score == self.expected_score, f"Expected score {self.expected_score} but got {score}"
+
+        if score != self.expected_score:
+            raise ScoreError(f"Expected score {self.expected_score} but got {score}")
+
         if verbose:
-            print(f"Validated {describe(self)}")
+            print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")

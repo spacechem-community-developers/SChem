@@ -4233,6 +4233,52 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
 ]
 
+missing_score = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Valid but missing score
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
+]
+
+wrong_score = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,114-1-6,Wrong cycle count
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,115-0-6,Wrong reactor count
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,115-1-5,Wrong symbol count
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
+]
+
 infinite_loops = [
     '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,simple_infinite_loop
 COMPONENT:'custom-research-reactor',2,0,''

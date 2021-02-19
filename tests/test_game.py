@@ -26,6 +26,36 @@ def iter_game_test_data(soln_strs):
 
 
 class TestGame(unittest.TestCase):
+    def test_run_missing_score(self):
+        """Test that run() does not require an expected score."""
+        for test_id, solution_code in iter_game_test_data(test_data.missing_score):
+            with self.subTest(msg=test_id):
+                schem.run(solution_code)
+                print(f"✅  {test_id}")
+
+    def test_run_wrong_score(self):
+        """Test that run() ignores whether the score does not match expected."""
+        for test_id, solution_code in iter_game_test_data(test_data.wrong_score):
+            with self.subTest(msg=test_id):
+                schem.run(solution_code)
+                print(f"✅  {test_id}")
+
+    def test_validate_missing_score(self):
+        """Test that validate() requires an expected score."""
+        for test_id, solution_code in iter_game_test_data(test_data.missing_score):
+            with self.subTest(msg=test_id):
+                with self.assertRaises(ValueError):
+                    schem.validate(solution_code)
+                print(f"✅  {test_id}")
+
+    def test_validate_wrong_score(self):
+        """Test that validate() rejects successful solutions if the wrong score is specified."""
+        for test_id, solution_code in iter_game_test_data(test_data.wrong_score):
+            with self.subTest(msg=test_id):
+                with self.assertRaises(schem.ScoreError):
+                    schem.validate(solution_code)
+                print(f"✅  {test_id}")
+
     def test_duplicate_level_name(self):
         '''Tests for solutions to levels of the same name.'''
         for test_id, soln_str in iter_game_test_data(test_data.duplicate_level_name_solutions):

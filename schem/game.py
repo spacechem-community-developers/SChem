@@ -3,6 +3,7 @@
 
 from .level import Level
 from . import levels
+from .exceptions import ScoreError
 from .solution import Solution
 
 
@@ -80,7 +81,7 @@ def validate(soln_str, level_code=None, verbose=False, debug=False):
         raise type(e)(f"Error while validating {soln_descr}: {e}") from e
 
     if score != expected_score:
-        raise Exception(f"Expected score {expected_score} but got {score}")
+        raise ScoreError(f"Expected score {expected_score} but got {score}")
 
     if verbose:
         print(f"Validated {soln_descr}")

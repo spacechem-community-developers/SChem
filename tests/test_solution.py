@@ -28,7 +28,7 @@ def iter_test_data(solution_codes):
 
 
 class TestSolution(unittest.TestCase):
-    def test_import_errors(self):
+    def test_init_errors(self):
         '''Tests for solutions that shouldn't import successfully.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):
             with self.subTest(msg=test_id):
@@ -37,7 +37,25 @@ class TestSolution(unittest.TestCase):
                     schem.Solution(level, solution_code)
                 print(f"✅  {test_id}")
 
-    def test_runtime_collisions(self):
+    def test_run_missing_score(self):
+        """Test that run() does not require an expected score."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.missing_score):
+            with self.subTest(msg=test_id):
+                level = schem.Level(level_code)
+                solution = schem.Solution(level, solution_code)
+                solution.run()
+                print(f"✅  {test_id}")
+
+    def test_run_wrong_score(self):
+        """Test that run() ignores whether the score does not match expected."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.wrong_score):
+            with self.subTest(msg=test_id):
+                level = schem.Level(level_code)
+                solution = schem.Solution(level, solution_code)
+                solution.run()
+                print(f"✅  {test_id}")
+
+    def test_run_runtime_collisions(self):
         '''Tests for solutions that should encounter errors when run.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.runtime_collisions):
             with self.subTest(msg=test_id):
@@ -47,7 +65,7 @@ class TestSolution(unittest.TestCase):
                     solution.run()
                 print(f"✅  {test_id}")
 
-    def test_wall_collisions(self):
+    def test_run_wall_collisions(self):
         '''Tests for solutions that should collide with a wall when run.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.wall_collisions):
             with self.subTest(msg=test_id):
@@ -59,7 +77,7 @@ class TestSolution(unittest.TestCase):
 
                 print(f"✅  {test_id}")
 
-    def test_invalid_outputs(self):
+    def test_run_invalid_outputs(self):
         '''Tests for solutions that should produce an InvalidOutput error.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.invalid_outputs):
             with self.subTest(msg=test_id):
@@ -69,7 +87,7 @@ class TestSolution(unittest.TestCase):
                     solution.run()
                     print(f"✅  {test_id}")
 
-    def test_infinite_loops(self):
+    def test_run_infinite_loops(self):
         '''Tests for solutions that should exceed run()'s timeout.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.infinite_loops):
             with self.subTest(msg=test_id):
@@ -79,7 +97,7 @@ class TestSolution(unittest.TestCase):
                     solution.run()
                 print(f"✅  {test_id}")
 
-    def test_pause(self):
+    def test_run_pause(self):
         for test_id, level_code, solution_code in iter_test_data(test_data.pauses):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
@@ -88,7 +106,27 @@ class TestSolution(unittest.TestCase):
                     solution.run()
                 print(f"✅  {test_id}")
 
-    def test_valid_solutions(self):
+    def test_validate_missing_score(self):
+        """Test that validate() requires an expected score."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.missing_score):
+            with self.subTest(msg=test_id):
+                level = schem.Level(level_code)
+                solution = schem.Solution(level, solution_code)
+                with self.assertRaises(ValueError):
+                    solution.validate()
+                print(f"✅  {test_id}")
+
+    def test_validate_wrong_score(self):
+        """Test that validate() rejects successful solutions if the wrong score is specified."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.wrong_score):
+            with self.subTest(msg=test_id):
+                level = schem.Level(level_code)
+                solution = schem.Solution(level, solution_code)
+                with self.assertRaises(schem.ScoreError):
+                    solution.validate()
+                print(f"✅  {test_id}")
+
+    def test_validate_valid_solutions(self):
         '''Tests for solutions that should run to completion and match the expected score.
         Also outputs runtime performance stats.
         '''
@@ -96,7 +134,7 @@ class TestSolution(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
-                self.assertEqual(solution.run(), solution.expected_score)
+                solution.validate()
                 print(f"✅  {test_id}")
 
 

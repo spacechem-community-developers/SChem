@@ -6,3 +6,4 @@ from .terrains import terrains  # Ditto
 from .solution import Solution, Score
 from .molecule import Molecule
 from .elements import Element, elements, elements_dict  # Ditto
+from .exceptions import *
