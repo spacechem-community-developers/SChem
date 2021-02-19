@@ -69,7 +69,7 @@ class Level:
     @name.setter
     def name(self, s):
         assert isinstance(s, str), "Level name must be a string"
-        self.dict['name'] == s
+        self.dict['name'] = s
 
 
 class ResearchLevel(Level):

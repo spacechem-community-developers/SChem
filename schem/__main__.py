@@ -46,7 +46,7 @@ def main():
         if not args.solution_file.is_file():
             raise FileNotFoundError("Solution file not found")
 
-        with args.solution_file.open() as f:
+        with args.solution_file.open(encoding='utf-8') as f:
             solutions_str = f.read()
     else:
         solutions_str = clipboard.paste().replace('\r\n', '\n')  # Make sure windows doesn't crap in our string
@@ -59,7 +59,7 @@ def main():
         if args.level_file.suffix != '.puzzle':
             print("Warning: Parsing file without extension .puzzle as a SpaceChem level")
 
-        with args.level_file.open() as f:
+        with args.level_file.open(encoding='utf-8') as f:
             level_code = f.read().decode('utf-8')
 
     solutions = list(Solution.split_solutions(solutions_str))
