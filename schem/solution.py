@@ -66,9 +66,9 @@ class Solution:
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
         '''
-        s = s.strip().split('\n', maxsplit=1)[0].strip()
-        assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
-        fields = s[len('SOLUTION:'):].split(',')
+        first_line = s.strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
+        assert first_line.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
+        fields = first_line[len('SOLUTION:'):].split(',')
         assert len(fields) >= 3, "Missing fields in solution metadata"
 
         # Starting from the third CSV value, look for a score-like string and assume it is the expected score
@@ -76,10 +76,11 @@ class Solution:
                                None)
         assert score_field_idx is not None, "Solution metadata missing expected score"
 
+        # Assume any excess commas preceding the score are part of the level name
         level_name = ','.join(fields[:score_field_idx - 1])
         author_name = fields[score_field_idx - 1]
-        # The game stores unsolved solutions as '0-0-0'
 
+        # The game stores unsolved solutions as '0-0-0'
         expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] != '0-0-0' else None
         soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
         # Game single-quotes solution names if they contain a comma, strip this
@@ -101,11 +102,11 @@ class Solution:
     @classmethod
     def split_solutions(cls, soln_str):
         """Given a string potentially containing multiple solutions, return an iterator of them."""
-        soln_str = soln_str.strip()
-        assert soln_str.startswith('SOLUTION:'), "Given text is not a SpaceChem solution"
+        soln_str = '\n'.join(s for s in soln_str.split('\n') if s)  # Remove empty lines
+        assert soln_str.startswith('SOLUTION:'), "Invalid solution string: expected SOLUTION: on line 1"
 
         # Split with newline prefix in case some fucker names themselves SOLUTION:
-        return (f'SOLUTION:{s}'.strip() for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])
+        return (f'SOLUTION:{s}' for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])
 
     def __init__(self, level, soln_export_str=None):
         self.level = level
@@ -247,9 +248,9 @@ class Solution:
 
         # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
         if soln_export_str is not None:
-            # Parse solution metadata from the first line
-            soln_metadata_str, *split_remainder = soln_export_str.strip().split('\n', maxsplit=1)
-            components_str = '' if not split_remainder else split_remainder[0]
+            # Get the first non-empty line
+            soln_metadata_str, *split_remainder = soln_export_str.strip('\n').split('\n', maxsplit=1)
+            components_str = '' if not split_remainder else split_remainder[0].strip('\n')
             self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
             if components_str:
@@ -257,7 +258,7 @@ class Solution:
 
             soln_defined_component_posns = set()  # Used to check that the solution doesn't doubly-define a component
 
-            for component_str in ('COMPONENT:' + s for s in components_str.split('COMPONENT:')[1:]):
+            for component_str in ('COMPONENT:' + s for s in ('\n' + components_str).split('\nCOMPONENT:')[1:]):
                 component_type, component_posn = Component.parse_metadata(component_str)
 
                 # Ensure this component hasn't already been created/updated by the solution

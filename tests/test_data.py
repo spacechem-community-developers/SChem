@@ -60,6 +60,27 @@ kVv/f+wGn9xdv3kxnRZ4NRqsRle/AD7f1uKNCwAA'''
 }
 
 valid_solutions = [
+    '''
+
+SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,empty lines
+
+COMPONENT:'custom-research-reactor',2,0,''
+
+MEMBER:'instr-start',-90,0,128,1,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-grab',-1,2,128,6,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-output',-1,0,128,5,1,0,0
+MEMBER:'instr-rotate',-1,0,128,4,1,0,0
+
+PIPE:0,4,1
+
+PIPE:1,4,2
+''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,No pipes
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
@@ -4550,6 +4571,20 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 
 # Solutions that should raise an exception upon initialization of a Solution object
 import_errors = [
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,trailing spaces
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',0,0,32,0,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2
+    ''',
+    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,invalid pipe idx
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',0,0,32,0,2,0,0
+PIPE:0,4,1
+PIPE:1,4,2
+PIPE:2,4,3'''
     '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Doubly-defined component
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0

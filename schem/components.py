@@ -85,7 +85,8 @@ class Pipe(list):
         '''Note that a pipe's solution lines might not be contiguous. It is expected that the caller filters
         out the lines for a single pipe and passes them as a single string to this method.
         '''
-        lines = export_str.strip().split('\n')
+        lines = [s for s in export_str.split('\n') if s]  # Split into non-empty lines
+        # Ensure all non-empty lines are valid and for the same-indexed pipe
         assert all(s.startswith('PIPE:0,') for s in lines) or all(s.startswith('PIPE:1,') for s in lines), \
             "Invalid lines in pipe export string"
 
@@ -104,16 +105,6 @@ class Pipe(list):
         assert len(posns) == len(set(posns)), "Pipe overlaps with itself"
 
         return Pipe(posns)
-
-    @classmethod
-    def pipe_list_from_export_str(cls, export_str):
-        lines = export_str.strip().split('\n')
-        assert all(s.startswith('PIPE:0') or s.startswith('PIPE:1') for s in lines if s), \
-            f"Unexpected data in component pipes export string:\n{export_str}"
-        pipe_export_strs = ['\n'.join(s for s in lines if s.startswith(f'PIPE:{i},'))
-                            for i in range(2)]
-
-        return [Pipe.from_export_str(s) for s in pipe_export_strs if s]
 
     def export_str(self, pipe_idx=0):
         '''Represent this pipe in solution export string format.'''
@@ -185,7 +176,7 @@ class Component:
     @classmethod
     def parse_metadata(cls, s):
         '''Given a component export string or its COMPONENT line, return its component type and posn.'''
-        component_line = s.strip().split('\n', maxsplit=1)[0]
+        component_line = s.strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
 
         # Parse COMPONENT line
         assert component_line.startswith('COMPONENT:'), "Missing COMPONENT line in export string"
@@ -202,8 +193,7 @@ class Component:
         '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
         for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
         '''
-        component_line, *split_remainder = export_str.strip().split('\n', maxsplit=1)
-        pipes_str = '' if not split_remainder else split_remainder[0]
+        component_line, *pipe_lines = (s for s in export_str.split('\n') if s)  # Remove empty lines and get first line
 
         component_type, component_posn = self.parse_metadata(component_line)
         assert component_posn == self.posn, f"No component at posn {component_posn}"
@@ -211,13 +201,22 @@ class Component:
         #assert component_type == self.type, \
         #    f"Component of type {self.type} cannot be overwritten with component of type {component_type}"
 
+        # Check that any pipe lines are superficially valid (all PIPE:0 or PIPE:1), which SC does even if
+        # the component does not accept pipe updates (e.g. research reactors)
+        # Ensure all non-empty lines are valid
+        for pipe_line in pipe_lines:
+            if not (pipe_line.startswith('PIPE:0') or pipe_line.startswith('PIPE:1')):
+                raise ValueError(f"Unexpected line in component pipes: `{pipe_line}`")
+
         if update_pipes:
             # Expect the remaining lines to define the component's output pipes
             # If the pipes on an existing component are updatable, all of them must be specified during an update
             # (as testable by playing around with preset reactors in CE production levels)
             # Whereas when updating presets with non-updatable pipes (e.g. research reactors), all pipes must be included
-            assert pipes_str, f"Some pipes are missing for component {self.type}"
-            new_out_pipes = Pipe.pipe_list_from_export_str(pipes_str)
+            assert pipe_lines, f"Some pipes are missing for component {self.type}"
+            pipe_export_strs = ['\n'.join(s for s in pipe_lines if s.startswith(f'PIPE:{i},'))
+                                for i in range(2)]
+            new_out_pipes = [Pipe.from_export_str(s) for s in pipe_export_strs if s]
             assert len(new_out_pipes) == len(self.out_pipes), f"Unexpected number of pipes for component {self.type}"
 
             for i, pipe in enumerate(new_out_pipes):
@@ -714,24 +713,22 @@ class Reactor(Component):
 
         feature_posns = set()  # for verifying features were not placed illegally
 
-        # Break the component string up into its individual sections
-        component_line, *split_remainder = export_str.strip().split('\n', maxsplit=1)
-        members_str = '' if not split_remainder else split_remainder[0]
+        # Break the component string up into its individual sections, while removing empty lines
+        component_line, *lines = (s for s in export_str.split('\n') if s)
 
-        members_str, *split_remainder = members_str.split('PIPE:', maxsplit=1)
-        pipes_str = '' if not split_remainder else 'PIPE:' + split_remainder[0]
+        pipes_idx = next((i for i, s in enumerate(lines) if s.startswith('PIPE:')), len(lines))
+        member_lines, lines = lines[:pipes_idx], lines[pipes_idx:]
+        if not member_lines:
+            raise ValueError(f"Missing MEMBER lines in reactor component")
 
-        pipes_str = pipes_str.split('ANNOTATION:', maxsplit=1)[0]  # Annotations currently unused
+        annotations_idx = next((i for i, s in enumerate(lines) if s.startswith('ANNOTATION:')), len(lines))
+        pipes_str = '\n'.join(lines[:annotations_idx])
 
         # Validates COMPONENT line and updates pipes
         super().update_from_export_str(component_line + '\n' + pipes_str, update_pipes=update_pipes)
 
-        # Parse members
-        if not members_str:
-            raise ValueError(f"Missing MEMBER lines in reactor component")
-
-        for line in members_str.strip().split('\n'):
-            assert line.startswith('MEMBER:'), f"Unexpected line in reactor component string: `{line}`"
+        for line in member_lines:
+            assert line.startswith('MEMBER:'), f"Unexpected line in reactor members: `{line}`"
             fields = line.split(',')
 
             if len(fields) != 8:
