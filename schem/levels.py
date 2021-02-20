@@ -2049,3 +2049,6 @@ thVDS0BJZLUsZLYGeN09LAm9LA2Tnj1yc1tDhE8F5qm0HKRvlVe5AKnc9+eUKDDLUMAcZPMyeE
 PsIf7XW4LXhQszLg/ynOUzl28q6PCrWz2YqVY6FvA1T7tBYhYPXirPNZlREHl2eQhvHHJw0AGf
 f6cNDp8zAv5adfwYEjbusBAAA=''',
 }
+
+defense_names = set(("A Most Unfortunate Malfunction", "No Need for Introductions", "Exploding Head Syndrome",
+                     "More than Machine", "Don't Fear the Reaper", "Freedom of Choice", "End of the Line", "Collapsar"))

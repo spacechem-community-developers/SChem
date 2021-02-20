@@ -33,6 +33,8 @@ def run(soln_str, level_code=None, max_cycles=None, verbose=False, debug=False):
 
             if verbose and len(matching_levels) > 1:
                 print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
+        elif level_name in levels.defense_names:
+            raise Exception("Defense levels unsupported")
         else:
             raise Exception(f"No known level `{level_name}`")
 
