@@ -102,9 +102,14 @@ class Solution:
 
     @classmethod
     def split_solutions(cls, soln_str):
-        """Given a string potentially containing multiple solutions, return an iterator of them."""
+        """Given a string potentially containing multiple solutions, return an iterator of them.
+        Returns an empty iterator if the given string has no non-empty lines.
+        """
         soln_str = '\n'.join(s for s in soln_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
-        assert soln_str.startswith('SOLUTION:'), "Invalid solution string: expected SOLUTION: on line 1"
+
+        # Ensure first non-empty line is a solution string
+        if soln_str and not soln_str.startswith('SOLUTION:'):
+            raise ValueError("Invalid solution string: expected SOLUTION: on line 1")
 
         # Split with newline prefix in case some fucker names themselves SOLUTION:
         return (f'SOLUTION:{s}' for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])

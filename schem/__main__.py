@@ -48,8 +48,10 @@ def main():
 
         with args.solution_file.open(encoding='utf-8') as f:
             solutions_str = f.read()
+        solutions_src = 'Solution file'  # For more helpful error message
     else:
-        solutions_str = clipboard.paste().replace('\r\n', '\n')  # Make sure windows doesn't crap in our string
+        solutions_str = clipboard.paste()
+        solutions_src = 'Clipboard'  # For more helpful error message
 
     level_code = None
     if args.level_file:
@@ -63,6 +65,9 @@ def main():
             level_code = f.read().decode('utf-8')
 
     solutions = list(Solution.split_solutions(solutions_str))
+    if not solutions:
+        raise ValueError(f"{solutions_src} contents are empty.")
+
     for solution_str in solutions:
         try:
             validate(solution_str, level_code=level_code, verbose=True, debug=debug)
