@@ -20,9 +20,16 @@ class Level:
     export_line_len = 74
     __slots__ = 'dict',
 
+    @classmethod
+    def code_to_json(cls, code):
+        try:
+            return json.loads(zlib.decompress(base64.b64decode(code), wbits=16+15).decode('utf-8'))
+        except Exception as e:
+            raise ValueError("String is not a valid-format SpaceChem level code") from e
+
     def __new__(cls, code):
         '''Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code.'''
-        d = json.loads(zlib.decompress(base64.b64decode(code), wbits=16+15).decode('utf-8'))
+        d = cls.code_to_json(code)
         # TODO: There doesn't seem to be a clean way to have Level(code) return an instance of the appropriate subclass,
         #       while also allowing ResearchLevel(code) and ProductionLevel(code) to work, without duplicating some
         #       conversion to/from the level code or else duplicating a lot of init logic.
@@ -34,12 +41,13 @@ class Level:
             raise ValueError(f"Unrecognized level type {d['type']}")
 
     def __init__(self, code=None):
-        self.dict = json.loads(zlib.decompress(base64.b64decode(code), wbits=16+15).decode('utf-8'))
-
         if code is None:
+            self.dict = {}
             self['name'] = 'Unknown'
             self['author'] = 'Unknown'
             self['difficulty'] = 0
+        else:
+            self.dict = self.code_to_json(code)
 
     def __getitem__(self, item):
         return self.dict[item]
