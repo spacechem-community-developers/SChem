@@ -66,7 +66,8 @@ class Solution:
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
         '''
-        first_line = s.strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
+        first_line = s.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
+
         assert first_line.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
         fields = first_line[len('SOLUTION:'):].split(',')
         assert len(fields) >= 3, "Missing fields in solution metadata"
@@ -102,15 +103,16 @@ class Solution:
     @classmethod
     def split_solutions(cls, soln_str):
         """Given a string potentially containing multiple solutions, return an iterator of them."""
-        soln_str = '\n'.join(s for s in soln_str.split('\n') if s)  # Remove empty lines
+        soln_str = '\n'.join(s for s in soln_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
         assert soln_str.startswith('SOLUTION:'), "Invalid solution string: expected SOLUTION: on line 1"
 
         # Split with newline prefix in case some fucker names themselves SOLUTION:
         return (f'SOLUTION:{s}' for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])
 
+    # TODO: Solution constructor should probably accept either level or level_code for convenience
     def __init__(self, level, soln_export_str=None):
         self.level = level
-        self.level_name = level['name']  # Note that the level name is vestigial; a solution can run in any compatible level
+        self.level_name = level['name']
         self.name = None
         self.author = 'Unknown'
         self.expected_score = None
@@ -249,7 +251,7 @@ class Solution:
         # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
         if soln_export_str is not None:
             # Get the first non-empty line
-            soln_metadata_str, *split_remainder = soln_export_str.strip('\n').split('\n', maxsplit=1)
+            soln_metadata_str, *split_remainder = soln_export_str.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)
             components_str = '' if not split_remainder else split_remainder[0].strip('\n')
             self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
