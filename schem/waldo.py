@@ -8,7 +8,7 @@ from .grid import Direction
 
 
 class InstructionType(Enum):
-    '''Represents the various types of SpaceChem instruction.'''
+    '''Represents the various types of SpaceChem non-arrow instruction.'''
     START = 'S'
     INPUT = 'i'
     OUTPUT = 'o'

@@ -587,6 +587,8 @@ class Reactor(Component):
     # top-left cell to be at (0,0), and hence the top-left reactor corner is (-0.5, -0.5).
     # Further, treat the walls as being one atom radius closer, so that we can efficiently check if an atom will collide
     # with them given only the atom's center co-ordinates
+    NUM_COLS = 10
+    NUM_ROWS = 8
     NUM_WALDOS = 2
     NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
     walls = {UP: -0.5 + ATOM_RADIUS, DOWN: 7.5 - ATOM_RADIUS,
@@ -745,7 +747,8 @@ class Reactor(Component):
             waldo_idx = 0 if int(fields[3]) >= 64 else 1
 
             position = Position(int(fields[4]), int(fields[5]))
-            assert 0 <= position.col < 10 and 0 <= position.row < 8, f"Member {member_name} is out-of-bounds"
+            assert 0 <= position.col < self.NUM_COLS and 0 <= position.row < self.NUM_ROWS, \
+                f"Member {member_name} is out-of-bounds"
 
             if member_name.startswith('feature-'):
                 if position in feature_posns:
@@ -755,7 +758,7 @@ class Reactor(Component):
                 # Sanity check the other half of double-size features
                 if member_name in ('feature-fuser', 'feature-splitter'):
                     position2 = position + RIGHT
-                    assert position2.col < 10, f"Member {member_name} is out-of-bounds"
+                    assert position2.col < self.NUM_COLS, f"Member {member_name} is out-of-bounds"
                     if position2 in feature_posns:
                         raise Exception(f"Solution contains overlapping features at {position2}")
                     feature_posns.add(position2)
@@ -890,11 +893,8 @@ class Reactor(Component):
 
     def __str__(self):
         '''Return a pretty-print string representing this reactor.'''
-        num_cols = 10
-        num_rows = 8
-
         # 2 characters per atom + 1 space between atoms/walls (we'll use that space to show waldos)
-        grid = [['   ' for _ in range(num_cols)] + [' '] for _ in range(num_rows)]
+        grid = [['   ' for _ in range(self.NUM_COLS)] + [' '] for _ in range(self.NUM_ROWS)]
 
         # Map out the molecules in the reactor
         for molecule in self.molecules:
@@ -917,10 +917,10 @@ class Reactor(Component):
                 grid[r][c] = f'({grid[r][c][1:]}'
                 grid[r][c + 1] = f'){grid[r][c + 1][1:]}'
 
-        result = f" {num_cols * ' __'}  \n"
+        result = f" {self.NUM_COLS * ' __'}  \n"
         for row in grid:
             result += f"|{''.join(row)}|\n"
-        result += f" {num_cols * ' ‾‾'}  \n"
+        result += f" {self.NUM_COLS * ' ‾‾'}  \n"
 
         return result
 
