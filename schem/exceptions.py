@@ -16,9 +16,7 @@ class ReactionError(Exception):
 
 class PauseException(Exception):
     """Raised when a Pause command is encountered by a waldo"""
-    pass
 
 
 class ScoreError(Exception):
     """Raised during validations if solution's expected score does not match."""
-    pass

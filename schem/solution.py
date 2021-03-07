@@ -6,7 +6,7 @@ import copy
 from itertools import product
 import time
 
-from .components import COMPONENT_SHAPES, Pipe, Component, Input, Output, Reactor, Recycler, DisabledOutput
+from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .exceptions import ScoreError
 from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
@@ -101,18 +101,18 @@ class Solution:
         return soln_descr
 
     @classmethod
-    def split_solutions(cls, soln_str):
+    def split_solutions(cls, solns_str):
         """Given a string potentially containing multiple solutions, return an iterator of them.
         Returns an empty iterator if the given string has no non-empty lines.
         """
-        soln_str = '\n'.join(s for s in soln_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
+        solns_str = '\n'.join(s for s in solns_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
 
         # Ensure first non-empty line is a solution string
-        if soln_str and not soln_str.startswith('SOLUTION:'):
+        if solns_str and not solns_str.startswith('SOLUTION:'):
             raise ValueError("Invalid solution string: expected SOLUTION: on line 1")
 
         # Split with newline prefix in case some fucker names themselves SOLUTION:
-        return (f'SOLUTION:{s}' for s in ('\n' + soln_str).split('\nSOLUTION:')[1:])
+        return (f'SOLUTION:{s}' for s in ('\n' + solns_str).split('\nSOLUTION:')[1:])
 
     # TODO: Solution constructor should probably accept either level or level_code for convenience
     def __init__(self, level, soln_export_str=None):
@@ -455,10 +455,9 @@ class Solution:
         # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
         #       Really it's probably just every unmodified preset component
         for component in self.components:
-            if not (isinstance(component, Output)
+            if not (isinstance(component, (Output, Recycler))
                     or (isinstance(component, Input)
-                        and len(component.out_pipe) == 1)
-                    or isinstance(component, Recycler)):
+                        and len(component.out_pipe) == 1)):
                 export_str += '\n' + component.export_str()
 
         return export_str
@@ -503,9 +502,19 @@ class Solution:
 
         return result
 
-    def debug_print(self, cycle, duration=0.5):
+    def debug_print(self, cycle, duration=0.5, reactor_idx=None):
+        '''Print the currently running solution state then clear it from the terminal.
+        Args:
+            cycle: The current cycle.
+            duration: Seconds before clearing the printout from the screen. Default 0.5.
+            reactor_idx: If specified, only print the contents of the reactor with specified index.
+        '''
+        if reactor_idx is None:
+            output = str(self)
+        else:
+            output = str(list(self.reactors)[reactor_idx])
+
         # Print the current state
-        output = str(self)
         output += f'\nCycle: {cycle}'
         print(output)  # Could use end='' but that makes keyboard interrupt output ugly
 
@@ -571,10 +580,7 @@ class Solution:
                         raise e
 
                 if debug and cycle >= debug.cycle:
-                    if debug.reactor is None:
-                        self.debug_print(cycle, duration=0.0625 / debug.speed)
-                    else:
-                        reactors[debug.reactor].debug_print(cycle, duration=0.0625 / debug.speed)
+                    self.debug_print(cycle, duration=0.0625 / debug.speed, reactor_idx=debug.reactor)
 
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
@@ -594,10 +600,7 @@ class Solution:
                             return Score(cycle + 1, len(reactors), symbols)
 
                 if debug and cycle >= debug.cycle:
-                    if debug.reactor is None:
-                        self.debug_print(cycle, duration=0.0625 / debug.speed)
-                    else:
-                        reactors[debug.reactor].debug_print(cycle, duration=0.0625 / debug.speed)
+                    self.debug_print(cycle, duration=0.0625 / debug.speed, reactor_idx=debug.reactor)
 
                 cycle += 1
 

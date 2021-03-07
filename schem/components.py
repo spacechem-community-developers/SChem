@@ -52,6 +52,7 @@ REACTOR_TYPES = {
 
 
 class Pipe(list):
+    """A SpaceChem component's pipe. All posns are relative to the parent component's posn."""
     __slots__ = 'posns',
 
     def __init__(self, posns):
@@ -195,7 +196,7 @@ class Component:
         '''
         component_line, *pipe_lines = (s for s in export_str.split('\n') if s)  # Remove empty lines and get first line
 
-        component_type, component_posn = self.parse_metadata(component_line)
+        _, component_posn = self.parse_metadata(component_line)
         assert component_posn == self.posn, f"No component at posn {component_posn}"
         # TODO: Is ignoring component type checks unsafe?
         #assert component_type == self.type, \
@@ -233,7 +234,7 @@ class Component:
 
     def do_instant_actions(self, cur_cycle):
         ''''Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules).'''
-        pass
+        return
 
     def move_contents(self):
         '''Move the contents of this object (e.g. waldos/molecules), including its pipes.'''
@@ -384,7 +385,7 @@ class Output(Component):
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
         '''
         if self.in_pipe is None:
-            return
+            return False
 
         molecule = self.in_pipe[-1]
         if molecule is not None:
@@ -422,9 +423,7 @@ class PassThroughCounter(Output):
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
         '''
         if self.in_pipe is None:
-            return
-
-        ret_value = None
+            return False
 
         # TODO: I thought from eyeballing it that a molecule should go in and out of a pass-through counter
         #       within the same cycle, but it seems I had to put this block first to avoid an off-by-1-cycle error.
@@ -439,9 +438,9 @@ class PassThroughCounter(Output):
         # If the stored slot is empty, store the next molecule and 'output' it while we do so
         if self.in_pipe[-1] is not None and self.stored_molecule is None:
             self.stored_molecule = self.in_pipe[-1]
-            ret_value = super().do_instant_actions(cur_cycle)  # This will set self.in_pipe[-1] to None
+            return super().do_instant_actions(cur_cycle)  # This will set self.in_pipe[-1] to None
 
-        return ret_value
+        return False
 
 
 # It's less confusing for output counting and user-facing purposes if this is not an Output subclass
@@ -532,6 +531,7 @@ class TeleporterInput(Component):
 
     def __init__(self, component_dict):
         super().__init__(component_dict, num_in_pipes=1)
+        self.destination = None
 
     # Convenience properties
     @property
@@ -551,10 +551,11 @@ class TeleporterInput(Component):
         if self.in_pipe is None:
             return
 
-        if self.in_pipe[-1] is not None and self.destination.out_pipe[0] is None:
-            assert len(self.in_pipe[-1]) == 1, f"An invalid molecule was passed to Teleporter (Input): {molecule}"
+        molecule = self.in_pipe[-1]
+        if molecule is not None and self.destination.out_pipe[0] is None:
+            assert len(molecule) == 1, f"An invalid molecule was passed to Teleporter (Input): {molecule}"
 
-            self.in_pipe[-1], self.destination.molecule = None, self.in_pipe[-1]
+            self.in_pipe[-1], self.destination.molecule = None, molecule
 
 
 class TeleporterOutput(Component):
@@ -639,7 +640,8 @@ class Reactor(Component):
 
             cur_col += feature_width
 
-        self.calculate_bond_pairs()  # Pre-compute bond pairs
+        # Pre-compute active bond pairs
+        self.bond_plus_pairs, self.bond_minus_pairs = self.bond_pairs()
 
         self.large_output = 'has-large-output' in component_dict and component_dict['has-large-output']
 
@@ -664,16 +666,16 @@ class Reactor(Component):
 
                     # Store consecutive quantum walls as one entity. This will reduce collision check operations
                     bs.sort()
-                    b_min = b_max = bs[0]
+                    wall_min = wall_max = bs[0]
                     for b in bs:
-                        # If there was a break in the wall, store the last well and reset. Else extend the wall
-                        if b > b_max + 1:
-                            out_list.append((a, (b_min - 0.5, b_max + 0.5)))
-                            b_min = b_max = c
+                        # If there was a break in the wall, store the last wall and reset. Else extend the wall
+                        if b > wall_max + 1:
+                            out_list.append((a, (wall_min - 0.5, wall_max + 0.5)))
+                            wall_min = wall_max = b
                         else:
-                            b_max = b
+                            wall_max = b
                     # Store the remaining wall
-                    out_list.append((a, (b_min - 0.5, b_max + 0.5)))
+                    out_list.append((a, (wall_min - 0.5, wall_max + 0.5)))
 
         self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
 
@@ -681,29 +683,33 @@ class Reactor(Component):
         # and to have O(1) add/delete. Dict values are ignored.
         self.molecules = {}
 
-    def calculate_bond_pairs(self):
-        '''Pre-compute and store (bonder_A_posn, bonder_B_posn, dirn) triplets, sorted in priority order.'''
+    def bond_pairs(self):
+        '''For each of + and - bond commands, return a list of (bonder_A_posn, bonder_B_posn, dirn) triplets,
+        sorted in priority order.
+        '''
         # TODO: SC respects the priority order that bond+ vs bond- vs regular bonders are defined in in the solution
         #       string. We need to do the same here; currently regular bonders are always ending up higher priority
 
         # Store the relevant types of bonders in a dict paired up with their indices for fast lookup/sorting (below)
         bond_plus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_pluses)}
-        self.bond_plus_pairs = tuple((posn, neighbor_posn, direction)
-                                     for posn in bond_plus_bonders
-                                     for neighbor_posn, direction in
-                                     sorted([(posn + direction, direction)
-                                             for direction in (RIGHT, DOWN)
-                                             if posn + direction in bond_plus_bonders],
-                                            key=lambda x: bond_plus_bonders[x[0]]))
+        bond_plus_pairs = tuple((posn, neighbor_posn, direction)
+                                 for posn in bond_plus_bonders
+                                 for neighbor_posn, direction in
+                                 sorted([(posn + direction, direction)
+                                         for direction in (RIGHT, DOWN)
+                                         if posn + direction in bond_plus_bonders],
+                                        key=lambda x: bond_plus_bonders[x[0]]))
 
         bond_minus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_minuses)}
-        self.bond_minus_pairs = tuple((posn, neighbor_posn, direction)
-                                      for posn in bond_minus_bonders
-                                      for neighbor_posn, direction in
-                                      sorted([(posn + direction, direction)
-                                              for direction in (RIGHT, DOWN)
-                                              if posn + direction in bond_minus_bonders],
-                                             key=lambda x: bond_minus_bonders[x[0]]))
+        bond_minus_pairs = tuple((posn, neighbor_posn, direction)
+                                  for posn in bond_minus_bonders
+                                  for neighbor_posn, direction in
+                                  sorted([(posn + direction, direction)
+                                          for direction in (RIGHT, DOWN)
+                                          if posn + direction in bond_minus_bonders],
+                                         key=lambda x: bond_minus_bonders[x[0]]))
+
+        return bond_plus_pairs, bond_minus_pairs
 
     def update_from_export_str(self, export_str, update_pipes=True):
         features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
@@ -721,7 +727,7 @@ class Reactor(Component):
         pipes_idx = next((i for i, s in enumerate(lines) if s.startswith('PIPE:')), len(lines))
         member_lines, lines = lines[:pipes_idx], lines[pipes_idx:]
         if not member_lines:
-            raise ValueError(f"Missing MEMBER lines in reactor component")
+            raise ValueError("Missing MEMBER lines in reactor component")
 
         annotations_idx = next((i for i, s in enumerate(lines) if s.startswith('ANNOTATION:')), len(lines))
         pipes_str = '\n'.join(lines[:annotations_idx])
@@ -854,12 +860,12 @@ class Reactor(Component):
         self.waldos = [Waldo(idx=i, instr_map=waldo_instr_maps[i]) for i in range(self.NUM_WALDOS)]
 
         # Sanity-check and set features
-        for attr_name in features.keys():
-            assert len(features[attr_name]) == len(getattr(self, attr_name)), \
-                f"Expected {len(getattr(self, attr_name))} {attr_name} for {self.type} reactor but got {len(features[attr_name])}"
-            setattr(self, attr_name, features[attr_name])
+        for feature_name, posns in features.items():
+            assert len(posns) == len(getattr(self, feature_name)), \
+                f"Expected {len(getattr(self, feature_name))} {feature_name} for {self.type} reactor but got {len(posns)}"
+            setattr(self, feature_name, posns)
 
-        self.calculate_bond_pairs()  # Re-precompute bond pairings based on the changes
+        self.bond_plus_pairs, self.bond_minus_pairs = self.bond_pairs()  # Re-precompute bond pairings based on the changes
 
     def export_str(self):
         '''Represent this reactor in solution export string format.'''
@@ -924,7 +930,7 @@ class Reactor(Component):
 
         return result
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         for waldo in self.waldos:
             self.exec_instrs(waldo)
 
@@ -952,7 +958,7 @@ class Reactor(Component):
             # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
             step_radians = math.pi / (2 * self.NUM_MOVE_CHECKS)
             step_distance = 1 / self.NUM_MOVE_CHECKS
-            for i in range(self.NUM_MOVE_CHECKS):
+            for _ in range(self.NUM_MOVE_CHECKS):
                 # Move all molecules currently being held by a waldo forward a step
                 for waldo in self.waldos:
                     if waldo.molecule is not None and not waldo.is_stalled:
@@ -1015,7 +1021,7 @@ class Reactor(Component):
             for waldo in waldos_moving_molecules:
                 # If we're moving perpendicular to any quantum walls, check for collisions with them
                 if ((self.quantum_walls_y and waldo.direction in (LEFT, RIGHT))
-                        or (self.quantum_walls_x and waldo_direction in (UP, DOWN))):
+                        or (self.quantum_walls_x and waldo.direction in (UP, DOWN))):
                     # Move the molecule halfway, check for quantum wall collisions, then move the last half
                     waldo.molecule.move(waldo.direction, distance=0.5)
                     self.check_quantum_wall_collisions(waldo.molecule)
@@ -1040,7 +1046,7 @@ class Reactor(Component):
         '''Raise an exception if the given molecule collides with any other molecules.
         Assumes integer co-ordinates in all molecules.
         '''
-        for other_molecule in self.molecules.keys():
+        for other_molecule in self.molecules:
             molecule.check_collisions_lazy(other_molecule)  # Implicitly ignores self
 
     def check_wall_collisions(self, molecule):
@@ -1211,15 +1217,15 @@ class Reactor(Component):
         # If there is any output(s) remaining in this zone (regardless of whether we outputted), stall this waldo
         waldo.is_stalled = molecule is not None
 
-    def grab(self, waldo):
-        if waldo.molecule is None:
-            waldo.molecule = self.get_molecule(waldo.position)
-
     def get_molecule(self, position):
         '''Select the molecule at the given grid position, or None if no such molecule.
         Used by Grab, Bond+/-, Fuse, etc.
         '''
         return next((molecule for molecule in self.molecules if position in molecule), None)
+
+    def grab(self, waldo):
+        if waldo.molecule is None:
+            waldo.molecule = self.get_molecule(waldo.position)
 
     def drop(self, waldo):
         waldo.molecule = None  # Remove the reference to the molecule
@@ -1266,7 +1272,7 @@ class Reactor(Component):
                 # Add the smaller molecule to the larger one (faster), then delete the smaller
                 # and mark the larger as modified
                 molecules = [molecule_A, molecule_B]
-                molecules.sort(key=lambda x: len(x))
+                molecules.sort(key=len)
                 molecules[1] += molecules[0]
 
                 # Also make sure that any waldos holding the to-be-deleted molecule are updated
@@ -1280,7 +1286,7 @@ class Reactor(Component):
                 self.molecules[molecules[1]] = None  # dummy value
 
     def bond_minus(self):
-        for position, neighbor_posn, direction in self.bond_minus_pairs:
+        for position, _, direction in self.bond_minus_pairs:
             molecule = self.get_molecule(position)
 
             # Skip if there isn't a molecule with a bond over this pair
@@ -1295,7 +1301,7 @@ class Reactor(Component):
             del self.molecules[molecule]
             self.molecules[molecule] = None  # Dummy value
 
-            # If a new molecule broke off, add it to the reactor list
+            # If a new molecule broke off, add it to the reactor molecules
             if split_off_molecule is not None:
                 self.molecules[split_off_molecule] = None  # Dummy value
 
@@ -1457,26 +1463,3 @@ class Reactor(Component):
             for waldo in self.waldos:
                 if waldo.position == next_posn and waldo.molecule is not None:
                     waldo.molecule = molecule  # May be None, which handles the no molecule case correctly
-
-    def debug_print(self, cycle, duration=0.5):
-        '''Print the current reactor state then clear it from the terminal.
-        Args:
-            duration: Seconds before clearing the printout from the screen. Default 0.5.
-        '''
-        # Print the current state
-        output = str(self)
-        output += f'\nCycle: {cycle}'
-        print(output)  # Could use end='' but that makes keyboard interrupt output ugly
-
-        time.sleep(duration)
-
-        # Use the ANSI escape code for moving to the start of the previous line to reset the terminal cursor
-        cursor_reset = (output.count('\n') + 1) * "\033[F"  # +1 for the implicit newline print() appends
-        print(cursor_reset, end='')
-
-        # In order to play nice with any other print statements that may occur between debug prints, instead of just
-        # moving the terminal cursor back, overwrite the existing output with whitespace then move the cursor back again
-        # Note: This probably cries if str(self) contains characters like '\r', but uh it doesn't
-        # TODO: This is pretty ugly, may not be worth the trouble of not crapping on debug print statements
-        #print('\n'.join(len(s) * ' ' for s in output.split('\n')))
-        #print(cursor_reset, end='')  # Move terminal cursor back again

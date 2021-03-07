@@ -499,11 +499,20 @@ CXwTcdkV2+yjI61uObu/X/NXnAdAzgMeEBVCBZKNh2Q88+T9w768LOwXNoZte8zr5dT6Y3ojo2
 oeyRMreW68tUFywa/o/x8Luc2rNUdy5Q/dM+q0Lz0Zbx2D4CKtrI2eLlCYxjzRkSftmi7JjR7W
 Fj5Q8cA/LwzEYj7SMXTZKBr9TjdjT4ke+7btuXuY+EQu30h7JsrbAQAA''',
     # Volume 2 Issue 1
-    "Pyridine": '''H4sIAMQCKWAC/6WPwWrDMAyGXyX4vILkUnfMtwVKTmH3sUOWqKuhtYtrH9KQPvskj7GOll12sJ
+    "Pyridine": [
+        # 2-1-1
+        '''H4sIAMQCKWAC/6WPwWrDMAyGXyX4vILkUnfMtwVKTmH3sUOWqKuhtYtrH9KQPvskj7GOll12sJ
 A/bOn/JuX8MafFOXg6qadqUlhqoQJeJ3UIe+rznvimWpdi+CBv2wtoi7hegtW4BlAPlepD9olf
 oZ7fZr7Dn6OeyZ/Jk60vYBo+FgABLaDRXHWpSwSwWDiiQe61Qe4L14VrNJxEayO98JskEiXkdE
 /zOk8zDkWtqsfOu4FsU7ecBmUrmrue8GN5PelljG5wX2orVlu1/3S73SuL34MfKC6+6SOjNB5L
 gkgn6mK/k1++O/xKJazLaRei0I2LnZDBbbeOBdIoC+ZPhzf3JRgCAAA=''',
+        # 2-8-3 of the same name
+        '''H4sIAMQCKWAC/5WRQU+EMBCF/wrpeUk6xWWjPa1cOBFvHowHhFlpAu2mtAeW7P52p9VVMGrigc
+nwhXnz3jAzpY/epSejcWR3ycwg1kgDeJrZYHpsfI/0xirlrHlFLasLFxJgl3EpYMc52ySsMV47
++ur2vEnWY+XUxrGkmGqtWpRlUdF0fp2WHABWGtn5mVQY/9PNPeoTapTFheclPZJz4EBiuaAqYs
+2A5CFyWgjUixyoj1xELiCnMELkoQ98aQQEOQlWjHc/XWrpZ9+gm/oPR6IMJ4rBPqOG/Rl838C/
+ki7VHiarWvUutiWxbfX/fHTc35PxmOvF6BZteqU3hLp6TEfUo7EEnPVIzE3H6MriiLVtuqCk62
+HlNLDauy7OsUfTH2w9BNiqw0FRLjfFX/sGTLIt1nYCAAA='''],
     "Breakdown": [
         # 2-1-2
         '''H4sIAMQCKWAC/22Q3UrEMBBGX2XJtYWZqeTCXqks+A6yF7GdpcVuUvLD0i312Z2MCiJeZPhyIP
@@ -649,12 +658,7 @@ E9IfG0iMEdU6xO3tEkbjeLgJILzeBlEQc/UptG4k40sw3+nZxuNABIKW42ovXJRR4Crq8r9/Lf
 C3fkTuRI35+laji0lCBBS1DIGUve8mUNhQMo4BoVcF04Fo6gJGpElevtNZOs4lP8+d2X26XPcz
 DtMGadmnXqx7PEJ45fWjv4SwtZa1+09lkIihDurmrJIvXmnaVQfdOaUW+mqksTBe5jSMQozsfi
 F2giE9o+H3LmcOGciUmx93lLPBhnrfnI0A5dN/B/ceYBrp8ZfSbW5AEAAA==''',
-    "Pyridine": '''H4sIAMQCKWAC/5WRQU+EMBCF/wrpeUk6xWWjPa1cOBFvHowHhFlpAu2mtAeW7P52p9VVMGrigc
-nwhXnz3jAzpY/epSejcWR3ycwg1kgDeJrZYHpsfI/0xirlrHlFLasLFxJgl3EpYMc52ySsMV47
-+ur2vEnWY+XUxrGkmGqtWpRlUdF0fp2WHABWGtn5mVQY/9PNPeoTapTFheclPZJz4EBiuaAqYs
-2A5CFyWgjUixyoj1xELiCnMELkoQ98aQQEOQlWjHc/XWrpZ9+gm/oPR6IMJ4rBPqOG/Rl838C/
-ki7VHiarWvUutiWxbfX/fHTc35PxmOvF6BZteqU3hLp6TEfUo7EEnPVIzE3H6MriiLVtuqCk62
-HlNLDauy7OsUfTH2w9BNiqw0FRLjfFX/sGTLIt1nYCAAA=''',
+    # 2-8-3 stored with the same-named 2-1-1
     # Volume 2 Issue 9
     "Phosgene": '''H4sIAMQCKWAC/22OywrCMBBFf0WytjAJ0opdFkFwoXtxEdqpKbZJyWNRS/vtTrJSkcAlc8Lck5
 l1egw+exmNjh02M4OUiUZwm9lgeqxDjzSxo1dTjxrLagVxWmFXcqBTcp4LSsEBSpGI4HnMSNh2

@@ -252,11 +252,11 @@ class Molecule:
                             < ATOM_DIAMETER_SQUARED):
                         raise ReactionError("Collision between molecules.")
 
-    def debond(self, posn, direction):
+    def debond(self, position, direction):
         '''Decrement the specified bond. If doing so disconnects this molecule, mutate this molecule to its new size and
         return the extra molecule that was split off (else return None).
         '''
-        posn_A = posn
+        posn_A = position
         atom_A = self.atom_map[posn_A]
         if direction not in atom_A.bonds:
             return
@@ -282,8 +282,8 @@ class Molecule:
             cur_posn = visit_queue.pop()
             visited_posns.add(cur_posn)
 
-            for dir, count in self.atom_map[cur_posn].bonds.items():
-                neighbor_posn = cur_posn + dir
+            for dirn in self.atom_map[cur_posn].bonds:
+                neighbor_posn = cur_posn + dirn
                 if neighbor_posn not in visited_posns:
                     visit_queue.append(neighbor_posn)
 
@@ -291,12 +291,13 @@ class Molecule:
             # Molecule was not split, nothing left to do
             return None
 
-        # If the molecule was split, create a new molecule from the positions that were accessible
+        # Given that the molecule was split, create a new molecule from the positions that were accessible
         # from the disconnected neighbor (and remove those positions from this molecule)
         new_atom_map = {}
         for posn in visited_posns:
             new_atom_map[posn] = self.atom_map[posn]
             del self.atom_map[posn]
+
         return Molecule(atom_map=new_atom_map)
 
     def defrag(self, modified_posn):
@@ -351,7 +352,7 @@ class Molecule:
                 cur_posn = visit_queue.pop()
                 visited_posns.add(cur_posn)
 
-                for dirn, count in self.atom_map[cur_posn].bonds.items():
+                for dirn in self.atom_map[cur_posn].bonds:
                     neighbor_posn = cur_posn + dirn
                     if neighbor_posn not in visited_posns:
                         visit_queue.append(neighbor_posn)
@@ -441,44 +442,43 @@ class Molecule:
         # Now that we know that on the surface the two molecules match, check their topology in-depth.
         # Take the rarest combination of element and bond counts, and try to map the graphs onto each
         # other starting from any such atom in this molecule, and comparing against all matching atoms
-        # in the other molecule. We'll trickle the 'tree' down from each possible starting atom until we find a tree that matches.
+        # in the other molecule. We'll trickle the 'tree' down from each possible starting atom until we find a tree
+        # that matches.
         rarest_atom_struct = min(this_atom_struct_to_freq.items(),
                                  key=lambda x: x[1])[0]
         our_root_posn = next(posn for posn, atom_struct in this_posn_to_atom_struct.items()
                              if atom_struct == rarest_atom_struct)
 
+        def molecules_match_recursive(our_visited_posns, our_posn, their_visited_posns, their_posn):
+            '''Attempt to recursively map any unvisited atoms of the molecules onto each other
+            starting from the given position in each.
+            '''
+            if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
+                return False
+
+            our_visited_posns.add(our_posn)
+            their_visited_posns.add(their_posn)
+
+            # Attempt to recursively match each of our bonded neighbors in turn (comparing
+            # against all possible bonds of theirs
+            for our_bond_count, our_neighbor in self.neighbor_bonds(our_posn):
+                if our_neighbor not in our_visited_posns:
+                    if not any(molecules_match_recursive(our_visited_posns, our_neighbor,
+                                                         their_visited_posns, their_neighbor)
+                               for their_bond_count, their_neighbor in other.neighbor_bonds(their_posn)
+                               # Only check bonds of theirs that match in count
+                               if (their_neighbor not in their_visited_posns
+                                   and our_bond_count == their_bond_count)):
+                        our_visited_posns.remove(our_posn)
+                        their_visited_posns.remove(their_posn)
+                        return False
+            return True
+
         for their_root_posn in (posn for posn, atom_struct in other_posn_to_atom_struct.items()
                                 if atom_struct == rarest_atom_struct):
-            # Track which positions from each molecule we've visited during this algorithm
-            our_visited_posns = set()
-            their_visited_posns = set()
-
-            def molecules_match_recursive(our_posn, their_posn):
-                '''Attempt to recursively map any unvisited atoms of the molecules onto each other
-                starting from the given position in each.
-                '''
-                if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
-                    return False
-
-                our_visited_posns.add(our_posn)
-                their_visited_posns.add(their_posn)
-
-                # Attempt to recursively match each of our bonded neighbors in turn (comparing
-                # against all possible bonds of their
-                for our_bond_count, our_neighbor in self.neighbor_bonds(our_posn):
-                    if our_neighbor not in our_visited_posns:
-                        if not any(molecules_match_recursive(our_neighbor, their_neighbor)
-                                   for their_bond_count, their_neighbor in other.neighbor_bonds(their_posn)
-                                   # Only check bonds of theirs
-                                   if (their_neighbor not in their_visited_posns
-                                        and our_bond_count == their_bond_count)):
-                            our_visited_posns.remove(our_posn)
-                            their_visited_posns.remove(their_posn)
-                            return False
+            if molecules_match_recursive(set(), our_root_posn, set(), their_root_posn):
                 return True
 
-            if molecules_match_recursive(our_root_posn, their_root_posn):
-                return True
         return False
 
     # We don't overload __hash__ (which by default checks instance matching) because we want to

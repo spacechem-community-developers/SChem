@@ -4925,6 +4925,7 @@ MEMBER:'instr-grab',-1,1,128,2,4,0,0
 MEMBER:'instr-input',-1,1,128,3,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    # TODO: 2-1-1 Pyridine
     # 2-1-2
     '''SOLUTION:Breakdown,Zig,43-1-55,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
