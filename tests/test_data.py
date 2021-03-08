@@ -4925,7 +4925,53 @@ MEMBER:'instr-grab',-1,1,128,2,4,0,0
 MEMBER:'instr-input',-1,1,128,3,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    # TODO: 2-1-1 Pyridine
+    # 2-1-1 Pyridine
+    """SOLUTION:Pyridine,Zig,157-1-32
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,4,3,0,0
+MEMBER:'instr-start',180,0,32,6,5,0,0
+MEMBER:'feature-bonder',-1,0,1,3,3,0,0
+MEMBER:'feature-bonder',-1,0,1,2,2,0,0
+MEMBER:'feature-bonder',-1,0,1,1,3,0,0
+MEMBER:'feature-bonder',-1,0,1,2,3,0,0
+MEMBER:'feature-bonder',-1,0,1,1,5,0,0
+MEMBER:'feature-bonder',-1,0,1,2,5,0,0
+MEMBER:'feature-bonder',-1,0,1,3,5,0,0
+MEMBER:'feature-bonder',-1,0,1,3,2,0,0
+MEMBER:'instr-bond',-1,1,128,2,4,0,0
+MEMBER:'instr-input',-1,0,128,3,3,0,0
+MEMBER:'instr-arrow',-90,0,16,2,5,0,0
+MEMBER:'instr-input',-1,1,32,5,5,0,0
+MEMBER:'instr-arrow',0,0,64,2,4,0,0
+MEMBER:'instr-grab',-1,1,128,2,3,0,0
+MEMBER:'instr-arrow',90,0,64,3,4,0,0
+MEMBER:'instr-bond',-1,1,32,3,5,0,0
+MEMBER:'instr-grab',-1,1,32,2,5,0,0
+MEMBER:'instr-bond',-1,0,32,2,3,0,0
+MEMBER:'instr-arrow',0,0,16,2,3,0,0
+MEMBER:'instr-arrow',-90,0,64,3,6,0,0
+MEMBER:'instr-bond',-1,0,32,3,3,0,0
+MEMBER:'instr-rotate',-1,1,128,3,6,0,0
+MEMBER:'instr-grab',-1,2,128,6,5,0,0
+MEMBER:'instr-arrow',-90,0,64,6,5,0,0
+MEMBER:'instr-arrow',180,0,64,6,3,0,0
+MEMBER:'instr-arrow',90,0,64,2,3,0,0
+MEMBER:'instr-output',-1,1,128,6,4,0,0
+MEMBER:'instr-grab',-1,2,32,7,3,0,0
+MEMBER:'instr-arrow',90,0,16,7,3,0,0
+MEMBER:'instr-arrow',180,0,16,7,5,0,0
+MEMBER:'instr-output',-1,0,32,7,4,0,0
+MEMBER:'instr-bond',-1,1,128,3,4,0,0
+MEMBER:'instr-toggle',0,0,128,3,5,0,0
+MEMBER:'instr-bond',-1,0,32,4,3,0,0
+MEMBER:'instr-rotate',-1,0,32,6,3,0,0
+MEMBER:'instr-bond',-1,0,32,5,3,0,0
+MEMBER:'instr-bond',-1,0,128,4,5,0,0
+MEMBER:'instr-rotate',-1,1,128,5,5,0,0
+MEMBER:'instr-sync',-1,0,128,5,3,0,0
+MEMBER:'instr-sync',-1,0,32,7,5,0,0
+PIPE:0,4,1
+PIPE:1,4,2""",
     # 2-1-2
     '''SOLUTION:Breakdown,Zig,43-1-55,Cycles
 COMPONENT:'custom-research-reactor',2,0,''

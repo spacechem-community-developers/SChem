@@ -43,8 +43,8 @@ terrains = {
             *product(range(28, 32), (3,)),
             *product(range(29, 32), (4,)),
             # Mid-right rock
-            *product(range(30, 32), (13, 19)),
-            *product((29,), (14, 18)),
+            *product(range(30, 32), range(13, 19)),
+            *product((29,), range(14, 18)),
         },
         'random-input-zones': (('drag-arbitrary-input', (1, 5)),),
         'fixed-input-zones': (('drag-arbitrary-input', (3, 13)),

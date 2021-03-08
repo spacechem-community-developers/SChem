@@ -33,6 +33,7 @@ COMPONENT_SHAPES = {
     'drag-mining-input': (3, 2),
     'drag-ancient-input': (2, 2),
     'drag-spaceship-input': (2, 2),  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
+    'drag-programmed-input': (2, 3),
     'drag-qpipe-in': (3, 1),
     'drag-qpipe-out': (3, 1)}
 

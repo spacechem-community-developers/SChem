@@ -3,8 +3,10 @@
 
 from collections import namedtuple
 import copy
+from dataclasses import dataclass
 from itertools import product
 import time
+from typing import Optional
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .exceptions import ScoreError
@@ -12,6 +14,18 @@ from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
 from .terrains import terrains, MAX_TERRAIN_INT
 
+@dataclass
+class DebugOptions:
+    """Debug options for running a solution.
+
+    reactor: The reactor to debug. If None, overworld is shown for production levels, or only reactor for researches
+    cycle: The cycle to start debugging at (0 for full debug)
+    speed: The speed to run the solution at
+    """
+    reactor: Optional[int]  # The reactor to debug. If None, overworld is shown for production levels, or only reactor
+                            # for research levels
+    cycle: int  # The cycle to start debugging at
+    speed: float  # The speed to run the solution at, in cycles / s
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
     '''Immutable class representing a SpaceChem solution score.'''
@@ -185,7 +199,8 @@ class Solution:
             else:
                 # CE production levels expect input types/positions to be manually specified in the input dict
                 for input_dict in self.level[input_zone_type]:
-                    if not input_dict['molecules']:
+                    # Skip empty random input zones
+                    if 'molecules' in input_dict and not input_dict['molecules']:
                         continue
 
                     new_component = Input(input_dict=input_dict, is_research=self.level['type'].startswith('research'))
@@ -580,7 +595,7 @@ class Solution:
                         raise e
 
                 if debug and cycle >= debug.cycle:
-                    self.debug_print(cycle, duration=0.0625 / debug.speed, reactor_idx=debug.reactor)
+                    self.debug_print(cycle, duration=0.5 / debug.speed, reactor_idx=debug.reactor)
 
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
@@ -600,7 +615,7 @@ class Solution:
                             return Score(cycle + 1, len(reactors), symbols)
 
                 if debug and cycle >= debug.cycle:
-                    self.debug_print(cycle, duration=0.0625 / debug.speed, reactor_idx=debug.reactor)
+                    self.debug_print(cycle, duration=0.5 / debug.speed, reactor_idx=debug.reactor)
 
                 cycle += 1
 
