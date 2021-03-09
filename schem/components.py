@@ -927,7 +927,7 @@ class Reactor(Component):
         result = f" {self.NUM_COLS * ' __'}  \n"
         for row in grid:
             result += f"|{''.join(row)}|\n"
-        result += f" {self.NUM_COLS * ' ‾‾'}  \n"
+        result += f" {self.NUM_COLS * ' ‾‾'}  "
 
         return result
 

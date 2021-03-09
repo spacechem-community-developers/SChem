@@ -513,7 +513,7 @@ class Solution:
         result = f"_{OVERWORLD_COLS * '_'}_\n"
         for row in grid:
             result += f"|{''.join(row)}|\n"
-        result += f"‾{OVERWORLD_COLS * '‾'}‾\n"
+        result += f"‾{OVERWORLD_COLS * '‾'}‾"
 
         return result
 
