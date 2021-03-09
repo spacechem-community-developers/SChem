@@ -233,11 +233,11 @@ class Component:
     def __str__(self):
         return f'{self.type},{self.posn}'
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         ''''Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules).'''
         return
 
-    def move_contents(self):
+    def move_contents(self, _):
         '''Move the contents of this object (e.g. waldos/molecules), including its pipes.'''
         for pipe in self.out_pipes:
             pipe.move_contents()
@@ -283,8 +283,11 @@ class Input(Component):
         else:
             self.input_rate = 10
 
-    def do_instant_actions(self, cur_cycle):
-        if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+    def move_contents(self, cycle):
+        """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
+        super().move_contents(cycle)
+
+        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[0])
 
     def export_str(self):
@@ -326,10 +329,12 @@ class RandomInput(Input):
 
         return self.random_bucket.pop(bucket_idx)
 
-    def do_instant_actions(self, cur_cycle):
-        if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
-            self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
+    def move_contents(self, cycle):
+        """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
+        super(Input, self).move_contents(cycle)
 
+        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+            self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
 
 class ProgrammedInput(Input):
     __slots__ = 'starting_molecules', 'repeating_molecules', 'repeating_idx'
@@ -349,8 +354,11 @@ class ProgrammedInput(Input):
         else:
             self.input_rate = 10
 
-    def do_instant_actions(self, cur_cycle):
-        if cur_cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+    def move_contents(self, cycle):
+        """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
+        super(Input, self).move_contents(cycle)
+
+        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
             if not self.starting_molecules:
                 self.out_pipe[0] = copy.deepcopy(self.repeating_molecules[self.repeating_idx])
                 self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
@@ -381,7 +389,7 @@ class Output(Component):
         self.target_count = output_dict['count']
         self.current_count = 0
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         '''Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
         '''
@@ -419,7 +427,7 @@ class PassThroughCounter(Output):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         '''Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
         '''
@@ -439,7 +447,7 @@ class PassThroughCounter(Output):
         # If the stored slot is empty, store the next molecule and 'output' it while we do so
         if self.in_pipe[-1] is not None and self.stored_molecule is None:
             self.stored_molecule = self.in_pipe[-1]
-            return super().do_instant_actions(cur_cycle)  # This will set self.in_pipe[-1] to None
+            return super().do_instant_actions(cycle)  # This will set self.in_pipe[-1] to None
 
         return False
 
@@ -456,7 +464,7 @@ class DisabledOutput(Component):
     def __init__(self, _type, posn):
         super().__init__(_type=_type, posn=posn, num_in_pipes=1)
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         # Technically should check for `in_pipe is None` first but I'd also be curious to see this crash since disabled
         # outputs are only used in research levels, where it should be impossible to not connect to the disabled output
         if self.in_pipe[-1] is not None:
@@ -469,7 +477,7 @@ class Recycler(Component):
     def __init__(self, _type, posn):
         super().__init__(_type=_type, posn=posn, num_in_pipes=3)
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         for pipe in self.in_pipes:
             if pipe is not None:
                 pipe[-1] = None
@@ -502,7 +510,7 @@ class StorageTank(Component):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         if self.in_pipe is None:
             return
 
@@ -510,6 +518,11 @@ class StorageTank(Component):
             self.contents.append(self.in_pipe[-1])
             self.in_pipe[-1] = None
 
+    def move_contents(self, _):
+        """Fill the output pipe if the storage tank is not empty. This does not occur in do_instant_actions to reflect
+        the fact that a reactor-tank-reactor setup cannot pass a molecule between reactors in the same cycle, unlike
+        with two adjacent reactors.
+        """
         if self.out_pipe[0] is None and self.contents:
             self.out_pipe[0] = self.contents.popleft()
 
@@ -543,7 +556,7 @@ class TeleporterInput(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    def do_instant_actions(self, cur_cycle):
+    def do_instant_actions(self, cycle):
         '''Note that the teleporter pair behaves differently from a pass-through counter insofar as the pass-through
         counter stores any molecule it receives internally when its output pipe is clogged, whereas the teleporter
         refuses to accept the next molecule until the output pipe is clear (i.e. behaves like a single discontinuous
@@ -578,9 +591,9 @@ class TeleporterOutput(Component):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def move_contents(self):
+    def move_contents(self, cycle):
         # Move pipe contents first, then add the teleported molecule to the front to avoid double-moving it
-        super().move_contents()
+        super().move_contents(cycle)
         self.molecule, self.out_pipe[0] = None, self.molecule
 
 
@@ -935,11 +948,9 @@ class Reactor(Component):
         for waldo in self.waldos:
             self.exec_instrs(waldo)
 
-    def move_contents(self):
+    def move_contents(self, cycle):
         '''Move all waldos in this reactor and any molecules they are holding.'''
-        for pipe in self.out_pipes:
-            if pipe is not None:
-                pipe.move_contents()
+        super().move_contents(cycle)
 
         # If the waldo is facing a wall, mark it as stalled (may also be stalled due to sync, input, etc.)
         for waldo in self.waldos:

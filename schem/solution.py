@@ -51,7 +51,7 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
 class Solution:
     '''Class for constructing and running game entities from a given level object and solution code.'''
     __slots__ = ('level_name', 'author', 'expected_score', 'name',
-                 'level', 'components')
+                 'level', 'components', 'cycle')
 
     DEFAULT_MAX_CYCLES = 1_000_000  # Default timeout for solutions whose expected cycle count is unknown
 
@@ -135,6 +135,7 @@ class Solution:
         self.name = None
         self.author = 'Unknown'
         self.expected_score = None
+        self.cycle = 0
 
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
         if level['type'].startswith('production'):
@@ -478,7 +479,7 @@ class Solution:
         return export_str
 
     def __str__(self):
-        ''''Return a string representing the overworld of this solution including all components and pipes.'''
+        '''Return a string representing the overworld of this solution including all components/pipes, and the cycle.'''
         # 1 character per tile
         grid = [[' ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
 
@@ -515,9 +516,11 @@ class Solution:
             result += f"|{''.join(row)}|\n"
         result += f"‾{OVERWORLD_COLS * '‾'}‾"
 
+        result += f'\nCycle: {self.cycle}'
+
         return result
 
-    def debug_print(self, cycle, duration=0.5, reactor_idx=None):
+    def debug_print(self, duration=0.5, reactor_idx=None):
         '''Print the currently running solution state then clear it from the terminal.
         Args:
             cycle: The current cycle.
@@ -528,9 +531,9 @@ class Solution:
             output = str(self)
         else:
             output = str(list(self.reactors)[reactor_idx])
+            output += f'\nCycle: {self.cycle}'
 
         # Print the current state
-        output += f'\nCycle: {cycle}'
         print(output)  # Could use end='' but that makes keyboard interrupt output ugly
 
         time.sleep(duration)
@@ -575,16 +578,33 @@ class Solution:
         symbols = sum(sum(len(waldo) for waldo in component.waldos)
                       for component in self.components
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
-        cycle = 0
         num_outputs = len(list(self.outputs))
         completed_outputs = 0
 
         try:
-            while cycle < max_cycles:
+            while self.cycle < max_cycles:
+                # Execute instant actions (entity inputs/outputs, waldo instructions)
+                for component in self.components:
+                    if component.do_instant_actions(self.cycle):
+                        # Outputs return true the first time they reach their target count; count these occurrences and
+                        # end when they've all completed
+                        completed_outputs += 1
+                        if completed_outputs == num_outputs:
+                            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
+                            #       potentially misleading. Maybe run() and validate() should be the same thing.
+                            return Score(self.cycle, len(reactors), symbols)
+
+                if debug and self.cycle >= debug.cycle:
+                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
+
+                # TODO: It would be nice if calling run() again after hitting a Pause 'just worked'. However
+                #       currently instant actions would get re-run. Only solution might be an internal tracker
+                #       of which step of the cycle we're in...
+
                 # Move molecules/waldos
                 for component in self.components:
                     try:
-                        component.move_contents()
+                        component.move_contents(self.cycle)
                     except Exception as e:
                         # Mention the originating reactor in errors when possible
                         if isinstance(component, Reactor):
@@ -594,35 +614,16 @@ class Solution:
                                     raise type(e)(f"Reactor {i}: {e}") from e
                         raise e
 
-                if debug and cycle >= debug.cycle:
-                    self.debug_print(cycle, duration=0.5 / debug.speed, reactor_idx=debug.reactor)
+                if debug and self.cycle >= debug.cycle:
+                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
 
-                # Execute instant actions (entity inputs/outputs, waldo instructions)
-                for component in self.components:
-                    if component.do_instant_actions(cycle):
-                        # Outputs return true the first time they reach their target count; count these occurrences and
-                        # end when they've all completed
-                        completed_outputs += 1
-                        if completed_outputs == num_outputs:
-                            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
-                            #       potentially misleading. Maybe run() and validate() should be the same thing.
-                            # TODO: The cycle + 1 here is a hack since we're inconsistent with SC's displayed count. Given that
-                            #       waldos move one tile before inputs populate their pipe (and the cycle is already displayed as 1
-                            #       while they do that first move), I think the only way to match SC exactly is to do instant actions
-                            #       before move actions, but to have inputs trigger when `(cycle - 1) % rate == 0` instead of
-                            #       `cycle % rate == 0`, so that they don't input on cycle 0 (before the waldos have moved).
-                            #       For now putting the +1 here looks less awkward...
-                            return Score(cycle + 1, len(reactors), symbols)
-
-                if debug and cycle >= debug.cycle:
-                    self.debug_print(cycle, duration=0.5 / debug.speed, reactor_idx=debug.reactor)
-
-                cycle += 1
+                self.cycle += 1  # TODO: To strictly match SC's displayed cycle count, this might need to go at loop
+                                 #       start, and use cycle - 1 in return value and input rate checks or something.
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except Exception as e:
             # Mention the cycle number on error via a chained exception of the same type
-            raise type(e)(f"Cycle {cycle}: {e}") from e
+            raise type(e)(f"Cycle {self.cycle}: {e}") from e
         finally:
             # Persist the last debug printout
             if debug:

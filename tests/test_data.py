@@ -82,7 +82,7 @@ PIPE:0,4,1
 PIPE:1,4,2
 ''',
     '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,No pipes
-COMPONENT:'custom-research-reactor',2,0,''
+COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'instr-arrow',0,0,64,1,1,0,0
@@ -92,6 +92,27 @@ MEMBER:'instr-input',-1,0,128,1,1,0,0
 MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-output',-1,0,128,5,1,0,0
 MEMBER:'instr-rotate',-1,0,128,4,1,0,0''',
+    """SOLUTION:Of Pancakes and Spaceships,Zig,115-1-6,Symbols
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0""",
+    """SOLUTION:Of Pancakes and Spaceships,Zig,115-1-7,Start vs arrow
+COMPONENT:'empty-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,0,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-arrow',180,0,64,7,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-output',-1,0,32,0,1,0,0""",
     '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,2,5,0,0
