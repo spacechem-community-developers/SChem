@@ -332,7 +332,14 @@ class Solution:
                 update_pipes = (not self.level['type'].startswith('research')
                                 and ('mutable-pipes' not in self.level
                                      or self.level['mutable-pipes']))
-                posn_to_component[component_posn].update_from_export_str(component_str, update_pipes=update_pipes)
+                component = posn_to_component[component_posn]
+                try:
+                    component.update_from_export_str(component_str, update_pipes=update_pipes)
+                except Exception as e:
+                    if not self.level['type'].startswith('research'):
+                        raise type(e)(f"{component.type} at {component.posn}: {e}")
+
+                    raise e
 
                 # TODO: Ensure the updated component pipes are within the overworld bounds
 
@@ -573,23 +580,23 @@ class Solution:
 
         self.validate_components()
         reactors = list(self.reactors)
+        outputs = list(self.outputs)
 
         # Run the level
         symbols = sum(sum(len(waldo) for waldo in component.waldos)
                       for component in self.components
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
-        num_outputs = len(list(self.outputs))
-        completed_outputs = 0
 
         try:
             while self.cycle < max_cycles:
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
                     if component.do_instant_actions(self.cycle):
-                        # Outputs return true the first time they reach their target count; count these occurrences and
-                        # end when they've all completed
-                        completed_outputs += 1
-                        if completed_outputs == num_outputs:
+                        # Outputs return true the first time they reach their target count; whenever one does, check
+                        # all the others for completion (we can't just count completions since 0/0 outputs should
+                        # win even if never triggered). Not checking until an output completes also matches the expected
+                        # behaviour of puzzles where all outputs are 0/0
+                        if all(output.current_count >= output.target_count for output in outputs):
                             # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
                             #       potentially misleading. Maybe run() and validate() should be the same thing.
                             return Score(self.cycle, len(reactors), symbols)

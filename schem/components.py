@@ -441,7 +441,7 @@ class PassThroughCounter(Output):
         #       Probably because it can't be teleported in the same cycle or it will be moved that cycle too, which
         #       effectively makes it move twice
         # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
-        if self.stored_molecule is not None and self.out_pipe[-1] is None:
+        if self.stored_molecule is not None and self.out_pipe[0] is None:
             self.stored_molecule, self.out_pipe[0] = None, self.stored_molecule
 
         # If the stored slot is empty, store the next molecule and 'output' it while we do so
@@ -772,7 +772,7 @@ class Reactor(Component):
 
             if member_name.startswith('feature-'):
                 if position in feature_posns:
-                    raise Exception(f"Solution contains overlapping features at {position}")
+                    raise Exception(f"Overlapping features at {position}")
                 feature_posns.add(position)
 
                 # Sanity check the other half of double-size features
@@ -780,7 +780,7 @@ class Reactor(Component):
                     position2 = position + RIGHT
                     assert position2.col < self.NUM_COLS, f"Member {member_name} is out-of-bounds"
                     if position2 in feature_posns:
-                        raise Exception(f"Solution contains overlapping features at {position2}")
+                        raise Exception(f"Overlapping features at {position2}")
                     feature_posns.add(position2)
 
                 if member_name == 'feature-bonder':
@@ -961,7 +961,10 @@ class Reactor(Component):
                 waldo.is_stalled = True
 
         # If any waldo is about to rotate a molecule, don't skimp on collision checks
-        if any(waldo.is_rotating for waldo in self.waldos):
+        # Note that a waldo might be marked as rotating (and stalled accordingly) while holding nothing, in the case
+        # that red hits a rotate and then has its atom fused or swapped away by blue in the same cycle
+        # Hence the waldo.molecule is not None check is necessary
+        if any(waldo.is_rotating and waldo.molecule is not None for waldo in self.waldos):
             # If both waldos are holding the same molecule and either of them is rotating, a crash occurs
             # (even if they're in the same position and rotating the same direction)
             if self.waldos[0].molecule is self.waldos[1].molecule:

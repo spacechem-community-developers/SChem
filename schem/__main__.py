@@ -55,7 +55,7 @@ def main():
     level_code = None
     if args.level_file:
         if not args.level_file.is_file():
-            raise FileNotFoundError("Solution file not found")
+            raise FileNotFoundError("Level file not found")
 
         if args.level_file.suffix != '.puzzle':
             print("Warning: Parsing file without extension .puzzle as a SpaceChem level")
