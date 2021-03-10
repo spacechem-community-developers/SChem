@@ -96,8 +96,8 @@ class Solution:
         level_name = ','.join(fields[:score_field_idx - 1])
         author_name = fields[score_field_idx - 1]
 
-        # The game stores unsolved solutions as '0-0-0'
-        expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] != '0-0-0' else None
+        # The game stores unsolved solutions as '0-0-0', we will also support the old SaveChemTool's 'Incomplete-0-0'
+        expected_score = Score.from_str(fields[score_field_idx]) if fields[score_field_idx] not in ('0-0-0', 'Incomplete-0-0') else None
         soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
         # Game single-quotes solution names if they contain a comma, strip this
         if soln_name is not None and ',' in soln_name and soln_name[0] == soln_name[-1] == "'":
