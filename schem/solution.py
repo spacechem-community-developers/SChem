@@ -9,6 +9,7 @@ import time
 from typing import Optional
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
+from .waldo import InstructionType
 from .exceptions import ScoreError
 from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
@@ -558,6 +559,20 @@ class Solution:
             assert sum(1 if isinstance(component, Reactor) else 0
                        for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
+    def cycle_movement(self):
+        """Move contents of all components one cycle's-worth forward."""
+        for component in self.components:
+            try:
+                component.move_contents(self.cycle)
+            except Exception as e:
+                # Mention the originating reactor in errors when possible
+                if isinstance(component, Reactor):
+                    for i, reactor in enumerate(self.reactors):
+                        if component is reactor:
+                            # Mention the reactor index via a chained exception of the same type
+                            raise type(e)(f"Reactor {i}: {e}") from e
+                raise e
+
     def run(self, max_cycles=None, debug=False):
         '''Run this solution, returning a score tuple or else raising an exception if the level was not solved.'''
         # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
@@ -582,6 +597,12 @@ class Solution:
         reactors = list(self.reactors)
         outputs = list(self.outputs)
 
+        if any(waldo.instr_map[waldo.position][1].type == InstructionType.PAUSE
+               for reactor in reactors
+               for waldo in reactor.waldos
+               if waldo.position in waldo.instr_map):
+            self.cycle_movement()
+
         # Run the level
         symbols = sum(sum(len(waldo) for waldo in component.waldos)
                       for component in self.components
@@ -589,6 +610,8 @@ class Solution:
 
         try:
             while self.cycle < max_cycles:
+                self.cycle += 1
+
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
                     if component.do_instant_actions(self.cycle):
@@ -599,33 +622,16 @@ class Solution:
                         if all(output.current_count >= output.target_count for output in outputs):
                             # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
                             #       potentially misleading. Maybe run() and validate() should be the same thing.
-                            return Score(self.cycle, len(reactors), symbols)
+                            # -1 looks weird but seems provably right based on output vs pause comparison
+                            return Score(self.cycle - 1, len(reactors), symbols)
 
                 if debug and self.cycle >= debug.cycle:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
 
-                # TODO: It would be nice if calling run() again after hitting a Pause 'just worked'. However
-                #       currently instant actions would get re-run. Only solution might be an internal tracker
-                #       of which step of the cycle we're in...
-
-                # Move molecules/waldos
-                for component in self.components:
-                    try:
-                        component.move_contents(self.cycle)
-                    except Exception as e:
-                        # Mention the originating reactor in errors when possible
-                        if isinstance(component, Reactor):
-                            for i, reactor in enumerate(reactors):
-                                if component is reactor:
-                                    # Mention the reactor index via a chained exception of the same type
-                                    raise type(e)(f"Reactor {i}: {e}") from e
-                        raise e
+                self.cycle_movement()
 
                 if debug and self.cycle >= debug.cycle:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
-
-                self.cycle += 1  # TODO: To strictly match SC's displayed cycle count, this might need to go at loop
-                                 #       start, and use cycle - 1 in return value and input rate checks or something.
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except Exception as e:

@@ -4499,17 +4499,27 @@ PIPE:0,4,1
 PIPE:1,4,2''',
 ]
 
-# Solutions which should raise PauseException when run
-pauses = [
-    '''SOLUTION:A Brief History of SpaceChem,Zig,0-0-0,Pause
+# Solution which when run should raise PauseException on cycle 2 and complete successfully if run again
+pause_then_complete = [
+    '''SOLUTION:A Brief History of SpaceChem,Zig,154-1-11,Pause then complete
 COMPONENT:'drag-starter-reactor',2,0,''
-MEMBER:'instr-start',180,0,128,4,1,0,0
-MEMBER:'instr-start',180,0,32,4,6,0,0
-MEMBER:'feature-bonder',-1,0,1,4,3,0,0
-MEMBER:'feature-bonder',-1,0,1,5,3,0,0
-MEMBER:'feature-bonder',-1,0,1,4,4,0,0
-MEMBER:'feature-bonder',-1,0,1,5,4,0,0
-MEMBER:'instr-debug',-1,0,128,3,1,0,0
+MEMBER:'instr-start',180,0,128,3,1,0,0
+MEMBER:'instr-start',180,0,32,2,6,0,0
+MEMBER:'feature-bonder',-1,0,1,1,4,0,0
+MEMBER:'feature-bonder',-1,0,1,1,5,0,0
+MEMBER:'feature-bonder',-1,0,1,9,6,0,0
+MEMBER:'feature-bonder',-1,0,1,8,7,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-arrow',0,0,64,1,4,0,0
+MEMBER:'instr-arrow',-90,0,64,6,4,0,0
+MEMBER:'instr-arrow',90,0,64,1,1,0,0
+MEMBER:'instr-output',-1,1,32,0,6,0,0
+MEMBER:'instr-input',-1,0,128,2,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,1,0,0
+MEMBER:'instr-bond',-1,0,128,1,4,0,0
+MEMBER:'instr-input',-1,1,128,1,3,0,0
+MEMBER:'instr-grab',-1,2,128,6,4,0,0
+MEMBER:'instr-debug',-1,0,32,1,6,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
 ]

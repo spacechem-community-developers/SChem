@@ -287,7 +287,8 @@ class Input(Component):
         """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
         super().move_contents(cycle)
 
-        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+        # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[0])
 
     def export_str(self):
@@ -333,7 +334,8 @@ class RandomInput(Input):
         """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
         super(Input, self).move_contents(cycle)
 
-        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+        # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
 
 class ProgrammedInput(Input):
@@ -358,7 +360,8 @@ class ProgrammedInput(Input):
         """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
         super(Input, self).move_contents(cycle)
 
-        if cycle % self.input_rate == 0 and self.out_pipe[0] is None:
+        # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             if not self.starting_molecules:
                 self.out_pipe[0] = copy.deepcopy(self.repeating_molecules[self.repeating_idx])
                 self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)

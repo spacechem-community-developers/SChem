@@ -102,7 +102,6 @@ class Waldo:
                     self.direction = cmd.direction
         assert self.position is not None, "Missing waldo Start instruction"
 
-
         self.molecule = None
         self.is_stalled = False  # Updated if the waldo is currently stalled on a sync, output, wall, etc.
         self.is_rotating = False  # Used to distinguish the first vs second cycle on a rotate command

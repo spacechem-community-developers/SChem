@@ -98,12 +98,21 @@ class TestSolution(unittest.TestCase):
                 print(f"✅  {test_id}")
 
     def test_run_pause(self):
-        for test_id, level_code, solution_code in iter_test_data(test_data.pauses):
+        for test_id, level_code, solution_code in iter_test_data(test_data.pause_then_complete):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
+
+                # Run the solution and expect it to pause
                 with self.assertRaises(schem.exceptions.PauseException):
                     solution.run()
+
+                # Make sure the displayed cycle on immediate pause matches SC's
+                self.assertEqual(solution.cycle, 2, "Paused cycle does not match expected")
+
+                # Make sure hitting run() again will complete the solution
+                self.assertEqual(solution.run(), (154, 1, 11), "Solution failed to continue run after pause")
+
                 print(f"✅  {test_id}")
 
     def test_validate_missing_score(self):
