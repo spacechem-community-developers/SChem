@@ -477,8 +477,8 @@ class DisabledOutput(Component):
 class Recycler(Component):
     __slots__ = ()
 
-    def __init__(self, _type, posn):
-        super().__init__(_type=_type, posn=posn, num_in_pipes=3)
+    def __init__(self, component_dict=None, _type=None, posn=None):
+        super().__init__(component_dict=component_dict, _type=_type, posn=posn, num_in_pipes=3)
 
     def do_instant_actions(self, cycle):
         for pipe in self.in_pipes:
@@ -492,8 +492,8 @@ class StorageTank(Component):
     MAX_CAPACITY = 25
     __slots__ = 'contents',
 
-    def __init__(self, _type, posn):
-        super().__init__(_type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
+    def __init__(self, component_dict=None, _type=None, posn=None):
+        super().__init__(component_dict=component_dict, _type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
         self.contents = collections.deque()
 
     # Convenience properties
