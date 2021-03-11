@@ -402,7 +402,7 @@ class Output(Component):
         molecule = self.in_pipe[-1]
         if molecule is not None:
             if not molecule.isomorphic(self.output_molecule):
-                raise InvalidOutputError(f"Invalid output molecule; expected {self.output_molecule} but got {molecule}")
+                raise InvalidOutputError(f"Invalid output molecule; expected:\n{self.output_molecule}\nbut got:\n{molecule}")
 
             self.in_pipe[-1] = None
             self.current_count += 1

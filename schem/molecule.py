@@ -124,12 +124,10 @@ class Molecule:
         return f'Molecule({self.atom_map})'
 
     def __str__(self):
-        """Represent this molecule in a grid. Since this is usually used for debugging, show any inconsistencies
-        between neighboring atoms' bonds.
-        """
+        """Represent this molecule in a grid."""
         s = ''
         hor_bond_sym = {0: ' ', 1: '-', 2: '=', 3: '≡'}
-        ver_bond_sym = {0: '    ', 1: '  | ', 2: ' || ', 3: ' |‖ '}
+        ver_bond_sym = {0: '   ', 1: ' | ', 2: '|| ', 3: '|‖ '}
 
         # Identify the bounds of the grid we have to draw
         min_col = min(posn.col for posn in self.atom_map)
@@ -138,25 +136,16 @@ class Molecule:
         max_row = max(posn.row for posn in self.atom_map)
 
         for row in range(min_row, max_row + 1):
-            # Add upper bonds
-            for col in range(min_col, max_col + 1):
-                posn = Position(col=col, row=row)
-                if posn in self and UP in self[posn].bonds:
-                    s += ver_bond_sym[self[posn].bonds[UP]]
-                else:
-                    s += '    '
-            s += '\n'
-
             # Add this row's atoms and horizontal bonds
             for col in range(min_col, max_col + 1):
                 posn = Position(col=col, row=row)
                 if posn in self:
                     atom = self[posn]
-                    s += hor_bond_sym[atom.bonds[LEFT]] if LEFT in atom.bonds else ' '
                     s += atom.element.symbol.rjust(2)
                     s += hor_bond_sym[atom.bonds[RIGHT]] if RIGHT in atom.bonds else ' '
                 else:
-                    s += '    '
+                    s += '   '
+
             s += '\n'
 
             # Add lower bonds
@@ -165,10 +154,10 @@ class Molecule:
                 if posn in self and DOWN in self[posn].bonds:
                     s += ver_bond_sym[self[posn].bonds[DOWN]]
                 else:
-                    s += '    '
+                    s += '   '
             s += '\n'
 
-        return s
+        return s.strip()
 
     def __len__(self):
         '''Return the # of atoms in this molecule.'''
@@ -405,7 +394,6 @@ class Molecule:
     # removing a molecule from the reactor list.
     def isomorphic(self, other):
         '''Check if this molecule is topologically equivalent to the given molecule.'''
-
         # Fail early if inequal length
         if len(self) != len(other):
             return False
@@ -449,34 +437,53 @@ class Molecule:
         our_root_posn = next(posn for posn, atom_struct in this_posn_to_atom_struct.items()
                              if atom_struct == rarest_atom_struct)
 
-        def molecules_match_recursive(our_visited_posns, our_posn, their_visited_posns, their_posn):
+        def molecules_match_recursive(our_visited_posns: dict, our_posn: Position,
+                                      their_visited_posns: dict, their_posn: Position):
             '''Attempt to recursively map any unvisited atoms of the molecules onto each other
             starting from the given position in each.
+
+            If unsuccessful, revert any changes made to the given visit dicts, and return 0.
+            If successful, return the number of items added to each dict.
             '''
             if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
                 return False
 
-            our_visited_posns.add(our_posn)
-            their_visited_posns.add(their_posn)
+            # Mark the current nodes as visited (storing a dummy None; we'd use set() but we need ordering and popitem())
+            total_visits = 1
+            our_visited_posns[our_posn] = None
+            their_visited_posns[their_posn] = None
 
-            # Attempt to recursively match each of our bonded neighbors in turn (comparing
-            # against all possible bonds of theirs
+            # Attempt to recursively match each of our bonded neighbors in turn (comparing against all possible
+            # neighbors of theirs each time)
             for our_bond_count, our_neighbor in self.neighbor_bonds(our_posn):
-                if our_neighbor not in our_visited_posns:
-                    if not any(molecules_match_recursive(our_visited_posns, our_neighbor,
-                                                         their_visited_posns, their_neighbor)
-                               for their_bond_count, their_neighbor in other.neighbor_bonds(their_posn)
-                               # Only check bonds of theirs that match in count
-                               if (their_neighbor not in their_visited_posns
-                                   and our_bond_count == their_bond_count)):
-                        our_visited_posns.remove(our_posn)
-                        their_visited_posns.remove(their_posn)
-                        return False
-            return True
+                if our_neighbor not in our_visited_posns:  # Ignore already-matched positions
+                    # Attempt to match any neighbor of the other molecule's atom to this neighbor
+                    success = False
+                    for their_bond_count, their_neighbor in other.neighbor_bonds(their_posn):
+                        if their_neighbor not in their_visited_posns and our_bond_count == their_bond_count:
+                            num_visits = molecules_match_recursive(our_visited_posns, our_neighbor,
+                                                                   their_visited_posns, their_neighbor)
+                            if num_visits:
+                                # Success
+                                success = True
+                                total_visits += num_visits
+                                break
+
+                    if not success:
+                        # If we couldn't find any matches for this neighbor, revert any changes to the visits we made
+                        # while matching prior neighbors
+                        for _ in range(total_visits):
+                            our_visited_posns.popitem()
+                            their_visited_posns.popitem()
+
+                        return 0
+
+            # If all unvisited neighbors were successfully matched, we succeeded; return the total visits we added
+            return total_visits
 
         for their_root_posn in (posn for posn, atom_struct in other_posn_to_atom_struct.items()
                                 if atom_struct == rarest_atom_struct):
-            if molecules_match_recursive(set(), our_root_posn, set(), their_root_posn):
+            if molecules_match_recursive({}, our_root_posn, {}, their_root_posn):
                 return True
 
         return False
