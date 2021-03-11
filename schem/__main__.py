@@ -68,9 +68,9 @@ def main():
         raise ValueError(f"{solutions_src} contents are empty.")
 
     for solution_str in solutions:
-        # Call validate if the solution has an expected score, else run
-        expected_score = Solution.parse_metadata(solution_str)[2]
         try:
+            # Call validate if the solution has an expected score, else run
+            expected_score = Solution.parse_metadata(solution_str)[2]
             if expected_score is not None:
                 validate(solution_str, level_code=level_code, verbose=True, debug=debug)
             else:
@@ -79,7 +79,7 @@ def main():
             if len(solutions) == 1:
                 raise e
             else:
-                print(repr(e))
+                print(f"{type(e).__name__}: {e}")
 
 
 if __name__ == '__main__':
