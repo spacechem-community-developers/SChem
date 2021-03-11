@@ -79,6 +79,10 @@ class Solution:
     def outputs(self):
         return (component for component in self.components if isinstance(component, Output))
 
+    @property
+    def description(self):
+        return self.describe(self.level.name, self.author, self.expected_score, self.name)
+
     @classmethod
     def parse_metadata(cls, s):
         '''Given a solution export string or its SOLUTION line, return the level name, author, expected score,
@@ -644,8 +648,8 @@ class Solution:
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except Exception as e:
-            # Mention the cycle number on error via a chained exception of the same type
-            raise type(e)(f"Cycle {self.cycle}: {e}") from e
+            # Mention the solution description and cycle number on error via a chained exception of the same type
+            raise type(e)(f"{self.description}: Cycle {self.cycle}: {e}") from e
         finally:
             # Persist the last debug printout
             if debug:
@@ -655,9 +659,7 @@ class Solution:
                     print(str(reactors[debug.reactor]))
 
     def validate(self, verbose=False, debug=False):
-        '''Run this solution and assert that the resulting score matches the expected score that was included in its
-        solution code.
-        '''
+        '''Run this solution and assert that the score matches the expected score from its metadata.'''
         if self.expected_score is None:
             raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
                              + " please update it or use run() instead.")
@@ -669,7 +671,7 @@ class Solution:
         score = self.run(debug=debug)
 
         if score != self.expected_score:
-            raise ScoreError(f"Expected score {self.expected_score} but got {score}")
+            raise ScoreError(f"{self.description}: Expected score {self.expected_score} but got {score}")
 
         if verbose:
-            print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
+            print(f"Validated {self.description}")

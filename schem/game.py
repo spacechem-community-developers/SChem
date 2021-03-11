@@ -12,7 +12,7 @@ def run(soln_str, level_code=None, max_cycles=None, verbose=False, debug=False):
     solution metadata to look for and use a built-in game level. Return the score as (cycles, reactors, symbols) or
     raise an exception if the solution does not run to completion.
     """
-    level_name, _, expected_score, _ = Solution.parse_metadata(soln_str)
+    level_name, author_name, expected_score, soln_name = Solution.parse_metadata(soln_str)
 
     matching_levels = []
     if level_code is not None:
@@ -76,14 +76,10 @@ def validate(soln_str, level_code=None, verbose=False, debug=False):
     # TODO: Should use level_code's name if conflicting
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
 
-    try:
-        score = run(soln_str, level_code=level_code, verbose=verbose, debug=debug)
-    except Exception as e:
-        # Mention the invalid solution via a chained exception of the same type
-        raise type(e)(f"Error while validating {soln_descr}: {e}") from e
+    score = run(soln_str, level_code=level_code, verbose=verbose, debug=debug)
 
     if score != expected_score:
-        raise ScoreError(f"Expected score {expected_score} but got {score}")
+        raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
 
     if verbose:
         print(f"Validated {soln_descr}")
