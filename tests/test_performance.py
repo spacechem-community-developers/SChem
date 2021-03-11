@@ -50,7 +50,7 @@ def percent_diff_str(last_metric, cur_metric):
     return f'{percent_formatting}{percent_diff:.0%}{format_end}'
 
 
-class TestSolution(unittest.TestCase):
+class TestPerformace(unittest.TestCase):
     def test_performance_valid_solutions(self):
         '''Tests for solutions that should run to completion and match the expected score.
         Also outputs runtime performance stats.
