@@ -16,8 +16,8 @@ def main():
     parser.add_argument('solution_file', type=Path, nargs='?',
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
-    parser.add_argument('--level_file', type=Path,
-                        help="Optional file containing the puzzle to check the solution(s) against")
+    parser.add_argument('--level_files', type=Path, nargs='+',
+                        help="Optional file(s) containing the puzzle to check the solution(s) against")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs."
                              + "\nCan accept a comma-separated string with any of the following options:"
@@ -52,16 +52,17 @@ def main():
         solutions_str = clipboard.paste()
         solutions_src = 'Clipboard'  # For more helpful error message
 
-    level_code = None
-    if args.level_file:
-        if not args.level_file.is_file():
-            raise FileNotFoundError("Level file not found")
+    level_codes = []
+    if args.level_files:
+        if any(level_file.suffix != '.puzzle' for level_file in args.level_files):
+            print("Warning: Parsing file(s) without extension .puzzle as SpaceChem level(s)")
 
-        if args.level_file.suffix != '.puzzle':
-            print("Warning: Parsing file without extension .puzzle as a SpaceChem level")
+        for level_file in args.level_files:
+            if not level_file.is_file():
+                raise FileNotFoundError(f"{level_file} not found")
 
-        with args.level_file.open(encoding='utf-8') as f:
-            level_code = f.read()
+            with level_file.open(encoding='utf-8') as f:
+                level_codes.append(f.read())
 
     solutions = list(Solution.split_solutions(solutions_str))
     if not solutions:
@@ -72,9 +73,9 @@ def main():
             # Call validate if the solution has an expected score, else run
             expected_score = Solution.parse_metadata(solution_str)[2]
             if expected_score is not None:
-                validate(solution_str, level_code=level_code, verbose=True, debug=debug)
+                validate(solution_str, level_codes=level_codes, verbose=True, debug=debug)
             else:
-                run(solution_str, level_code=level_code, verbose=True, debug=debug)
+                run(solution_str, level_codes=level_codes, verbose=True, debug=debug)
         except Exception as e:
             if len(solutions) == 1:
                 raise e

@@ -2,34 +2,46 @@
 # -*- coding: utf-8 -*-
 
 from .level import Level
-from . import levels
+from .levels import levels as built_in_levels
 from .exceptions import ScoreError
 from .solution import Solution
 
 
-def run(soln_str, level_code=None, max_cycles=None, verbose=False, debug=False):
-    """Given a solution string, run it against the given level. If none is provided, use the level name from the
+def run(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=False, debug=False):
+    """Given a solution string, run it against the given level(s). If none are provided, use the level name from the
     solution metadata to look for and use a built-in game level. Return the score as (cycles, reactors, symbols) or
     raise an exception if the solution does not run to completion.
     """
+    assert level_code is None or level_codes is None, "Only one of level_code or level_codes may be specified"
     level_name, author_name, expected_score, soln_name = Solution.parse_metadata(soln_str)
 
-    matching_levels = []
+    # Convert level_code convenience arg to same format as level_codes
     if level_code is not None:
-        level = Level(level_code)
+        level_codes = [level_code]
 
-        if verbose and level_name != level.name:
-            print(f"Warning: Running solution against level {repr(level.name)} that was originally"
-                  + f" constructed for level {repr(level_name)}.")
+    matching_levels = []
+    if level_codes:
+        levels = [Level(s) for s in level_codes]
+        matching_levels = [level for level in levels if level.name == level_name]
 
-        matching_levels.append(level)
+        if not matching_levels:
+            if len(levels) == 1:
+                # If only a single level was provided, run against it anyway but warn of the mismatch
+                if verbose:
+                    print(f"Warning: Running solution against level {repr(levels[0].name)} that was originally"
+                          + f" constructed for level {repr(level_name)}.")
+                matching_levels.append(levels[0])
+            else:
+                raise Exception(f"No level `{level_name}` provided")
+        elif len(matching_levels) > 1 and verbose:
+            print(f"Warning: Multiple levels with name {level_name} given, checking solution against all of them.")
     else:
         # Determine the built-in game level to run the solution against based on the level name in its metadata
-        if level_name in levels.levels:
-            if isinstance(levels.levels[level_name], str):
-                matching_levels.append(Level(levels.levels[level_name]))
+        if level_name in built_in_levels:
+            if isinstance(built_in_levels[level_name], str):
+                matching_levels.append(Level(built_in_levels[level_name]))
             else:
-                matching_levels.extend(Level(export_str) for export_str in levels.levels[level_name])
+                matching_levels.extend(Level(export_str) for export_str in built_in_levels[level_name])
 
             if verbose and len(matching_levels) > 1:
                 print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
@@ -63,7 +75,7 @@ def run(soln_str, level_code=None, max_cycles=None, verbose=False, debug=False):
     else:
         raise exceptions[0]
 
-def validate(soln_str, level_code=None, verbose=False, debug=False):
+def validate(soln_str, level_code=None, level_codes=None, verbose=False, debug=False):
     """Given a solution string, run it against the given level. If none is provided, use the level name from the
     solution metadata to look for and use a built-in game level.
     Raise an exception if the score does not match that indicated in the solution metadata.
@@ -76,7 +88,7 @@ def validate(soln_str, level_code=None, verbose=False, debug=False):
     # TODO: Should use level_code's name if conflicting
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
 
-    score = run(soln_str, level_code=level_code, verbose=verbose, debug=debug)
+    score = run(soln_str, level_code=level_code, level_codes=level_codes, verbose=verbose, debug=debug)
 
     if score != expected_score:
         raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
