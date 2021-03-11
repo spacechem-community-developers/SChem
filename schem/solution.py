@@ -38,14 +38,24 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
 
     @classmethod
     def is_score_str(cls, s):
-        '''Return True if the given string is formatted like a Spacechem score, e.g. 45-1-14. 0-0-0 is included, but
-        note that it is used to denote incomplete solutions.
+        '''Return True if the given string is formatted like a Spacechem score, e.g. 45-1-14.
+        Incomplete score formats (0-0-0, and Incomplete-r-s from the old SCT) are included.
         '''
         parts = s.split('-')
-        return len(parts) == 3 and all(part.isdigit() for part in parts)  # Thinks 045-1-14 is a score but whatever
+        return (len(parts) == 3
+                and (parts[0].isdigit() or parts[0] == 'Incomplete') # Thinks 045-1-14 is a score but whatever
+                and all(part.isdigit() for part in parts[1:]))
 
     @classmethod
     def from_str(cls, s):
+        """Return a Score object, or None if the string represents an incomplete score."""
+        parts = s.split('-')
+        assert len(parts) == 3, "String is not a score"
+
+        # Return None politely on either modern SC format or old SaveChemTool format for incomplete solution
+        if s == '0-0-0' or (parts[0] == 'Incomplete' and all(part.isdigit() for part in parts[1:])):
+            return None
+
         return cls(*(int(x) for x in s.split('-')))
 
 

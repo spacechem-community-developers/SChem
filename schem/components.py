@@ -513,7 +513,7 @@ class StorageTank(Component):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         if self.in_pipe is None:
             return
 
@@ -521,11 +521,13 @@ class StorageTank(Component):
             self.contents.append(self.in_pipe[-1])
             self.in_pipe[-1] = None
 
-    def move_contents(self, _):
+    def move_contents(self, cycle):
         """Fill the output pipe if the storage tank is not empty. This does not occur in do_instant_actions to reflect
         the fact that a reactor-tank-reactor setup cannot pass a molecule between reactors in the same cycle, unlike
         with two adjacent reactors.
         """
+        super().move_contents(cycle)
+
         if self.out_pipe[0] is None and self.contents:
             self.out_pipe[0] = self.contents.popleft()
 
