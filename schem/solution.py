@@ -671,10 +671,10 @@ class Solution:
             # Persist the last debug printout
             if debug:
                 if debug.reactor is None:
-                    print(str(self))
+                    rich.print(str(self))
                 else:
-                    print(str(reactors[debug.reactor]))
-                    print(f'Cycle: {self.cycle}')
+                    rich.print(str(reactors[debug.reactor]))
+                    rich.print(f'Cycle: {self.cycle}')
 
                 # Restore the cursor
                 cursor.show()
