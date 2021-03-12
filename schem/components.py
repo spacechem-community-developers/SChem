@@ -5,7 +5,6 @@ import collections
 import copy
 import itertools
 import math
-import time
 
 from .elements import elements_dict
 from .exceptions import *
@@ -118,7 +117,7 @@ class Component:
     '''Informal Interface class defining methods overworld objects will implement one or more of.'''
     __slots__ = 'type', 'posn', 'dimensions', 'in_pipes', 'out_pipes'
 
-    def __new__(cls, component_dict=None, _type=None, *args, **kwargs):
+    def __new__(cls, *args, component_dict=None, _type=None, **kwargs):
         '''Return a new object of the appropriate subclass based on the component type.'''
         # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
         if cls != Component:
@@ -234,7 +233,7 @@ class Component:
     def __str__(self):
         return f'{self.type},{self.posn}'
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         ''''Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules).'''
         return
 
@@ -393,7 +392,7 @@ class Output(Component):
         self.target_count = output_dict['count']
         self.current_count = 0
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         '''Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
         '''
@@ -409,6 +408,8 @@ class Output(Component):
             self.current_count += 1
             if self.current_count == self.target_count:
                 return True
+
+        return False
 
 
 class PassThroughCounter(Output):
@@ -468,7 +469,7 @@ class DisabledOutput(Component):
     def __init__(self, _type, posn):
         super().__init__(_type=_type, posn=posn, num_in_pipes=1)
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         # Technically should check for `in_pipe is None` first but I'd also be curious to see this crash since disabled
         # outputs are only used in research levels, where it should be impossible to not connect to the disabled output
         if self.in_pipe[-1] is not None:
@@ -481,7 +482,7 @@ class Recycler(Component):
     def __init__(self, component_dict=None, _type=None, posn=None):
         super().__init__(component_dict=component_dict, _type=_type, posn=posn, num_in_pipes=3)
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         for pipe in self.in_pipes:
             if pipe is not None:
                 pipe[-1] = None
@@ -562,7 +563,7 @@ class TeleporterInput(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    def do_instant_actions(self, cycle):
+    def do_instant_actions(self, _):
         '''Note that the teleporter pair behaves differently from a pass-through counter insofar as the pass-through
         counter stores any molecule it receives internally when its output pipe is clogged, whereas the teleporter
         refuses to accept the next molecule until the output pipe is clear (i.e. behaves like a single discontinuous
@@ -924,7 +925,7 @@ class Reactor(Component):
         borders = [[' ' for _ in range(self.NUM_COLS + 1)] for _ in range(self.NUM_ROWS)]  # Waldos and zone edges
 
         # Add waldo reticles
-        for i, (waldo, color) in enumerate(zip(self.waldos, ('bold red', 'bold blue'))):
+        for waldo, color in zip(self.waldos, ('bold red', 'bold blue')):
             c, r = waldo.position
             waldo_chars = ('|', '|') if waldo.molecule is None else ('(', ')')
             for i in range(2):

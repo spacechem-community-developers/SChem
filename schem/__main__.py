@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-from collections import namedtuple
 import math
 from pathlib import Path
 

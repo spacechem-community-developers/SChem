@@ -310,7 +310,7 @@ class Solution:
                 soln_defined_component_posns.add(component_posn)
 
                 # Create a raw instance of the component if it doesn't exist yet
-                if not component_posn in posn_to_component:
+                if component_posn not in posn_to_component:
                     # Ensure this is a legal component type for the level (e.g. drag-starter-reactor -> has-starter)
                     reactor_type_flag = f'has-{component_type.split("-")[1]}'
                     assert ((reactor_type_flag in self.level and self.level[reactor_type_flag])
@@ -430,12 +430,12 @@ class Solution:
                         pipe_posns_to_dirns[real_posn] = set()
 
                     # Pipe is not vertical (blocks the horizontal direction)
-                    if not (prev.col == cur.col == next_.col):
+                    if not prev.col == cur.col == next_.col:
                         assert RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
                         pipe_posns_to_dirns[real_posn].add(RIGHT)
 
                     # Pipe is not horizontal (blocks the vertical direction)
-                    if not (prev.row == cur.row == next_.row):
+                    if not prev.row == cur.row == next_.row:
                         assert UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
                         pipe_posns_to_dirns[real_posn].add(UP)
 

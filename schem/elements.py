@@ -136,7 +136,9 @@ class ElementDict(dict):
     __slots__ = 'symbol_dict',
 
     def __init__(self, elements):
+        super().__init__()
         self.symbol_dict = {}
+
         for element in elements:
             self[element.atomic_num] = self.symbol_dict[element.symbol] = element
 

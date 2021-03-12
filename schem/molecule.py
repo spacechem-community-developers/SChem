@@ -248,7 +248,7 @@ class Molecule:
         posn_A = position
         atom_A = self.atom_map[posn_A]
         if direction not in atom_A.bonds:
-            return
+            return None
 
         posn_B = posn_A + direction
         atom_B = self.atom_map[posn_B]
@@ -361,7 +361,7 @@ class Molecule:
         out = [next(mol_iter)]
         if new_molecules[RIGHT] is not None:
             out.append(new_molecules[RIGHT])
-        out += [m for m in mol_iter]
+        out += mol_iter
 
         return out
 

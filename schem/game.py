@@ -13,7 +13,7 @@ def run(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=Fa
     raise an exception if the solution does not run to completion.
     """
     assert level_code is None or level_codes is None, "Only one of level_code or level_codes may be specified"
-    level_name, author_name, expected_score, soln_name = Solution.parse_metadata(soln_str)
+    level_name, _, expected_score, _ = Solution.parse_metadata(soln_str)
 
     # Convert level_code convenience arg to same format as level_codes
     if level_code is not None:
