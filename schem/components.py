@@ -117,7 +117,7 @@ class Component:
     '''Informal Interface class defining methods overworld objects will implement one or more of.'''
     __slots__ = 'type', 'posn', 'dimensions', 'in_pipes', 'out_pipes'
 
-    def __new__(cls, *args, component_dict=None, _type=None, **kwargs):
+    def __new__(cls, component_dict=None, _type=None, **kwargs):
         '''Return a new object of the appropriate subclass based on the component type.'''
         # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
         if cls != Component:
@@ -466,7 +466,7 @@ class DisabledOutput(Component):
     def in_pipe(self):
         return self.in_pipes[0]
 
-    def __init__(self, _type, posn):
+    def __init__(self, *, _type, posn):
         super().__init__(_type=_type, posn=posn, num_in_pipes=1)
 
     def do_instant_actions(self, _):
