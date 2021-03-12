@@ -664,6 +664,14 @@ class Solution:
                     self.debug_print(duration=0.3 / debug.speed, reactor_idx=debug.reactor, flash_features=False)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
+        except KeyboardInterrupt:
+            # Don't persist the last debug print on keyboard interrupt since it probably happened during debug_print's
+            # sleep (while the printout is still displayed)
+            # We can do this by setting debug to None before the finally block, we just have to also fix the cursor here
+            if debug:
+                debug = None
+                cursor.show()
+            raise
         except Exception as e:
             # Mention the solution description and cycle number on error via a chained exception of the same type
             raise type(e)(f"{self.description}: Cycle {self.cycle}: {e}") from e
@@ -674,7 +682,7 @@ class Solution:
                     rich.print(str(self))
                 else:
                     rich.print(str(reactors[debug.reactor]))
-                    rich.print(f'Cycle: {self.cycle}')
+                    rich.print(f'Cycle: {self.cycle}\n')  # Extra newline for readability of any traceback below it
 
                 # Restore the cursor
                 cursor.show()
