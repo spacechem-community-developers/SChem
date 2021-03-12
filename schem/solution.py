@@ -5,11 +5,12 @@ from collections import namedtuple
 import copy
 from dataclasses import dataclass
 from itertools import product
+import platform
 import time
 from typing import Optional
 
 import cursor
-from rich import print
+import rich
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
@@ -18,6 +19,8 @@ from .exceptions import ScoreError
 from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
 from .terrains import terrains, MAX_TERRAIN_INT
+
+IS_WINDOWS = platform.system() == 'Windows'
 
 @dataclass
 class DebugOptions:
@@ -561,14 +564,17 @@ class Solution:
             output += f'\nCycle: {self.cycle}'
 
         # Print the current state
-        print(output)  # Could use end='' but that makes keyboard interrupt output ugly
+        rich.print(output)  # Could use end='' but that makes keyboard interrupt output ugly
 
         # TODO: this sleep is additive with the time schem takes to run each cycle so debug is always too slow
         time.sleep(duration)
 
         # Use the ANSI escape code for moving to the start of the previous line to reset the terminal cursor
         cursor_reset = (output.count('\n') + 1) * "\033[F"  # +1 for the implicit newline print() appends
-        print(cursor_reset, end='')
+        if IS_WINDOWS:
+            rich.print(cursor_reset, end='')  # TODO: No idea why the normal print doesn't work in windows ConEmu
+        else:
+            print(cursor_reset, end='')
 
     def validate_components(self):
         '''Validate that this solution is legal (whether or not it can run to completion).
