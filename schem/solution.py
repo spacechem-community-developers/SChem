@@ -671,9 +671,9 @@ class Solution:
                   + f" constructed for level {repr(self.level_name)}.")
 
         if max_cycles is None:
-            max_cycles = 2 * expected_score.cycles
-        elif expected_score.cycles > max_cycles:
-            raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+            max_cycles = 2 * self.expected_score.cycles
+        elif self.expected_score.cycles > max_cycles:
+            raise ValueError(f"{self.description}: Cannot validate; expected cycles > max cycles ({max_cycles})")
 
         score = self.run(max_cycles=max_cycles, debug=debug)
 
