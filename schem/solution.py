@@ -8,6 +8,10 @@ from itertools import product
 import time
 from typing import Optional
 
+import cursor
+from rich import print
+# TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
+
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .waldo import InstructionType
 from .exceptions import ScoreError
@@ -543,22 +547,23 @@ class Solution:
 
         return result
 
-    def debug_print(self, duration=0.5, reactor_idx=None):
+    def debug_print(self, duration=0.5, reactor_idx=None, flash_features=True):
         '''Print the currently running solution state then clear it from the terminal.
         Args:
-            cycle: The current cycle.
             duration: Seconds before clearing the printout from the screen. Default 0.5.
             reactor_idx: If specified, only print the contents of the reactor with specified index.
+            flash_features: Whether to flash activated features, inputs, and outputs.
         '''
         if reactor_idx is None:
             output = str(self)
         else:
-            output = str(list(self.reactors)[reactor_idx])
+            output = list(self.reactors)[reactor_idx].__str__(flash_features=flash_features)
             output += f'\nCycle: {self.cycle}'
 
         # Print the current state
         print(output)  # Could use end='' but that makes keyboard interrupt output ugly
 
+        # TODO: this sleep is additive with the time schem takes to run each cycle so debug is always too slow
         time.sleep(duration)
 
         # Use the ANSI escape code for moving to the start of the previous line to reset the terminal cursor
@@ -624,7 +629,11 @@ class Solution:
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
 
         try:
-            while self.cycle < max_cycles + 1:  # See below note on -1 for same reason why +1 needed here
+            # In debug mode the cursor can annoyingly flicker into the middle of the printed output; hide it
+            if debug:
+                cursor.hide()
+
+            while self.cycle < max_cycles + 1:
                 self.cycle += 1
 
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
@@ -641,12 +650,12 @@ class Solution:
                             return Score(self.cycle - 1, len(reactors), symbols)
 
                 if debug and self.cycle >= debug.cycle:
-                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
+                    self.debug_print(duration=0.7 / debug.speed, reactor_idx=debug.reactor)
 
                 self.cycle_movement()
 
                 if debug and self.cycle >= debug.cycle:
-                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor)
+                    self.debug_print(duration=0.3 / debug.speed, reactor_idx=debug.reactor, flash_features=False)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except Exception as e:
@@ -659,6 +668,10 @@ class Solution:
                     print(str(self))
                 else:
                     print(str(reactors[debug.reactor]))
+                    print(f'Cycle: {self.cycle}')
+
+                # Restore the cursor
+                cursor.show()
 
     def validate(self, max_cycles=None, verbose=False, debug=False):
         '''Run this solution and assert that the score matches the expected score from its metadata.'''

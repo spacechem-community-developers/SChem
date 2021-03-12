@@ -4,7 +4,7 @@
 from collections import namedtuple
 from enum import Enum
 
-from .grid import Direction
+from .grid import *
 
 
 class InstructionType(Enum):
@@ -87,6 +87,25 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
 class Waldo:
     __slots__ = 'idx', 'instr_map', 'flipflop_states', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
 
+    # Map of good unicode characters for displaying a waldo's paths
+    dirns_to_char = {
+        # https://www.compart.com/en/unicode/charsets/ISO_10367-box (light box chars): ┌,─,┐,└,│,┘,┼,┴,┬,┤,├,╴,╶,╵,╷
+        frozenset((UP,)): '│',    # ╵ sadly doesn't work in common fonts
+        frozenset((DOWN,)): '│',  # ╷
+        frozenset((LEFT,)): '─',  # ╴
+        frozenset((RIGHT,)): '─', # ╶
+        frozenset((UP, RIGHT)): '└',
+        frozenset((UP, DOWN)): '│',
+        frozenset((UP, LEFT)): '┘',
+        frozenset((RIGHT, DOWN)): '┌',
+        frozenset((RIGHT, LEFT)): '─',
+        frozenset((DOWN, LEFT)): '┐',
+        frozenset((UP, RIGHT, DOWN)): '├',
+        frozenset((UP, RIGHT, LEFT)): '┴',
+        frozenset((UP, DOWN, LEFT)): '┤',
+        frozenset((RIGHT, DOWN, LEFT)): '┬',
+        frozenset((UP, RIGHT, DOWN, LEFT)): '┼'}
+
     def __init__(self, idx, instr_map):
         self.idx = idx
         self.instr_map = instr_map  # Position map of tuples containing arrow (direction) and 'command' (non-arrow) instructions
@@ -140,3 +159,61 @@ class Waldo:
                 lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
 
         return '\n'.join(lines)
+
+    def trace_path(self, num_cols=10, num_rows=8):
+        """Return a dict of position: directions representing paths this waldo visually traces.
+        Useful for representing the waldo visually and for calculating e.g. waldopath.
+        """
+        def is_valid_posn(posn):
+            return 0 <= posn.col < num_cols and 0 <= posn.row < num_rows
+
+        branching_instr_types = set((InstructionType.SENSE, InstructionType.FLIP_FLOP))
+
+        # Override the start direction with any arrow since unlike other directional commands it can't branch
+        start_posn, start_dirn = next((posn, arrow_dirn if arrow_dirn is not None else cmd.direction)
+                                      for posn, (arrow_dirn, cmd) in self.instr_map.items()
+                                      if cmd.type == InstructionType.START)
+        visited_posn_dirns = {}  # posn: directions to catch when we're looping
+        traced_posn_dirns = {}  # posn: directions that were visually traced (separate from visited since
+                                # a cell that is passed through in only one direction may be traced in both)
+        unexplored_branches_stack = [(start_posn, start_dirn)]
+        while unexplored_branches_stack:
+            cur_posn, incoming_dirn = unexplored_branches_stack.pop()
+
+            # Trace the path coming into this cell
+            if cur_posn not in traced_posn_dirns:
+                traced_posn_dirns[cur_posn] = set()
+            traced_posn_dirns[cur_posn].add(incoming_dirn.opposite())
+
+            # Check the current cell for an arrow and/or branching instruction
+            arrow_dirn, cmd = self.instr_map[cur_posn] if cur_posn in self.instr_map else (None, None)
+
+            # Arrows update the direction of the current branch but don't create a new one
+            outgoing_dirn = arrow_dirn if arrow_dirn is not None else incoming_dirn
+
+            # Check the current position/direction against the visit map. We do this after evaluating the arrow to
+            # reduce excess visits (since the original direction of a waldo never matters to its outgoing path if an
+            # arrow is present, unlike with branching commands)
+            if cur_posn not in visited_posn_dirns:
+                visited_posn_dirns[cur_posn] = set()
+            elif outgoing_dirn in visited_posn_dirns[cur_posn]:
+                # We've already explored this cell in the current direction and must have already added any branches
+                # starting from this cell, so end this branch
+                continue
+
+            traced_posn_dirns[cur_posn].add(outgoing_dirn)
+            visited_posn_dirns[cur_posn].add(outgoing_dirn)
+
+            # Add any new branch
+            if cmd is not None and cmd.type in branching_instr_types:
+                traced_posn_dirns[cur_posn].add(cmd.direction)
+                next_branch_posn = cur_posn + cmd.direction
+                if is_valid_posn(next_branch_posn):
+                    unexplored_branches_stack.append((next_branch_posn, cmd.direction))
+
+            # Put the current branch back on top of the stack
+            next_posn = cur_posn + outgoing_dirn
+            if is_valid_posn(next_posn):
+                unexplored_branches_stack.append((next_posn, outgoing_dirn))
+
+        return traced_posn_dirns
