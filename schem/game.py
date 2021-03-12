@@ -75,7 +75,7 @@ def run(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=Fa
     else:
         raise exceptions[0]
 
-def validate(soln_str, level_code=None, level_codes=None, verbose=False, debug=False):
+def validate(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=False, debug=False):
     """Given a solution string, run it against the given level. If none is provided, use the level name from the
     solution metadata to look for and use a built-in game level.
     Raise an exception if the score does not match that indicated in the solution metadata.
@@ -88,7 +88,13 @@ def validate(soln_str, level_code=None, level_codes=None, verbose=False, debug=F
     # TODO: Should use level_code's name if conflicting
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
 
-    score = run(soln_str, level_code=level_code, level_codes=level_codes, verbose=verbose, debug=debug)
+    if max_cycles is None:
+        max_cycles = 2 * expected_score.cycles
+    elif expected_score.cycles > max_cycles:
+        raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+
+    score = run(soln_str, level_code=level_code, level_codes=level_codes, max_cycles=max_cycles,
+                verbose=verbose, debug=debug)
 
     if score != expected_score:
         raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")

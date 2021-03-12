@@ -121,7 +121,9 @@ class Solution:
     @classmethod
     def describe(cls, level_name, author, expected_score, soln_name):
         """Return a pretty-printed string describing the given solution metadata."""
-        soln_descr = f"[{level_name}] {expected_score}"
+        soln_descr = f"[{level_name}]"
+        if expected_score is not None:
+            soln_descr += f' {expected_score}'
         if soln_name is not None:
             soln_descr += f' "{soln_name}"'
         soln_descr += f" by {author}"
@@ -622,7 +624,7 @@ class Solution:
                       if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
 
         try:
-            while self.cycle < max_cycles:
+            while self.cycle < max_cycles + 1:  # See below note on -1 for same reason why +1 needed here
                 self.cycle += 1
 
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
@@ -658,7 +660,7 @@ class Solution:
                 else:
                     print(str(reactors[debug.reactor]))
 
-    def validate(self, verbose=False, debug=False):
+    def validate(self, max_cycles=None, verbose=False, debug=False):
         '''Run this solution and assert that the score matches the expected score from its metadata.'''
         if self.expected_score is None:
             raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
@@ -668,7 +670,12 @@ class Solution:
             print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")
 
-        score = self.run(debug=debug)
+        if max_cycles is None:
+            max_cycles = 2 * expected_score.cycles
+        elif expected_score.cycles > max_cycles:
+            raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+
+        score = self.run(max_cycles=max_cycles, debug=debug)
 
         if score != self.expected_score:
             raise ScoreError(f"{self.description}: Expected score {self.expected_score} but got {score}")

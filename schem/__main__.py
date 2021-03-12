@@ -3,6 +3,7 @@
 
 import argparse
 from collections import namedtuple
+import math
 from pathlib import Path
 
 import clipboard
@@ -18,6 +19,10 @@ def main():
                              + " If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('--level_files', type=Path, nargs='+',
                         help="Optional file(s) containing the puzzle to check the solution(s) against")
+    parser.add_argument('--max_cycles', type=int, default=None,
+                        help="Maximum cycle count solutions may be run to before giving up in disgust. Default None"
+                             "for solutions with expected score or 1,000,000 if incomplete score metadata. Pass -1 to"
+                             "run infinitely.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs."
                              + "\nCan accept a comma-separated string with any of the following options:"
@@ -68,14 +73,17 @@ def main():
     if not solutions:
         raise ValueError(f"{solutions_src} contents are empty.")
 
+    if args.max_cycles == -1:
+        args.max_cycles = math.inf
+
     for solution_str in solutions:
         try:
             # Call validate if the solution has an expected score, else run
             expected_score = Solution.parse_metadata(solution_str)[2]
             if expected_score is not None:
-                validate(solution_str, level_codes=level_codes, verbose=True, debug=debug)
+                validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, verbose=True, debug=debug)
             else:
-                run(solution_str, level_codes=level_codes, verbose=True, debug=debug)
+                run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, verbose=True, debug=debug)
         except Exception as e:
             if len(solutions) == 1:
                 raise e
