@@ -245,8 +245,8 @@ terrains = {
         },
         'fixed-input-zones': (('drag-atmospheric-input', (5, 4)),
                               ('drag-oceanic-input', (1, 16))),
-        'output-zones': (('output', (23, 12),
-                          ('output', (23, 18),)))},
+        'output-zones': (('output', (23, 12)),
+                          ('output', (23, 18),))},
     "No Ordinary Headache": {
         'obstructed': {
             # Middle trees
@@ -301,7 +301,7 @@ terrains = {
             # Middle ice
             *product(range(13, 16), range(12, 8)),
         },
-        'fixed-input-zones': (('drag-oceanic-input', (4, 11))),
+        'fixed-input-zones': (('drag-oceanic-input', (4, 11)),),
         'output-zones': (('output', (23, 18)),),
         'recycler': ('drag-recycler', (26, 1))},
     "Molecular Foundry": {
@@ -334,7 +334,7 @@ terrains = {
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 7)),
                          ('output', (23, 12))),
-        'recycler': ('drag-recyler', (26, 17))},
+        'recycler': ('drag-recycler', (26, 17))},
     "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so terrain may be empty
     "Σ-Ethylene": {'obstructed': {}},
     "Teleporters": {

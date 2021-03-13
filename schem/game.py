@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from .level import Level
-from .levels import levels as built_in_levels
+from .levels import levels as built_in_levels, defense_names
 from .exceptions import ScoreError
 from .solution import Solution
 
@@ -45,7 +45,7 @@ def run(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=Fa
 
             if verbose and len(matching_levels) > 1:
                 print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
-        elif level_name in levels.defense_names:
+        elif level_name in defense_names:
             raise Exception("Defense levels unsupported")
         else:
             raise Exception(f"No known level `{level_name}`")
