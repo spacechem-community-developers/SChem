@@ -128,7 +128,10 @@ elements = [Element(0, '?', 12),
             Element(200, 'Θ', 12),
             Element(201, 'Ω', 12),
             Element(202, 'Σ', 12),
-            Element(203, 'Δ', 12)]
+            Element(203, 'Δ', 12),
+
+            # Australium
+            Element(204, 'Av', 5)]  # 🦘
 
 
 class ElementDict(dict):
@@ -155,6 +158,3 @@ class ElementDict(dict):
 
 
 elements_dict = ElementDict(elements)
-# Australium is stored as element 204 but has the same properties as gold; add it separately to avoid overriding it
-elements.append(Element(79, 'Av', 5))
-elements_dict[204] = elements_dict.symbol_dict['Av'] = Element(79, 'Av', 5)  # 🦘
