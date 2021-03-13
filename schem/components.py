@@ -48,8 +48,7 @@ REACTOR_TYPES = {
     'drag-nuclear-reactor': {'bonder-count': 4, 'has-fuser': True, 'has-splitter': True},
     'drag-quantum-reactor': {'bonder-count': 4, 'has-sensor': True, 'has-teleporter': True,
                              'quantum-walls-y': {5: [0, 1, 2, 3, 4, 5, 6, 7]}},
-    'drag-sandbox-reactor': {'bonder-count': 8, 'has-sensor': True, 'has-fuser': True, 'has-splitter': True,
-                             'has-teleporter':True}}
+    'drag-sandbox-reactor': {'bonder-count': 8, 'has-sensor': True, 'has-fuser': True, 'has-splitter': True}}
 
 
 class Pipe(list):
