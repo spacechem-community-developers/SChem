@@ -614,6 +614,8 @@ class Reactor(Component):
     NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
     walls = {UP: -0.5 + ATOM_RADIUS, DOWN: 7.5 - ATOM_RADIUS,
              LEFT: -0.5 + ATOM_RADIUS, RIGHT: 9.5 - ATOM_RADIUS}
+    # Names of features as stored in attributes
+    FEATURE_NAMES = ('bonders', 'sensors', 'fusers', 'splitters', 'swappers', 'bonder_pluses', 'bonder_minuses')
 
     __slots__ = ('in_pipes', 'out_pipes',
                  'waldos', 'molecules',
@@ -917,20 +919,11 @@ class Reactor(Component):
         return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
                      tuple(self.waldos)))
 
-    def __str__(self, flash_features=True):
+    def __str__(self, flash_features=True, show_instructions=False):
         '''Return a rich-format pretty-print string representing this reactor.'''
-        # 2 characters per atom + 1 space between atoms/walls (we'll use that space to show waldos)
-        cells = [['  ' for _ in range(self.NUM_COLS)] for _ in range(self.NUM_ROWS)]  # Atoms and waldo cmds
+        # Each cell gets two characters, + 1 space between cells (we'll use that space to show waldos reticles)
+        cells = [[[' ', ' '] for _ in range(self.NUM_COLS)] for _ in range(self.NUM_ROWS)]
         borders = [[' ' for _ in range(self.NUM_COLS + 1)] for _ in range(self.NUM_ROWS)]  # Waldos and zone edges
-
-        # Add waldo reticles
-        for waldo, color in zip(self.waldos, ('bold red', 'bold blue')):
-            c, r = waldo.position
-            waldo_chars = ('|', '|') if waldo.molecule is None else ('(', ')')
-            for i in range(2):
-                # Color purple where two waldos overlap
-                mixed_color = color if borders[r][c + i] == ' ' else 'bold purple'
-                borders[r][c + i] = f'[{mixed_color}]{waldo_chars[i]}[/]'
 
         # Add faint lines at edges of input/output zones (horizontal border excluded)
         for c in (4, 6):
@@ -944,16 +937,16 @@ class Reactor(Component):
             for posn, dirns in waldo_traces[i].items():
                 c, r = posn
                 path_char = Waldo.dirns_to_char[frozenset(dirns)]
-                # If the other waldo has nothing to draw in this cell and our directions include right (red) or left (blue)
-                # fill in the other waldo's spot with an extending line
+
+                # Fill in this waldo's half of the cell
+                cells[r][c][i] = f'[{color}]{path_char}[/]'
+
+                # If the other waldo has nothing to draw in this cell and our directions include right (red) or left
+                # (blue) fill in the other waldo's spot with an extending line
                 if i == 0 and RIGHT in dirns and posn not in waldo_traces[1]:
-                    cells[r][c] = f'[{color}]{path_char}─[/]'
+                    cells[r][c][1 - i] = f'[{color}]─[/]'
                 elif i == 1 and LEFT in dirns and posn not in waldo_traces[0]:
-                    cells[r][c] = f'[{color}]─{path_char}[/]'
-                else:
-                    rich_str = f'[{color}]{path_char}[/]'
-                    # Add the rich string for this waldo character without interfering with the other waldo's char/string
-                    cells[r][c] = (rich_str + cells[r][c][1:]) if i == 0 else (cells[r][c][:-1] + rich_str)
+                    cells[r][c][1 - i] = f'[{color}]─[/]'
 
                 # Extend a line through the border to our left for as far as won't cross or touch the other waldo
                 if (borders[r][c] == ' '
@@ -972,13 +965,37 @@ class Reactor(Component):
                              or i == 0)):
                     borders[r][c + 1] = f'[{color}]─[/]'
 
+        # Add waldo instructions (priority over waldo paths)
+        if show_instructions:
+            for i, (waldo, color) in enumerate(zip(self.waldos, ('red', 'blue'))):
+                for (c, r), (_, cmd) in waldo.instr_map.items():
+                    if cmd is not None:
+                        cells[r][c][i] = f'[{color}]{cmd}[/]'
+
+        # Add waldo reticles
+        for i, (waldo, color) in enumerate(zip(self.waldos, ('bold red', 'bold blue'))):
+            c, r = waldo.position
+            waldo_chars = ('|', '|') if waldo.molecule is None else ('(', ')')
+            for j in range(2):
+                # Color purple where two waldos overlap
+                mixed_color = 'bold purple' if '[bold red]' in borders[r][c + j] else color
+                borders[r][c + j] = f'[{mixed_color}]{waldo_chars[j]}[/]'
+
         # Map out the molecules in the reactor (priority over waldo paths/cmds)
         for molecule in self.molecules:
             for (c, r), atom in molecule.atom_map.items():
                 # Round co-ordinates in case we are printing mid-rotate
-                cells[round(r)][round(c)] = atom.element.symbol.rjust(2)
+                cell = cells[round(r)][round(c)]
+                cell[0] = atom.element.symbol[0]
+                if len(atom.element.symbol) >= 2:
+                    cell[1] = atom.element.symbol[1]
 
-        # Flash the appropriate background cells on waldo input, output, bond +/-, etc.
+        # Use grey background for feature cells (bonders, fusers, etc.)
+        feature_colors = {k: 'light_slate_grey' for k in Reactor.FEATURE_NAMES}
+        input_colors = {}
+        output_colors = {}
+
+        # Flash the appropriate feature background cells on waldo input, output, bond +/-, etc.
         if flash_features:
             for i, (waldo, waldo_color) in enumerate(zip(self.waldos, ('red', 'blue'))):
                 if waldo.position not in waldo.instr_map:
@@ -988,55 +1005,68 @@ class Reactor(Component):
                 if cmd is None:
                     continue
 
-                # Identify the cells of the target feature. Put into sets so we can quickly check for shared borders
                 if cmd.type == InstructionType.INPUT:
-                    cell_posns = set(itertools.product(range(4), (range(4) if cmd.target_idx == 0 else range(4, 8))))
+                    input_colors[cmd.target_idx] = waldo_color if cmd.target_idx not in input_colors else 'purple'
                 elif cmd.type == InstructionType.OUTPUT:
-                    cell_posns = set(itertools.product(range(6, 10), (range(4) if cmd.target_idx == 0 else range(4, 8))))
+                    output_colors[cmd.target_idx] = waldo_color if cmd.target_idx not in output_colors else 'purple'
                 elif cmd.type == InstructionType.BOND_PLUS:
-                    cell_posns = set(self.bonders) | set(self.bonder_pluses)
+                    feature_colors['bonders'] = waldo_color if feature_colors['bonders'] != 'red' else 'purple'
+                    feature_colors['bonder_pluses'] = waldo_color if feature_colors['bonder_pluses'] != 'red' else 'purple'
                 elif cmd.type == InstructionType.BOND_MINUS:
-                    cell_posns = set(self.bonders) | set(self.bonder_minuses)
+                    feature_colors['bonders'] = waldo_color if feature_colors['bonders'] != 'red' else 'purple'
+                    feature_colors['bonder_minuses'] = waldo_color if feature_colors['bonder_minuses'] != 'red' else 'purple'
                 elif cmd.type == InstructionType.FUSE:
-                    cell_posns = set(self.fusers)
+                    feature_colors['fusers'] = waldo_color if feature_colors['fusers'] != 'red' else 'purple'
                 elif cmd.type == InstructionType.SPLIT:
-                    cell_posns = set(self.splitters)
+                    feature_colors['splitters'] = waldo_color if feature_colors['splitters'] != 'red' else 'purple'
                 elif cmd.type == InstructionType.SWAP:
-                    cell_posns = set(self.swappers)
-                else:
-                    continue
+                    feature_colors['swappers'] = waldo_color if feature_colors['swappers'] != 'red' else 'purple'
+                elif cmd.type == InstructionType.SENSE:
+                    feature_colors['sensors'] = waldo_color if feature_colors['sensors'] != 'red' else 'purple'
 
-                for c, r in cell_posns:
-                    # Color purple if other waldo also colored this cell's bg
-                    if cells[r][c].startswith('[on '):
-                        cells[r][c] = cells[r][c].replace('[on red]', '[on purple]')  # Should only happen with blue anyway
-                    else:
-                        cells[r][c] = f'[on {waldo_color}]{cells[r][c]}[/]'
+        # Color background of feature cells
+        for feature_name, feature_color in feature_colors.items():
+            cell_posns = set(getattr(self, feature_name))
 
-                if cmd.type in (InstructionType.FUSE, InstructionType.SPLIT):
-                    # Add the second posn and the border between them for double-length features
-                    for c, r in cell_posns:
-                        if borders[r][c + 1].startswith('[on '):
-                            borders[r][c + 1] = borders[r][c + 1].replace('[on red]', '[on purple]')
-                        else:
-                            borders[r][c + 1] = f'[on {waldo_color}]{borders[r][c + 1]}[/]'
+            for c, r in cell_posns:
+                cells[r][c][0] = f'[on {feature_color}]{cells[r][c][0]}[/]'
+                cells[r][c][1] = f'[on {feature_color}]{cells[r][c][1]}[/]'
 
-                        if cells[r][c + 1].startswith('[on '):
-                            cells[r][c + 1] = cells[r][c + 1].replace('[on red]', '[on purple]')
-                        else:
-                            cells[r][c + 1] = f'[on {waldo_color}]{cells[r][c + 1]}[/]'
-                elif cmd.type != InstructionType.SWAP:
-                    # Fill in the borders of adjacent cells colored by this waldo (done for inputs/bonders)
-                    for c, r in cell_posns:
-                        if (c + 1, r) in cell_posns:
-                            if borders[r][c + 1].startswith('[on '):
-                                borders[r][c + 1] = borders[r][c + 1].replace('[on red]', '[on purple]')
-                            else:
-                                borders[r][c + 1] = f'[on {waldo_color}]{borders[r][c + 1]}[/]'
+                # Add the second posn and the border for double-length features
+                if feature_name in ('fusers', 'splitters'):
+                    # Merging these would be nicer to rich.print but can get screwy if any cell is overridden after
+                    borders[r][c + 1] = f'[on {feature_color}]{borders[r][c + 1]}[/]'
+                    cells[r][c + 1][0] = f'[on {feature_color}]{cells[r][c + 1][0]}[/]'
+                    cells[r][c + 1][1] = f'[on {feature_color}]{cells[r][c + 1][1]}[/]'
+                # Fill in the borders of adjacent bonders
+                elif 'bonder' in feature_name:
+                    if (c + 1, r) in cell_posns:
+                        borders[r][c + 1] = f'[on {feature_color}]{borders[r][c + 1]}[/]'
+
+        # Color background of inputs/outputs when activated, excepting already-colored features
+        for input_idx, input_color in input_colors.items():
+            for c, r in itertools.product(range(4), (range(4) if input_idx == 0 else range(4, 8))):
+                if not cells[r][c][0].startswith('[on '):
+                    cells[r][c][0] = f'[on {input_color}]{cells[r][c][0]}[/]'
+                    cells[r][c][1] = f'[on {input_color}]{cells[r][c][1]}[/]'
+
+            for c, r in itertools.product(range(1, 4), (range(4) if input_idx == 0 else range(4, 8))):
+                if not borders[r][c].startswith('[on '):
+                    borders[r][c] = f'[on {input_color}]{borders[r][c]}[/]'
+
+        for output_idx, output_color in output_colors.items():
+            for c, r in itertools.product(range(6, 10), (range(4) if output_idx == 0 else range(4, 8))):
+                if not cells[r][c][0].startswith('[on '):
+                    cells[r][c][0] = f'[on {output_color}]{cells[r][c][0]}[/]'
+                    cells[r][c][1] = f'[on {output_color}]{cells[r][c][1]}[/]'
+
+            for c, r in itertools.product(range(7, 10), (range(4) if output_idx == 0 else range(4, 8))):
+                if not borders[r][c].startswith('[on '):
+                    borders[r][c] = f'[on {output_color}]{borders[r][c]}[/]'
 
         result = f" {self.NUM_COLS * '___'}_ \n"
         for r in range(self.NUM_ROWS):
-            result += f"│{''.join(b + c for b, c in zip(borders[r], cells[r] + ['']))}│\n"
+            result += f"│{''.join(b + c[0] + c[1] for b, c in zip(borders[r], cells[r] + [['', '']]))}│\n"
         result += f" {self.NUM_COLS * '‾‾‾'}‾ "
 
         return result

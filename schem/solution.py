@@ -22,18 +22,21 @@ from .terrains import terrains, MAX_TERRAIN_INT
 
 IS_WINDOWS = platform.system() == 'Windows'
 
+
 @dataclass
 class DebugOptions:
     """Debug options for running a solution.
 
     reactor: The reactor to debug. If None, overworld is shown for production levels, or only reactor for researches
-    cycle: The cycle to start debugging at (0 for full debug)
-    speed: The speed to run the solution at
+    cycle: The cycle to start debugging at. Default 0.
+    speed: The speed to run the solution at, in cycles / s. Default 10.
+    show_instructions: Whether to show waldo instructions. Default False as this can actually reduce readability.
     """
-    reactor: Optional[int]  # The reactor to debug. If None, overworld is shown for production levels, or only reactor
-                            # for research levels
-    cycle: int  # The cycle to start debugging at
-    speed: float  # The speed to run the solution at, in cycles / s
+    reactor: Optional[int] = None
+    cycle: int = 0
+    speed: float = 10
+    show_instructions: bool = False
+
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
     '''Immutable class representing a SpaceChem solution score.'''
@@ -550,7 +553,7 @@ class Solution:
 
         return result
 
-    def debug_print(self, duration=0.5, reactor_idx=None, flash_features=True):
+    def debug_print(self, duration=0.5, reactor_idx=None, flash_features=True, show_instructions=False):
         '''Print the currently running solution state then clear it from the terminal.
         Args:
             duration: Seconds before clearing the printout from the screen. Default 0.5.
@@ -560,7 +563,8 @@ class Solution:
         if reactor_idx is None:
             output = str(self)
         else:
-            output = list(self.reactors)[reactor_idx].__str__(flash_features=flash_features)
+            output = list(self.reactors)[reactor_idx].__str__(flash_features=flash_features,
+                                                              show_instructions=show_instructions)
             output += f'\nCycle: {self.cycle}'
 
         # Print the current state
@@ -656,12 +660,14 @@ class Solution:
                             return Score(self.cycle - 1, len(reactors), symbols)
 
                 if debug and self.cycle >= debug.cycle:
-                    self.debug_print(duration=0.7 / debug.speed, reactor_idx=debug.reactor)
+                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
+                                     show_instructions=debug.show_instructions)
 
                 self.cycle_movement()
 
                 if debug and self.cycle >= debug.cycle:
-                    self.debug_print(duration=0.3 / debug.speed, reactor_idx=debug.reactor, flash_features=False)
+                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor, flash_features=False,
+                                     show_instructions=debug.show_instructions)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except KeyboardInterrupt:
@@ -681,7 +687,7 @@ class Solution:
                 if debug.reactor is None:
                     rich.print(str(self))
                 else:
-                    rich.print(str(reactors[debug.reactor]))
+                    rich.print(reactors[debug.reactor].__str__(show_instructions=debug.show_instructions))
                     rich.print(f'Cycle: {self.cycle}\n')  # Extra newline for readability of any traceback below it
 
                 # Restore the cursor

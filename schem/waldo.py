@@ -15,22 +15,22 @@ class InstructionType(Enum):
     GRAB_DROP = 'g-d'
     GRAB = 'grb'
     DROP = 'drp'
-    ROTATE = 'r'
-    SYNC = 'sy'
-    BOND_PLUS = 'b+'
+    ROTATE = 'r'  # ⭯ ⭮
+    SYNC = 'sy'  # ⌛
+    BOND_PLUS = 'b+'  # ⊕
     BOND_MINUS = 'b-'
     SENSE = '?'
-    FLIP_FLOP = 'ff'
-    FUSE = 'fus'
-    SPLIT = 'spl'
-    SWAP = 'swp'
-    PAUSE = 'P'
+    FLIP_FLOP = 'ff'  # F
+    FUSE = 'fus'  # ⛯☢️
+    SPLIT = 'spl'  # ☢️
+    SWAP = 'swp'  # ⇄
+    PAUSE = 'P'  # ⏸
 
     def __repr__(self):
         return self.name
 
     def __str__(self):
-        return self.value
+        return self.value[0]
 
 
 class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
@@ -42,16 +42,32 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
     '''
     __slots__ = ()
 
-    def __str__(self):
-        return (f'{self.type}'
-                f'{self.target_idx if self.target_idx is not None else ""}'
-                f'{self.direction if self.direction is not None else ""}')
+    STR_MAP = {InstructionType.START: 'S',
+               InstructionType.INPUT: 'i',
+               InstructionType.OUTPUT: 'o',
+               InstructionType.GRAB_DROP: '&',
+               InstructionType.GRAB: 'G',
+               InstructionType.DROP: 'D',
+               InstructionType.ROTATE: {Direction.CLOCKWISE: '⭮', Direction.COUNTER_CLOCKWISE: '⭯'},
+               InstructionType.SYNC: '⌛',
+               InstructionType.BOND_PLUS: '+',
+               InstructionType.BOND_MINUS: '-',
+               InstructionType.SENSE: '?',
+               InstructionType.FLIP_FLOP: 'F',  # △ ▷ ▽ ◁ ▲ ▶ ◀ ▼
+               InstructionType.FUSE: '⛯',  # ☢️ ?
+               InstructionType.SPLIT: '☢',
+               InstructionType.SWAP: '⇔',  # ⇄ ?
+               InstructionType.PAUSE: 'P'}
 
     def __repr__(self):
         return (f'Instruction({repr(self.type)}'
                 + (f', target_idx={self.target_idx}' if self.target_idx is not None else '')
                 + (f', direction={repr(self.direction)}' if self.direction is not None else '')
                 + ')')
+
+    def __str__(self):
+        s = self.STR_MAP[self.type]
+        return s if isinstance(s, str) else s[self.direction]
 
     # TODO: Define from_export_str to simplify Reactor.from_export_str
 

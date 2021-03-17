@@ -10,6 +10,7 @@ import clipboard
 from .game import run, validate
 from .solution import Solution, DebugOptions
 
+
 def main():
     parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
@@ -28,6 +29,7 @@ def main():
                              + "\nrR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls)."
                              + "\ncC: Start debugging from cycle C. Default 0."
                              + "\nsS: Speed of debug in cycles/s. Default 10."
+                             + "\ni: Show instructions. Default False since this mode can actually reduce readability."
                              + "\nE.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at half a cycle/s")
     args = parser.parse_args()
 
@@ -36,6 +38,7 @@ def main():
         reactor = None
         cycle = 0
         speed = 10
+        show_instructions = False
         for s in args.debug.split(','):
             if s and s[0] == 'r':
                 reactor = int(s[1:])
@@ -43,7 +46,9 @@ def main():
                 cycle = int(s[1:])
             elif s and s[0] == 's':
                 speed = float(s[1:])
-        debug = DebugOptions(reactor, cycle, speed)
+            elif s == 'i':
+                show_instructions = True
+        debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
 
     if args.solution_file:
         if not args.solution_file.is_file():
