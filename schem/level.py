@@ -49,6 +49,9 @@ class Level:
         else:
             self.dict = self.code_to_json(code)
 
+    def __eq__(self, other):
+        return isinstance(other, Level) and self.dict == other.dict
+
     def __getitem__(self, item):
         return self.dict[item]
 
@@ -105,7 +108,6 @@ class ResearchLevel(Level):
             self['has-teleporter'] = False
 
         assert self['type'].startswith('research')
-
 
     def get_bonder_count(self):
         return self.dict['bonder-count']
