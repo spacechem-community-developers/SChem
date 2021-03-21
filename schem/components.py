@@ -35,7 +35,9 @@ COMPONENT_SHAPES = {
     'drag-spaceship-input': (2, 2),  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
     'drag-programmed-input': (2, 3),
     'drag-qpipe-in': (3, 1),
-    'drag-qpipe-out': (3, 1)}
+    'drag-qpipe-out': (3, 1),
+    'drag-printer-output': (2, 3),
+    'drag-printer-passthrough': (2, 3)}
 
 # Production level codes don't specify available reactor properties like research levels; encode them here
 REACTOR_TYPES = {

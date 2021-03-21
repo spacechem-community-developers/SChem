@@ -152,7 +152,7 @@ class TestSolution(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
-                with self.assertRaises(TimeoutError):  # TODO: schem.exceptions.InfiniteLoopError
+                with self.assertRaises(TimeoutError):
                     solution.run(max_cycles=100_000)
                 print(f"✅  {test_id}")
 
