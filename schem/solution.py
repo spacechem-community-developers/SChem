@@ -164,7 +164,9 @@ class Solution:
         self.cycle = 0
 
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
-        if level['type'].startswith('production'):
+        if level['type'].startswith('research'):
+            terrain_id = 'research'
+        elif level['type'].startswith('production'):
             # Main game levels have unique terrain which we have to hardcode D:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
@@ -174,8 +176,10 @@ class Solution:
             # SC caps oversized terrain IDs
             if isinstance(terrain_id, int) and terrain_id > MAX_TERRAIN_INT:
                 terrain_id = MAX_TERRAIN_INT
+        elif level['type'] == 'sandbox':
+            terrain_id = 'sandbox'
         else:
-            terrain_id = 'research'  # BIG HACKS
+            raise ValueError(f"Unrecognized level type {repr(level['type'])}")
 
         # Add level-defined entities - including any fixed-position reactors/pipes
         # Store components by posn for now, for convenience. We'll re-order and store them in self.components later
@@ -194,7 +198,9 @@ class Solution:
             input_zone_types = ('random-input-components', 'programmed-input-components')
             output_zone_type = 'output-components'
         else:
-            raise ValueError(f"Unknown level type {self.level['type']}")
+            # Sandbox
+            input_zone_types = ('random-input-zones', 'fixed-input-zones')
+            output_zone_type = None
 
         for input_zone_type in input_zone_types:
             if input_zone_type not in self.level:
@@ -233,23 +239,37 @@ class Solution:
                     new_component = Input(input_dict=input_dict, is_research=self.level['type'].startswith('research'))
                     posn_to_component[new_component.posn] = new_component
 
+        # Sandboxes use an alternate format for specifying the programmed input
+        # Convert to the standard CE-format programmed input dict
+        if self.level['type'] == 'sandbox' and 'programmed-input-molecules' in self.level:
+            input_dict = {'starting-molecules': [self.level['programmed-input-molecules'][str(i)]
+                                                 for i in self.level['programmed-input-start']],
+                          'repeating-molecules': [self.level['programmed-input-molecules'][str(i)]
+                                                  for i in self.level['programmed-input-repeat']]}
+            component_type, component_posn = terrains[terrain_id]['programmed-input']
+
+            posn_to_component[component_posn] = Input(input_dict=input_dict,
+                                                      _type=component_type, posn=component_posn,
+                                                      is_research=False)
+
         # Outputs
-        if isinstance(self.level[output_zone_type], dict):
-            for i, output_dict in self.level[output_zone_type].items():
-                i = int(i)
+        if output_zone_type is not None:
+            if isinstance(self.level[output_zone_type], dict):
+                for i, output_dict in self.level[output_zone_type].items():
+                    i = int(i)
 
-                # I'd handle this in the Output constructor but I refuse to enable Zach's madness
-                if self.level['type'] == 'production':
-                    output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
-                    output_dict['count'] *= 4  # Zach pls
+                    # I'd handle this in the Output constructor but I refuse to enable Zach's madness
+                    if self.level['type'] == 'production':
+                        output_dict = copy.deepcopy(output_dict)  # To avoid mutating the level
+                        output_dict['count'] *= 4  # Zach pls
 
-                component_type, component_posn = terrains[terrain_id][output_zone_type][i]
-                posn_to_component[component_posn] = Output(output_dict=output_dict,
-                                                           _type=component_type, posn=component_posn)
-        else:
-            for output_dict in self.level[output_zone_type]:
-                new_component = Output(output_dict=output_dict)
-                posn_to_component[new_component.posn] = new_component
+                    component_type, component_posn = terrains[terrain_id][output_zone_type][i]
+                    posn_to_component[component_posn] = Output(output_dict=output_dict,
+                                                               _type=component_type, posn=component_posn)
+            else:
+                for output_dict in self.level[output_zone_type]:
+                    new_component = Output(output_dict=output_dict)
+                    posn_to_component[new_component.posn] = new_component
 
         # Add disabled output components for the unused outputs of research levels (crash if given a molecule)
         if self.level['type'].startswith('research') and not ('has-large-output' in self.level
@@ -322,7 +342,12 @@ class Solution:
                     assert ((reactor_type_flag in self.level and self.level[reactor_type_flag])
                             # Misleadingly, allowed-reactor-types includes storage tanks
                             or ('allowed-reactor-types' in self.level
-                                and component_type in self.level['allowed-reactor-types'])), \
+                                and component_type in self.level['allowed-reactor-types'])
+                            # Sandbox levels always allow sandbox reactor, infinite storage tank, and printers
+                            or (self.level['type'] == 'sandbox' and component_type in ('drag-sandbox-reactor',
+                                                                                       'drag-storage-tank-infinite',
+                                                                                       'drag-printer-passthrough',
+                                                                                       'drag-printer-output'))), \
                         f"New component type {component_type} (at {component_posn}) is not legal in this level"
 
                     component_dict = {}
@@ -363,7 +388,7 @@ class Solution:
                     component.update_from_export_str(component_str, update_pipes=update_pipes)
                 except Exception as e:
                     if not self.level['type'].startswith('research'):
-                        raise type(e)(f"{component.type} at {component.posn}: {e}")
+                        raise type(e)(f"{component.type} at {component.posn}: {e}") from e
 
                     raise e
 

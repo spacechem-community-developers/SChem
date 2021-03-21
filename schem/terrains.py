@@ -169,6 +169,27 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('drag-recycler', (24, 17))},
+    'sandbox': {
+        'obstructed': {
+            # Top-left rock
+            *product(range(10), (0,)),
+            *product(range(9), (1,)),
+            *product(range(8), (2,)),
+            *product(range(6), (3,)),
+            (0, 4),
+            # Top-right rock
+            *product(range(25, 32), (0,)),
+            *product(range(26, 32), (1,)),
+            *product(range(27, 32), (2,)),
+            *product(range(28, 32), (3,)),
+            *product(range(29, 32), (4,)),
+            # Bottom-left rock
+            *product((0,), range(19, 21)),
+        },
+        'random-input-zones': (('drag-arbitrary-input', (1, 4)),),
+        'programmed-input': ('drag-programmed-input', (1, 13)),
+        'fixed-input-zones': (('drag-arbitrary-input', (2, 18)),),
+        'recycler': ('drag-recycler', (27, 17))},
     # TODO: I only did the most central terrain obstacles on my first pass through the main game; add the edge bits
     "An Introduction to Pipelines": {
         'obstructed': {

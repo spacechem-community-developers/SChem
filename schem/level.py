@@ -13,6 +13,7 @@ OVERWORLD_ROWS = 22
 OVERWORLD_COLS = 32
 
 
+# TODO: TO reduce the complexity of Solution.__init__, provide something like a Level.default_components() method
 class Level:
     '''Parent class for Research and Production levels. Level(code) will return an instance of whichever subclass
     is appropriate.
@@ -29,6 +30,10 @@ class Level:
 
     def __new__(cls, code):
         '''Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code.'''
+        # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
+        if cls != Level:
+            return object.__new__(cls)
+
         d = cls.code_to_json(code)
         # TODO: There doesn't seem to be a clean way to have Level(code) return an instance of the appropriate subclass,
         #       while also allowing ResearchLevel(code) and ProductionLevel(code) to work, without duplicating some
@@ -37,6 +42,8 @@ class Level:
             return super().__new__(ResearchLevel)
         elif d['type'].startswith('production'):
             return super().__new__(ProductionLevel)
+        elif d['type'].startswith('sandbox'):
+            return super().__new__(SandboxLevel)
         else:
             raise ValueError(f"Unrecognized level type {d['type']}")
 
@@ -82,13 +89,17 @@ class Level:
         assert isinstance(s, str), "Level name must be a string"
         self.dict['name'] = s
 
+    @property
+    def type(self):
+        return self.dict['type']
+    @type.setter
+    def type(self, s):
+        assert isinstance(s, str), "Level type must be a string"
+        self.dict['type'] = s
+
 
 class ResearchLevel(Level):
     __slots__ = ()
-
-    # Basic __new__ implementation required so that Level.__new__ can be smart
-    def __new__(cls, code=None):
-        return object.__new__(cls)
 
     def __init__(self, code=None):
         super().__init__(code)
@@ -109,9 +120,6 @@ class ResearchLevel(Level):
 
         assert self['type'].startswith('research')
 
-    def get_bonder_count(self):
-        return self.dict['bonder-count']
-
     def output_molecules(self):
         '''Return a list of Molecule objects demanded by this level.'''
         return [Molecule.from_json_string(output_dict['molecule'])
@@ -120,10 +128,6 @@ class ResearchLevel(Level):
 
 class ProductionLevel(Level):
     __slots__ = ()
-
-    # Basic __new__ implementation required so that Level.__new__ can be smart
-    def __new__(cls, code=None):
-        return object.__new__(cls)
 
     def __init__(self, code=None):
         super().__init__(code)
@@ -143,3 +147,20 @@ class ProductionLevel(Level):
             self['has-recycler'] = False
 
         assert self['type'].startswith('production')
+
+
+class SandboxLevel(Level):
+    __slots__ = ()
+
+    def __init__(self, code=None):
+        super().__init__(code)
+
+        if code is None:
+            self['type'] = 'sandbox'
+            self['random-input-zones'] = {}
+            self['fixed-input-zones'] = {}
+            self['programmed-input-start'] = []
+            self['programmed-input-repeat'] = []
+            self['programmed-input-molecules'] = {}
+
+        assert self['type'] == 'sandbox'

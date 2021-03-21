@@ -130,12 +130,18 @@ class Component:
             return super().__new__(Reactor)
         elif 'input' in parts:
             return super().__new__(Input)
+        elif _type == 'drag-printer-output':
+            return super().__new__(OutputPrinter)
+        elif _type == 'drag-printer-passthrough':
+            return super().__new__(PassThroughPrinter)
         elif 'output' in parts or 'production-target' in _type:
             return super().__new__(Output)
         elif _type == 'drag-recycler':
             return super().__new__(Recycler)
         elif _type == 'drag-storage-tank':
             return super().__new__(StorageTank)
+        elif _type == 'drag-storage-tank-infinite':
+            return super().__new__(InfiniteStorageTank)
         elif _type == 'freeform-counter':
             return super().__new__(PassThroughCounter)
         elif _type == 'drag-qpipe-in':
@@ -209,7 +215,7 @@ class Component:
             if not (pipe_line.startswith('PIPE:0') or pipe_line.startswith('PIPE:1')):
                 raise ValueError(f"Unexpected line in component pipes: `{pipe_line}`")
 
-        if update_pipes:
+        if update_pipes and self.out_pipes:
             # Expect the remaining lines to define the component's output pipes
             # If the pipes on an existing component are updatable, all of them must be specified during an update
             # (as testable by playing around with preset reactors in CE production levels)
@@ -336,6 +342,7 @@ class RandomInput(Input):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
+
 
 class ProgrammedInput(Input):
     __slots__ = 'starting_molecules', 'repeating_molecules', 'repeating_idx'
@@ -475,6 +482,62 @@ class DisabledOutput(Component):
             raise InvalidOutputError("A molecule was passed to a disabled output.")
 
 
+class OutputPrinter(Component):
+    """Displays the last 3 molecules passed to it. For now this is effectively going to be a recycler..."""
+    __slots__ = ()
+
+    def __init__(self, component_dict=None, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
+
+    @in_pipe.setter
+    def in_pipe(self, p):
+        self.in_pipes[0] = p
+
+    def do_instant_actions(self, _):
+        """Consume and print incoming molecules."""
+        if self.in_pipe is not None:
+            # TODO: Print received molecules when in --debug somehow
+            self.in_pipe[-1] = None
+
+
+class PassThroughPrinter(OutputPrinter):
+    """Displays the last 3 molecules passed to it and passes them on."""
+    __slots__ = 'stored_molecule',
+
+    def __init__(self, component_dict=None, _type=None, posn=None):
+        super(OutputPrinter, self).__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
+
+        self.stored_molecule = None
+
+    @property
+    def out_pipe(self):
+        return self.out_pipes[0]
+
+    @out_pipe.setter
+    def out_pipe(self, p):
+        self.out_pipes[0] = p
+
+    def do_instant_actions(self, cycle):
+        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
+        '''
+        if self.in_pipe is None:
+            return
+
+        # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
+        if self.stored_molecule is not None and self.out_pipe[0] is None:
+            self.stored_molecule, self.out_pipe[0] = None, self.stored_molecule
+
+        # If the stored slot is empty, store the next molecule and 'print' it while we do so
+        if self.in_pipe[-1] is not None and self.stored_molecule is None:
+            self.stored_molecule = self.in_pipe[-1]
+            super().do_instant_actions(cycle)  # This will consume and print the input molecule
+
+
 class Recycler(Component):
     __slots__ = ()
 
@@ -544,6 +607,10 @@ class StorageTank(Component):
         component_posn = Position(int(fields[1]), int(fields[2]))
 
         return cls(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
+
+
+class InfiniteStorageTank(StorageTank):
+    MAX_CAPACITY = math.inf
 
 
 class TeleporterInput(Component):

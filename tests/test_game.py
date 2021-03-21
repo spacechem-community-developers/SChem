@@ -13,6 +13,7 @@ import test_data
 
 num_subtests = 0
 
+
 def iter_game_test_data(soln_strs):
     global num_subtests
     for soln_str in soln_strs:
@@ -20,7 +21,7 @@ def iter_game_test_data(soln_strs):
 
         # Parse only the metadata line so we can error out from the appropriate subTest if the full parse fails
         level_name, _, _, solution_name = schem.Solution.parse_metadata(soln_str)
-        test_id = f'{level_name} - {solution_name}'
+        test_id = f'{level_name} - {solution_name}' if solution_name is not None else level_name
 
         yield test_id, soln_str
 
