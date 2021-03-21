@@ -24,6 +24,7 @@ COMPONENT_SHAPES = {
     'output': (2, 3),  # All production level outputs appear to be 2x3
     'drag-recycler': (5, 5),
     'drag-storage-tank': (3, 3),
+    'drag-storage-tank-infinite': (3, 3),
     'freeform-counter': (2, 3),
     'drag-arbitrary-input': (2, 3),
     'drag-silo-input': (5, 5),
