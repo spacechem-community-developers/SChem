@@ -157,7 +157,7 @@ class Molecule:
                     s += '   '
             s += '\n'
 
-        return s.strip()
+        return s.rstrip()
 
     def __len__(self):
         '''Return the # of atoms in this molecule.'''
