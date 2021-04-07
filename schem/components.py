@@ -15,6 +15,10 @@ from .waldo import Waldo, Instruction, InstructionType
 
 
 # Dimensions of component types
+# TODO: Refactor so default dimensions and allowable variations on type/shape are built-in to each subclass of Component
+#       E.g. Component.DEFAULT_DIMENSIONS = (2, 3), Recycler.DEFAULT_DIMENSIONS = (5, 5)
+#       Then we should be able to avoid type string manipulations ('output' in type) and only need to specify the types
+#        that change their shape from the class' default
 COMPONENT_SHAPES = {
     # SpaceChem stores co-ordinates as col, row
     'research-input': (1, 1),

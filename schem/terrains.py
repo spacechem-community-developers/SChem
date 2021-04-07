@@ -169,7 +169,18 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('drag-recycler', (24, 17))},
-    'sandbox': {
+    6: {  # 63 Corvi
+        'obstructed': {
+            # Top wall
+            *product(range(0, 32), (0,)),
+            *product(range(0, 8), (1,)),
+            # Raised platform's edges
+            *product(range(9, 11), range(1, 8)),
+            *product(range(9, 32), range(8, 10)),
+            # Right end of platform
+            *product(range(28, 32), range(1, 8)),
+        }},
+    7: {  # Sandbox
         'obstructed': {
             # Top-left rock
             *product(range(10), (0,)),

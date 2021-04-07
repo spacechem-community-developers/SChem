@@ -177,7 +177,7 @@ class Solution:
             if isinstance(terrain_id, int) and terrain_id > MAX_TERRAIN_INT:
                 terrain_id = MAX_TERRAIN_INT
         elif level['type'] == 'sandbox':
-            terrain_id = 'sandbox'
+            terrain_id = 7
         else:
             raise ValueError(f"Unrecognized level type {repr(level['type'])}")
 
