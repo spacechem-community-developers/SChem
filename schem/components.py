@@ -720,13 +720,20 @@ class Reactor(Component):
 
         # Place all features
         cur_col = 0  # For simplicity we will put each feature type in its own column(s)
-        for attr_name, feature_name, feature_width, default_count in (('bonders', 'bonder', 1, None),
-                                                                      ('sensors', 'sensor', 1, 1),
+
+        # Place bonders. Different bonder types go in the same struct so they can share a priority index
+        self.bonders = []
+        for feature_name, abbrev in (('bonder', '+-'), ('bonder-plus', '+'), ('bonder-minus', '-')):
+            if f'{feature_name}-count' in component_dict:
+                self.bonders.extend([(Position(cur_col, i), abbrev)
+                                     for i in range(component_dict[f'{feature_name}-count'])])
+            cur_col += 1
+
+        # Place remaining features
+        for attr_name, feature_name, feature_width, default_count in (('sensors', 'sensor', 1, 1),
                                                                       ('fusers', 'fuser', 2, 1),
                                                                       ('splitters', 'splitter', 2, 1),
-                                                                      ('swappers', 'teleporter', 1, 2),
-                                                                      ('bonder_pluses', 'bonder-plus', 1, None),
-                                                                      ('bonder_minuses', 'bonder-minus', 1, None),):
+                                                                      ('swappers', 'teleporter', 1, 2)):
             if f'{feature_name}-count' in component_dict:
                 setattr(self, attr_name, [Position(cur_col, i) for i in range(component_dict[f'{feature_name}-count'])])
             elif f'has-{feature_name}' in component_dict and component_dict[f'has-{feature_name}']:
@@ -780,36 +787,25 @@ class Reactor(Component):
         self.molecules = {}
 
     def bond_pairs(self):
-        '''For each of + and - bond commands, return a list of (bonder_A_posn, bonder_B_posn, dirn) triplets,
+        '''For each of + and - bond commands, return a tuple of (bonder_A_posn, bonder_B_posn, dirn) triplets,
         sorted in priority order.
         '''
-        # TODO: SC respects the priority order that bond+ vs bond- vs regular bonders are defined in in the solution
-        #       string. We need to do the same here; currently regular bonders are always ending up higher priority
+        pair_lists = []
+        for bond_type in ('+', '-'):
+            # Store the relevant types of bonders in a dict paired up with their indices for fast lookup/sorting (below)
+            bonders = {posn: i for i, (posn, bond_types) in enumerate(self.bonders) if bond_type in bond_types}
+            pair_lists.append(tuple((posn, neighbor_posn, direction)
+                                     for posn in bonders
+                                     for neighbor_posn, direction in
+                                     sorted([(posn + direction, direction)
+                                             for direction in (RIGHT, DOWN)
+                                             if posn + direction in bonders],
+                                            key=lambda x: bonders[x[0]])))
 
-        # Store the relevant types of bonders in a dict paired up with their indices for fast lookup/sorting (below)
-        bond_plus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_pluses)}
-        bond_plus_pairs = tuple((posn, neighbor_posn, direction)
-                                 for posn in bond_plus_bonders
-                                 for neighbor_posn, direction in
-                                 sorted([(posn + direction, direction)
-                                         for direction in (RIGHT, DOWN)
-                                         if posn + direction in bond_plus_bonders],
-                                        key=lambda x: bond_plus_bonders[x[0]]))
-
-        bond_minus_bonders = {posn: i for i, posn in enumerate(self.bonders + self.bonder_minuses)}
-        bond_minus_pairs = tuple((posn, neighbor_posn, direction)
-                                  for posn in bond_minus_bonders
-                                  for neighbor_posn, direction in
-                                  sorted([(posn + direction, direction)
-                                          for direction in (RIGHT, DOWN)
-                                          if posn + direction in bond_minus_bonders],
-                                         key=lambda x: bond_minus_bonders[x[0]]))
-
-        return bond_plus_pairs, bond_minus_pairs
+        return pair_lists
 
     def update_from_export_str(self, export_str, update_pipes=True):
-        features = {'bonders':[], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': [],
-                    'bonder_pluses': [], 'bonder_minuses': []}
+        features = {'bonders': [], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': []}
 
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
         # TODO: usage might be cleaner if separate arrow_maps and instr_maps... but probably more space
@@ -866,7 +862,7 @@ class Reactor(Component):
                     feature_posns.add(position2)
 
                 if member_name == 'feature-bonder':
-                    features['bonders'].append(position)
+                    features['bonders'].append((position, '+-'))
                 elif member_name == 'feature-sensor':
                     features['sensors'].append(position)
                 elif member_name == 'feature-fuser':
@@ -876,9 +872,9 @@ class Reactor(Component):
                 elif member_name == 'feature-tunnel':
                     features['swappers'].append(position)
                 elif member_name == 'feature-bonder-plus':
-                    features['bonder_pluses'].append(position)
+                    features['bonders'].append((position, '+'))
                 elif member_name == 'feature-bonder-minus':
-                    features['bonder_minuses'].append(position)
+                    features['bonders'].append((position, '-'))
                 else:
                     raise Exception(f"Unrecognized member type {member_name}")
 
@@ -954,6 +950,16 @@ class Reactor(Component):
                 raise Exception(f"Unrecognized member type {member_name}")
 
         self.waldos = [Waldo(idx=i, instr_map=waldo_instr_maps[i]) for i in range(self.NUM_WALDOS)]
+
+        # Since bonders of different types get stored together to share a priority idx, check their individual counts
+        # match the existing counts
+        for bonder_type, feature_name in (('+-', 'bonders'),
+                                          ('+', 'bonder-pluses'),
+                                          ('-', 'bonder-minuses')):
+            actual_count = sum(1 for _, bt in features['bonders'] if bt == bonder_type)
+            expected_count = sum(1 for _, bt in self.bonders if bt == bonder_type)
+            assert actual_count == expected_count, \
+                f"Expected {expected_count} {feature_name} for {self.type} reactor but got {actual_count}"
 
         # Sanity-check and set features
         for feature_name, posns in features.items():
