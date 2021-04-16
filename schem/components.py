@@ -974,8 +974,17 @@ class Reactor(Component):
         export_str = f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''"
 
         # TODO: Make reactors more agnostic of feature types
-        for posn in self.bonders:
-            export_str += f"\nMEMBER:'feature-bonder',-1,0,1,{posn.col},{posn.row},0,0"
+        for (posn, bond_types) in self.bonders:
+            if bond_types == '+-':
+                feature_name = 'bonder'
+            elif bond_types == '+':
+                feature_name = 'bonder-plus'
+            elif bond_types == '-':
+                feature_name = 'bonder-minus'
+            else:
+                raise Exception("Invalid bonder type in internal data")
+
+            export_str += f"\nMEMBER:'feature-{feature_name}',-1,0,1,{posn.col},{posn.row},0,0"
         for posn in self.sensors:
             export_str += f"\nMEMBER:'feature-sensor',-1,0,1,{posn.col},{posn.row},0,0"
         for posn in self.fusers:
