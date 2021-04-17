@@ -3,7 +3,7 @@
 
 from itertools import product
 
-MAX_TERRAIN_INT = 5
+MAX_TERRAIN_INT = 7
 
 # Terrain obstacles and default component positions. The positions of obstacles within the level is uniquely identified by the terrain type for
 # all ResearchNet and custom levels, but each main game level has a unique terrain layout.
