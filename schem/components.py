@@ -254,6 +254,13 @@ class Component:
         for pipe in self.out_pipes:
             pipe.move_contents()
 
+    def export_str(self):
+        '''Represent this component in solution export string format.'''
+        # TODO: I'm still not sure what the 4th component field is used for. Custom reactor names maybe?
+
+        return f"COMPONENT:'{self.type}',{self.posn[0]},{self.posn[1]},''\n" \
+               + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
+
 
 class Input(Component):
     __slots__ = 'molecules', 'input_rate'
@@ -302,11 +309,6 @@ class Input(Component):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[0])
-
-    def export_str(self):
-        '''Represent this input in solution export string format.'''
-        # TODO: I'm still not sure what the 4th component field is used for. Custom reactor names maybe?
-        return f"COMPONENT:'{self.type}',{self.posn[0]},{self.posn[1]},''" + '\n' + self.out_pipe.export_str()
 
 
 class RandomInput(Input):
@@ -991,12 +993,8 @@ class Reactor(Component):
             export_str += f"\nMEMBER:'feature-fuser',-1,0,1,{posn.col},{posn.row},0,0"
         for posn in self.splitters:
             export_str += f"\nMEMBER:'feature-splitter',-1,0,1,{posn.col},{posn.row},0,0"
-        for posn in self.splitters:
+        for posn in self.swappers:
             export_str += f"\nMEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0"
-        for posn in self.bonder_pluses:
-            export_str += f"\nMEMBER:'feature-bonder-plus',-1,0,1,{posn.col},{posn.row},0,0"
-        for posn in self.bonder_minuses:
-            export_str += f"\nMEMBER:'feature-bonder-minus',-1,0,1,{posn.col},{posn.row},0,0"
 
         export_str += '\n' + '\n'.join(waldo.export_str() for waldo in self.waldos)
         export_str += '\n' + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))

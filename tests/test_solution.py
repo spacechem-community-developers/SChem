@@ -156,6 +156,17 @@ class TestSolution(unittest.TestCase):
                     solution.run(max_cycles=100_000)
                 print(f"✅  {test_id}")
 
+    def test_export_str(self):
+        """Test that solutions can be re-exported to string, and that the new string still validates correctly."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
+            test_id = 'Export ' + test_id
+            with self.subTest(msg=test_id):
+                level = schem.Level(level_code)
+                solution = schem.Solution(level, solution_code)
+                soln_from_export = schem.Solution(level, solution.export_str())
+                soln_from_export.validate()
+                print(f"✅  {test_id}")
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0, exit=False)

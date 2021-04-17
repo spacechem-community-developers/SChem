@@ -524,14 +524,11 @@ class Solution:
                 export_str += f",{self.name}"
 
         # Components
-        # Exclude inputs whose pipes are length 1 (unmodified), outputs, and the recycler.
-        # I'm probably forgetting another case.
+        # Exclude inputs whose pipes are length 1 (unmodified), and out-pipeless components like outputs and recycler
         # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
-        #       Really it's probably just every unmodified preset component
+        #       Really it's probably just every unmodified preset component.
         for component in self.components:
-            if not (isinstance(component, (Output, Recycler))
-                    or (isinstance(component, Input)
-                        and len(component.out_pipe) == 1)):
+            if component.out_pipes and not (isinstance(component, Input) and len(component.out_pipe) == 1):
                 export_str += '\n' + component.export_str()
 
         return export_str
