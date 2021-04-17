@@ -691,12 +691,12 @@ class Reactor(Component):
     walls = {UP: -0.5 + ATOM_RADIUS, DOWN: 7.5 - ATOM_RADIUS,
              LEFT: -0.5 + ATOM_RADIUS, RIGHT: 9.5 - ATOM_RADIUS}
     # Names of features as stored in attributes
-    FEATURE_NAMES = ('bonders', 'sensors', 'fusers', 'splitters', 'swappers', 'bonder_pluses', 'bonder_minuses')
+    FEATURE_NAMES = ('bonders', 'sensors', 'fusers', 'splitters', 'swappers')
 
     __slots__ = ('in_pipes', 'out_pipes',
                  'waldos', 'molecules',
                  'large_output', 'bonders', 'sensors', 'fusers', 'splitters', 'swappers',
-                 'bonder_pluses', 'bonder_minuses', 'bond_plus_pairs', 'bond_minus_pairs',
+                 'bond_plus_pairs', 'bond_minus_pairs',
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'debug')
 
@@ -1078,7 +1078,10 @@ class Reactor(Component):
                     cell[1] = atom.element.symbol[1]
 
         # Use grey background for feature cells (bonders, fusers, etc.)
-        feature_colors = {k: 'light_slate_grey' for k in Reactor.FEATURE_NAMES}
+        # Though they're stored together for priority reasons in Reactor.bonders, color + and - bonders separately
+        # from regular bonders so as to distinguish them during + vs - commands
+        feature_colors = {k: 'light_slate_grey'
+                          for k in list(Reactor.FEATURE_NAMES) + ['bonder_pluses', 'bonder_minuses']}
         input_colors = {}
         output_colors = {}
 
@@ -1113,7 +1116,15 @@ class Reactor(Component):
 
         # Color background of feature cells
         for feature_name, feature_color in feature_colors.items():
-            cell_posns = set(getattr(self, feature_name))
+            # Extract individual bonder types from their shared struct
+            if feature_name == 'bonders':
+                cell_posns = set(p for p, bond_types in self.bonders if bond_types == '+-')
+            elif feature_name == 'bonder_pluses':
+                cell_posns = set(p for p, bond_types in self.bonders if bond_types == '+')
+            elif feature_name == 'bonder_minuses':
+                cell_posns = set(p for p, bond_types in self.bonders if bond_types == '-')
+            else:
+                cell_posns = set(getattr(self, feature_name))
 
             for c, r in cell_posns:
                 cells[r][c][0] = f'[on {feature_color}]{cells[r][c][0]}[/]'
