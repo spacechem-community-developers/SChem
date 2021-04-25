@@ -20,9 +20,8 @@ def main():
     parser.add_argument('--level_files', type=Path, nargs='+',
                         help="Optional file(s) containing the puzzle to check the solution(s) against")
     parser.add_argument('--max_cycles', type=int, default=None,
-                        help="Maximum cycle count solutions may be run to before giving up in disgust. Default None"
-                             "for solutions with expected score or 1,000,000 if incomplete score metadata. Pass -1 to"
-                             "run infinitely.")
+                        help="Maximum cycle count solutions may be run to. Default double the expected score, or"
+                             " 1,000,000 if incomplete score metadata. Pass -1 to run infinitely.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs."
                              + "\nCan accept a comma-separated string with any of the following options:"

@@ -75,6 +75,7 @@ def run(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=Fa
     else:
         raise exceptions[0]
 
+
 def validate(soln_str, level_code=None, level_codes=None, max_cycles=None, verbose=False, debug=False):
     """Given a solution string, run it against the given level. If none is provided, use the level name from the
     solution metadata to look for and use a built-in game level.

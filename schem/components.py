@@ -420,7 +420,10 @@ class Output(Component):
                 raise InvalidOutputError(f"Invalid output molecule; expected:\n{self.output_molecule}\nbut got:\n{molecule}")
 
             self.in_pipe[-1] = None
-            self.current_count += 1
+
+            if self.current_count < self.target_count:
+                self.current_count += 1
+
             if self.current_count == self.target_count:
                 return True
 
