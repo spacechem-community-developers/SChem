@@ -64,7 +64,11 @@ jM+wEkTo4QvJPJyG3jWGDEW2VBTZq/pLzTg9D38uz1FGorRNXDdX364s+9CWmyLExEVjZMJciI
 zhpg8WJzLezkjZOlfHeC46DZ+MTceK0rVsnCNWzVLdxKmAK+WeEScAVcpJbOuVx+ACjilZEoO0
 MaXrviZYofHySLjkicjSQsRbqVy8E1cJVqjU5QuYNKXUXsLIj1o89uJqQaLuoIjh8ijXaJfjSD
 yLnZuW1t0eYo2spPb20AxCzqNI061S8IHl2cBD1Bit+p000+z4Ur7FA0HufyehpgcMaT/j29wO
-7Yjx64uf51DScE+svyNM0I3S14Xf0yILY77PcHvK3lNW3p/R+VB2OpEgMAAA=='''
+7Yjx64uf51DScE+svyNM0I3S14Xf0yILY77PcHvK3lNW3p/R+VB2OpEgMAAA==''',
+    "Overbond test": '''H4sIAAWs9GAA/5XQwWrDMAwG4FcZOidg+5i8QG+7b+zgJkpicGxjyYU0pM9eu+3Cup56EejD/J
+K8gnEhcX32DgmaFUQpN8vt9wqzt9gli9DAYemjH9G1h4tQrZRSiVZJKQRU0PnkGBqptp9tq8An
+fk19M6rkTJpqq+OI9T0RmkFbwgqO3vUY68dbtUOwiX5V7Dob98QlltCRj3tgoSERPgsFa5j/Ia
+PF4ONf5iWUsyIS6thN+Qqn5yKfJ4xliQ9G4sw68VSmwpcZc9ubYTD5T3jJe21XNIfUb40BAAA=''',
 }
 
 valid_solutions = [
@@ -5064,6 +5068,17 @@ PIPE:0,5,-1
 ANNOTATION:0,1,-103,107,'2,2:0,201;2,3:0,33;2,1:0,17;\n2,1,0:1;2,2,0:1;\r0,2:0,1;1,1:0,1;1,3:0,1;\n\r1,2:0,6;1,3:0,1;1,1:0,1;2,2:0,17;\n1,1,0:1;1,2,0:1;1,2,1:1;\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
+    '''SOLUTION:Overbond test,joe,9-1-5
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,1,0,0
+MEMBER:'instr-start',180,0,32,4,6,0,0
+MEMBER:'feature-bonder',-1,0,1,4,1,0,0
+MEMBER:'feature-bonder',-1,0,1,5,1,0,0
+MEMBER:'instr-input',-1,0,128,1,1,0,0
+MEMBER:'instr-grab',-1,1,128,2,1,0,0
+MEMBER:'instr-bond',-1,0,128,5,1,0,0
+MEMBER:'instr-grab',-1,2,128,7,1,0,0
+MEMBER:'instr-output',-1,0,128,9,1,0,0''',
 ]
 
 missing_score = [

@@ -1492,10 +1492,10 @@ class Reactor(Component):
             if direction not in atom_A.bonds or atom_A.bonds[direction] != 3:
                 atom_B = molecule_B[neighbor_posn]
 
-                # Do nothing if either atom is at its bond limit (spacechem does not mark
-                # any molecules as modified in this case unless the bond was size 3)
-                if (sum(atom_A.bonds.values()) == atom_A.element.max_bonds
-                        or sum(atom_B.bonds.values()) == atom_B.element.max_bonds):
+                # Do nothing if either atom is at (or above) its bond limit (spacechem does not mark any molecules as
+                # modified in this case unless the bond was size 3)
+                if (sum(atom_A.bonds.values()) >= atom_A.element.max_bonds
+                        or sum(atom_B.bonds.values()) >= atom_B.element.max_bonds):
                     continue
 
                 direction_B = direction.opposite()
