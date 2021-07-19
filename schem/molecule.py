@@ -445,8 +445,18 @@ class Molecule:
             If unsuccessful, revert any changes made to the given visit dicts, and return 0.
             If successful, return the number of items added to each dict.
             '''
+            # Make sure the two atoms have the same element / bond counts
             if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
-                return False
+                return 0
+
+            # Make sure the two atoms have the same number of unvisited neighbors. This avoids issues if all of A's
+            # neighbors get matched but unmatched neighbors of B remain, which shouldn't count as a successful match
+            # even if they have the same atom structures
+            if (sum(1 for _, our_neighbor in self.neighbor_bonds(our_posn)
+                    if our_neighbor not in our_visited_posns)
+                    != sum(1 for _, their_neighbor in other.neighbor_bonds(their_posn)
+                           if their_neighbor not in their_visited_posns)):
+                return 0
 
             # Mark the current nodes as visited (storing a dummy None; we'd use set() but we need ordering and popitem())
             total_visits = 1
