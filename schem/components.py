@@ -141,6 +141,8 @@ class Component:
             return super().__new__(OutputPrinter)
         elif _type == 'drag-printer-passthrough':
             return super().__new__(PassThroughPrinter)
+        elif 'woncay' in parts:
+            return super().__new__(WoncayOutput)
         elif 'output' in parts or 'production-target' in _type:
             return super().__new__(Output)
         elif _type == 'drag-recycler':
@@ -169,7 +171,7 @@ class Component:
         type_parts = self.type.split('-')
         if self.type in COMPONENT_SHAPES:
             self.dimensions = COMPONENT_SHAPES[self.type]
-        elif 'output' in type_parts or 'production-target' in self.type:
+        elif 'output' in type_parts or 'woncay' in type_parts or 'production-target' in self.type:
             self.dimensions = COMPONENT_SHAPES['output']
         elif 'reactor' in type_parts:
             self.dimensions = COMPONENT_SHAPES['reactor']
@@ -417,7 +419,7 @@ class Output(Component):
         molecule = self.in_pipe[-1]
         if molecule is not None:
             if not molecule.isomorphic(self.output_molecule):
-                raise InvalidOutputError(f"Invalid output molecule; expected:\n{self.output_molecule}\nbut got:\n{molecule}")
+                raise InvalidOutputError(f"Invalid output molecule; expected:\n{self.output_molecule}\n\nbut got:\n{molecule}")
 
             self.in_pipe[-1] = None
 
@@ -428,6 +430,77 @@ class Output(Component):
                 return True
 
         return False
+
+
+class WoncayOutput(Output):
+    __slots__ = 'matching_input',
+
+    def __init__(self, output_dict):
+        super().__init__(output_dict)
+
+        self.output_molecule = None  # Will be updated dynamically
+
+        # Create an equivalent copy of the random input for calculating the corresponding outputs
+        self.matching_input = RandomInput({
+            "molecules": [{"molecule": "Titanium;Ti;302200", "count": 180},
+                          {"molecule": "Ruthenium;Ru;304400", "count": 180}],
+            "random-seed": 0,
+            "production-delay": 1,
+            "output-pipes": ["R"],
+            "type": "drag-arbitrary-input", "x": 3, "y": 6})
+
+    def do_instant_actions(self, cycle):
+        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
+        '''
+        if self.in_pipe is None or self.in_pipe[-1] is None:
+            return False
+
+        # Fetch the next 9 atoms from the simulated input, and calculate the expected output molecule accordingly
+        input_bits = [self.matching_input.get_next_molecule_idx() for _ in range(9)]
+        # Map the bits to the position they ended up in based on the first reactor construction:
+        # 9 8 7
+        # 4 5 6
+        # 3 2 1
+        input_bits_block = [input_bits[8:5:-1], input_bits[3:6], input_bits[2::-1]]
+
+        # Apply Woncay's rules to calculate the output bits
+        output_bits_block = [[], [], []]
+        for r in range(3):
+            for c in range(3):
+                neighbors_sum = sum([input_bits_block[r - 1][c] if r > 0 else 0,
+                                     input_bits_block[r + 1][c] if r < 2 else 0,
+                                     input_bits_block[r][c - 1] if c > 0 else 0,
+                                     input_bits_block[r][c + 1] if c < 2 else 0])
+
+                if neighbors_sum == 2:  # Reproduce
+                    output_bits_block[r].append(1)
+                elif neighbors_sum == 3:  # Propagate
+                    output_bits_block[r].append(input_bits_block[r][c])
+                else:  # Die
+                    output_bits_block[r].append(0)
+
+        def bit_block_to_molecule(bit_block):
+            """Helper function to convert a bit block into a molecule."""
+            # Create a titanium block and update it based on all the live bits
+            molecule = Molecule.from_json_string("Titanium;Ti;002211;102211;202201;012211;112211;212201;022210;122210;222200")
+
+            for r in range(3):
+                for c in range(3):
+                    if bit_block[r][c]:
+                        molecule[(c, r)].element = elements_dict[44]
+
+            return molecule
+
+        # Update the expected molecule, then run the normal output check
+        self.output_molecule = bit_block_to_molecule(output_bits_block)
+
+        try:
+            return super().do_instant_actions(cycle)
+        except InvalidOutputError as e:
+            # Friendlier error
+            input_molecule = bit_block_to_molecule(input_bits_block)
+            raise InvalidOutputError(f"For original input block:\n{input_molecule}\n\n{e}")
 
 
 class PassThroughCounter(Output):

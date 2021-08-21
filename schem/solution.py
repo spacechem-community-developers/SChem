@@ -268,7 +268,7 @@ class Solution:
                                                                _type=component_type, posn=component_posn)
             else:
                 for output_dict in self.level[output_zone_type]:
-                    new_component = Output(output_dict=output_dict)
+                    new_component = Component(output_dict)
                     posn_to_component[new_component.posn] = new_component
 
         # Add disabled output components for the unused outputs of research levels (crash if given a molecule)
