@@ -53,7 +53,7 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
         '''
         parts = s.split('-')
         return (len(parts) == 3
-                and (parts[0].isdigit() or parts[0] == 'Incomplete') # Thinks 045-1-14 is a score but whatever
+                and (parts[0].isdigit() or parts[0] == 'Incomplete')  # Thinks 045-1-14 is a score but whatever
                 and all(part.isdigit() for part in parts[1:]))
 
     @classmethod
