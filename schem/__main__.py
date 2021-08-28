@@ -17,19 +17,23 @@ def main():
     parser.add_argument('solution_file', type=Path, nargs='?',
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
-    parser.add_argument('--level_files', type=Path, nargs='+',
-                        help="Optional file(s) containing the puzzle to check the solution(s) against")
+    parser.add_argument('-l', '--level_file', '--puzzle_file', type=Path, action='append', dest='level_files',
+                        help="File containing the puzzle to check the solution(s) against.\n"
+                             "If not provided, solution is checked against any official level with a matching title.\n"
+                             "If flag is used multiple times, it will be checked that the solution validates for at"
+                             " least one of the levels.")
     parser.add_argument('--max_cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default double the expected score, or"
-                             " 1,000,000 if incomplete score metadata. Pass -1 to run infinitely.")
+                             " 1,000,000 if incomplete score metadata.\n"
+                             "Pass -1 to run infinitely.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
-                        help="Print an updating view of the solution while it runs."
-                             + "\nCan accept a comma-separated string with any of the following options:"
-                             + "\nrR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls)."
-                             + "\ncC: Start debugging from cycle C. Default 0."
-                             + "\nsS: Speed of debug in cycles/s. Default 10."
-                             + "\ni: Show instructions. Default False since this mode can actually reduce readability."
-                             + "\nE.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at half a cycle/s")
+                        help="Print an updating view of the solution while it runs.\n"
+                             "Can accept a comma-separated string with any of the following options:\n"
+                             "rR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls).\n"
+                             "cC: Start debugging from cycle C. Default 0.\n"
+                             "sS: Speed of debug in cycles/s. Default 10.\n"
+                             "i: Show instructions. Default False since this mode can actually reduce readability.\n"
+                             "E.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at half a cycle/s")
     args = parser.parse_args()
 
     debug = False
