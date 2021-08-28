@@ -27,7 +27,7 @@ IS_WINDOWS = platform.system() == 'Windows'
 class DebugOptions:
     """Debug options for running a solution.
 
-    reactor: The reactor to debug. If None, overworld is shown for production levels, or only reactor for researches
+    reactor: The reactor to debug. If None, overworld is shown for production levels, or only reactor for researches.
     cycle: The cycle to start debugging at. Default 0.
     speed: The speed to run the solution at, in cycles / s. Default 10.
     show_instructions: Whether to show waldo instructions. Default False as this can actually reduce readability.
@@ -88,6 +88,10 @@ class Solution:
     @property
     def outputs(self):
         return (component for component in self.components if isinstance(component, Output))
+
+    @property
+    def symbols(self):
+        return sum(sum(len(waldo) for waldo in reactor.waldos) for reactor in self.reactors)
 
     @property
     def description(self):
@@ -625,8 +629,14 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
-    def run(self, max_cycles=None, debug=False):
-        '''Run this solution, returning a score tuple or else raising an exception if the level was not solved.'''
+    def run(self, max_cycles=None, debug: Optional[DebugOptions] = False):
+        '''Run this solution, returning a Score or else raising an exception if the level was not solved.
+
+        Args:
+            max_cycles: Maximum cycle count to run to. Default double the expected cycle count in the solution metadata,
+                        or 1,000,000 cycles if not provided (use math.inf if you don't fear infinite loop solutions).
+            debug: Print an updating view of the solution while running. See DebugOptions.
+        '''
         # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
         #       and waldo.position/waldo.direction before each run, or otherwise prevent these from persisting.
         #       Otherwise a solution will only be safely runnable once.
@@ -649,6 +659,7 @@ class Solution:
         reactors = list(self.reactors)
         outputs = list(self.outputs)
 
+        # If we are continuing running from a pause, start with a movement phase
         if any(waldo.instr_map[waldo.position][1].type == InstructionType.PAUSE
                for reactor in reactors
                for waldo in reactor.waldos
@@ -656,10 +667,6 @@ class Solution:
             self.cycle_movement()
 
         # Run the level
-        symbols = sum(sum(len(waldo) for waldo in component.waldos)
-                      for component in self.components
-                      if hasattr(component, 'waldos'))  # hacky but saves on using a counter or reactor list in the ctor
-
         try:
             # In debug mode the cursor can annoyingly flicker into the middle of the printed output; hide it
             if debug:
@@ -679,7 +686,7 @@ class Solution:
                             # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
                             #       potentially misleading. Maybe run() and validate() should be the same thing.
                             # -1 looks weird but seems provably right based on output vs pause comparison
-                            return Score(self.cycle - 1, len(reactors), symbols)
+                            return Score(self.cycle - 1, len(reactors), self.symbols)
 
                 if debug and self.cycle >= debug.cycle:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
@@ -725,9 +732,7 @@ class Solution:
             print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")
 
-        if max_cycles is None:
-            max_cycles = 2 * self.expected_score.cycles
-        elif self.expected_score.cycles > max_cycles:
+        if max_cycles is not None and self.expected_score.cycles > max_cycles:
             raise ValueError(f"{self.description}: Cannot validate; expected cycles > max cycles ({max_cycles})")
 
         score = self.run(max_cycles=max_cycles, debug=debug)

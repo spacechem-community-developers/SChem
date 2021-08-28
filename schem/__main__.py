@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import json
 import math
 from pathlib import Path
 
@@ -26,6 +27,15 @@ def main():
                         help="Maximum cycle count solutions may be run to. Default double the expected score, or"
                              " 1,000,000 if incomplete score metadata.\n"
                              "Pass -1 to run infinitely.")
+    parser.add_argument('--json', action='store_true',
+                        help="Print a JSON object containing the run data, including level and solution metadata.\n"
+                             "If multiple solutions are provided, instead print an array of JSON objects.\n"
+                             "If this flag is set, schem will only raise an error if a solution can't be loaded\n"
+                             "into any of the given levels (or into a matching official level if --level_file was not\n"
+                             "provided), or if a solution can't match its expected score.\n"
+                             "Solutions with no expected score which load successfully but crash (or time out) during "
+                             " runtime will instead return a null value for the `cycles` field.\n"
+                             "--json also suppresses default validation STDOUT messages.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs.\n"
                              "Can accept a comma-separated string with any of the following options:\n"
@@ -83,19 +93,36 @@ def main():
     if args.max_cycles == -1:
         args.max_cycles = math.inf
 
+    jsons = []
     for solution_str in solutions:
         try:
             # Call validate if the solution has an expected score, else run
+            # Also disable verbosity in case of --json, since we'll be printing the json
             expected_score = Solution.parse_metadata(solution_str)[2]
             if expected_score is not None:
-                validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, verbose=True, debug=debug)
+                ret_val = validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
+                                   return_json=args.json, verbose=not args.json, debug=debug)
             else:
-                run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, verbose=True, debug=debug)
+                # Disable regular prints for --json
+                ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, return_json=args.json,
+                              verbose=not args.json, debug=debug)
+
+            if args.json:
+                jsons.append(ret_val)
+
         except Exception as e:
-            if len(solutions) == 1:
+            # If not in --json mode, print all errors instead of exiting early in the case of multiple solutions
+            # In --json mode users are relying on our STDOUT output so we have to make sure we exit properly with an
+            # error code instead of printing errors
+            if len(solutions) == 1 or args.json:
                 raise e
             else:
                 print(f"{type(e).__name__}: {e}")
+
+    if args.json:
+        # If a single solution is provided, output only its json, if multiple are provided, include them all in an array
+        print(json.dumps(jsons[0] if len(jsons) == 1 else jsons,
+                         indent=4))
 
 
 if __name__ == '__main__':

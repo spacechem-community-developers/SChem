@@ -57,12 +57,99 @@ class TestGame(unittest.TestCase):
                     schem.validate(solution_code)
                 print(f"✅  {test_id}")
 
-    def test_duplicate_level_name(self):
-        '''Tests for solutions to levels of the same name.'''
+    def test_validate_duplicate_level_name(self):
+        """Tests for solutions to levels of the same name."""
         for test_id, soln_str in iter_game_test_data(test_data.duplicate_level_name_solutions):
             with self.subTest(msg=test_id):
                 schem.validate(soln_str, verbose=False)
                 print(f"✅  {test_id}")
+
+    def test_run_json_duplicate_levels_import_error(self):
+        """Test game.run with return_json=True and a solution which crashes on import to two same-name levels."""
+        with self.assertRaises(Exception):
+            soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0,Unnamed Solution
+COMPONENT:'custom-research-reactor',2,0,''"""
+            schem.run(soln_str, return_json=True, verbose=False)
+
+    def test_run_json_duplicate_levels_timeout_error(self):
+        """Test game.run with return_json=True and a solution which imports successfully into one of two same-name
+        levels, but times out.
+        """
+        soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,7,0,0
+MEMBER:'instr-start',180,0,32,1,7,0,0
+MEMBER:'feature-bonder',-1,0,1,1,4,0,0
+MEMBER:'feature-bonder',-1,0,1,2,4,0,0
+MEMBER:'feature-bonder',-1,0,1,2,5,0,0
+MEMBER:'feature-bonder',-1,0,1,1,5,0,0
+MEMBER:'feature-splitter',-1,0,1,0,1,0,0"""
+
+        expected_json = {'level_name': "Sulfuric Acid",
+                         'resnet_id': (1, 8, 2),
+                         'cycles': None,
+                         'reactors': 1,
+                         'symbols': 0,
+                         'author': "Zig",
+                         'solution_name': None}
+
+        json = schem.run(soln_str, return_json=True, max_cycles=10, verbose=False)
+
+        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+
+    def test_run_json_duplicate_levels_success(self):
+        """Test game.run with return_json=True and a solution which runs successfully in one of two same-name levels."""
+        expected_json = {'level_name': "Sulfuric Acid",
+                         'resnet_id': (3, 7, 1),
+                         'cycles': 7208,
+                         'reactors': 1,
+                         'symbols': 36,
+                         'author': "Zig",
+                         'solution_name': "ResNet 3-7-1"}
+
+        json = schem.run(test_data.duplicate_level_name_solutions[1], return_json=True, verbose=False)
+
+        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+
+    def test_validate_json_duplicate_levels_import_error(self):
+        """Test game.validate with return_json=True and a solution which crashes on import to two same-name levels."""
+        with self.assertRaises(Exception):
+            soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0,Unnamed Solution
+COMPONENT:'custom-research-reactor',2,0,''"""
+            schem.validate(soln_str, return_json=True, verbose=False)
+
+    def test_validate_json_duplicate_levels_timeout_error(self):
+        """Test game.validate with return_json=True and a solution which imports successfully into one of two same-name
+        levels, but times out.
+        """
+        soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,128,0,7,0,0
+MEMBER:'instr-start',180,0,32,1,7,0,0
+MEMBER:'feature-bonder',-1,0,1,1,4,0,0
+MEMBER:'feature-bonder',-1,0,1,2,4,0,0
+MEMBER:'feature-bonder',-1,0,1,2,5,0,0
+MEMBER:'feature-bonder',-1,0,1,1,5,0,0
+MEMBER:'feature-splitter',-1,0,1,0,1,0,0"""
+
+        with self.assertRaises(Exception):
+            schem.validate(soln_str, return_json=True, max_cycles=10, verbose=False)
+
+    def test_validate_json_duplicate_levels_success(self):
+        """Test game.validate with return_json=True and a solution which runs successfully in one of two same-name
+        levels.
+        """
+        expected_json = {'level_name': "Sulfuric Acid",
+                         'resnet_id': (3, 7, 1),
+                         'cycles': 7208,
+                         'reactors': 1,
+                         'symbols': 36,
+                         'author': "Zig",
+                         'solution_name': "ResNet 3-7-1"}
+
+        json = schem.run(test_data.duplicate_level_name_solutions[1], return_json=True, verbose=False)
+
+        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
 
 
 if __name__ == '__main__':
