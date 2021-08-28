@@ -5,6 +5,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import sys
 
 import clipboard
 
@@ -15,7 +16,8 @@ from .solution import Solution, DebugOptions
 def main():
     parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('solution_file', type=Path, nargs='?',
+    parser.add_argument('solution_file', type=argparse.FileType('r'), nargs='?',  # Accept either path arg or stdin pipe
+                        default=sys.stdin,
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level_file', '--puzzle_file', type=Path, action='append', dest='level_files',
@@ -63,16 +65,13 @@ def main():
                 show_instructions = True
         debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
 
-    if args.solution_file:
-        if not args.solution_file.is_file():
-            raise FileNotFoundError("Solution file not found")
-
-        with args.solution_file.open(encoding='utf-8') as f:
-            solutions_str = f.read()
-        solutions_src = 'Solution file'  # For more helpful error message
-    else:
-        solutions_str = clipboard.paste()
-        solutions_src = 'Clipboard'  # For more helpful error message
+    with args.solution_file:  # args.solution_file is already open but `with` will close it for us
+        if not args.solution_file.isatty():
+            solutions_str = args.solution_file.read()
+            solutions_src = 'Solution file'  # For more helpful error message
+        else:  # If no STDIN input provided, instead of waiting on user input, use clipboard contents
+            solutions_str = clipboard.paste()
+            solutions_src = 'Clipboard'  # For more helpful error message
 
     level_codes = []
     if args.level_files:
