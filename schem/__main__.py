@@ -102,9 +102,8 @@ def main():
                 ret_val = validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
                                    return_json=args.json, verbose=not args.json, debug=debug)
             else:
-                # Disable regular prints for --json
-                ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles, return_json=args.json,
-                              verbose=not args.json, debug=debug)
+                ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
+                              return_json=args.json, verbose=not args.json, debug=debug)
 
             if args.json:
                 jsons.append(ret_val)
@@ -125,4 +124,5 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.tracebacklimit = 0  # Suppress traceback in STDERR output
     main()

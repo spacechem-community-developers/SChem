@@ -85,17 +85,8 @@ MEMBER:'feature-bonder',-1,0,1,2,5,0,0
 MEMBER:'feature-bonder',-1,0,1,1,5,0,0
 MEMBER:'feature-splitter',-1,0,1,0,1,0,0"""
 
-        expected_json = {'level_name': "Sulfuric Acid",
-                         'resnet_id': (1, 8, 2),
-                         'cycles': None,
-                         'reactors': 1,
-                         'symbols': 0,
-                         'author': "Zig",
-                         'solution_name': None}
-
-        json = schem.run(soln_str, return_json=True, max_cycles=10, verbose=False)
-
-        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+        with self.assertRaises(Exception):
+            schem.run(soln_str, return_json=True, max_cycles=10, verbose=False)
 
     def test_run_json_duplicate_levels_success(self):
         """Test game.run with return_json=True and a solution which runs successfully in one of two same-name levels."""

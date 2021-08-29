@@ -94,56 +94,30 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
     ret_val = None
     exceptions = []
 
-    if not return_json:
-        for level in matching_levels:
-            try:
-                solution = Solution(level=level, soln_export_str=soln_str)
-                cur_score = solution.run(max_cycles=max_cycles, debug=debug)
+    for level, resnet_id in zip(matching_levels, matching_resnet_ids):
+        try:
+            solution = Solution(level=level, soln_export_str=soln_str)
+            cur_score = cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
 
-                # Return the successful score if there was no expected score or it matched the expected cycle count
-                if expected_score is None or cur_score.cycles == expected_score.cycles:
-                    return cur_score
+            run_data = {'level_name': level.name,
+                        'resnet_id': resnet_id,
+                        'cycles': cycles,
+                        'reactors': reactors,
+                        'symbols': symbols,
+                        'author': solution.author,
+                        'solution_name': solution.name}
 
-                # Preserve the first successful score (in case the expected score is never found)
-                if ret_val is None:
-                    ret_val = cur_score
-            except Exception as e:
-                exceptions.append(e)
-    else:
-        for level, resnet_id in zip(matching_levels, matching_resnet_ids):
-            try:
-                solution = Solution(level=level, soln_export_str=soln_str)
-            except Exception as e:
-                exceptions.append(e)
-                continue
+            # Return the successful run if there was no expected score or it matched the expected cycle count
+            if expected_score is None or cur_score.cycles == expected_score.cycles:
+                return run_data if return_json else cur_score
 
-            # If the solution successfully imported in a level, preserve its metadata
-            try:
-                cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
-            except Exception as e:
-                cycles, reactors, symbols = None, len(list(solution.reactors)), solution.symbols
+            # Preserve the first successful score (in case the expected score is never found)
+            if ret_val is None:
+                ret_val = run_data if return_json else cur_score
+        except Exception as e:
+            exceptions.append(e)
 
-            # Preserve the run metadata if:
-            #   - we haven't already
-            #   - this run completed where the previous didn't
-            #   - this run matched the expected score
-            if (ret_val is None
-                    or (ret_val['cycles'] is None and cycles is not None)
-                    or solution.expected_score is not None and cycles == solution.expected_score.cycles):
-                ret_val = {'level_name': level.name,
-                           'resnet_id': resnet_id,
-                           'cycles': cycles,
-                           'reactors': reactors,
-                           'symbols': symbols,
-                           'author': solution.author,
-                           'solution_name': solution.name}
-
-                # If the solution completed, exit unless we still haven't matched the provided expected cycle count
-                if cycles is not None and (solution.expected_score is None
-                                           or cycles == solution.expected_score.cycles):
-                    return ret_val
-
-    # Raise the first error if no valid return value was generated (score or json)
+    # Raise the first error if no successful run was found
     if ret_val is not None:
         return ret_val
     else:
