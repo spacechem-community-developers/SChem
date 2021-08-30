@@ -21,6 +21,7 @@ def main():
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level_file', '--puzzle_file', type=Path, action='append', dest='level_files',
+                        metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
                         help="File containing the puzzle to check the solution(s) against.\n"
                              "If not provided, solution is checked against any official level with a matching title.\n"
                              "If flag is used multiple times, it will be checked that the solution validates for at"
@@ -32,11 +33,6 @@ def main():
     parser.add_argument('--json', action='store_true',
                         help="Print a JSON object containing the run data, including level and solution metadata.\n"
                              "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                             "If this flag is set, schem will only raise an error if a solution can't be loaded\n"
-                             "into any of the given levels (or into a matching official level if --level_file was not\n"
-                             "provided), or if a solution can't match its expected score.\n"
-                             "Solutions with no expected score which load successfully but crash (or time out) during "
-                             " runtime will instead return a null value for the `cycles` field.\n"
                              "--json also suppresses default validation STDOUT messages.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs.\n"
