@@ -125,4 +125,9 @@ def main():
 
 if __name__ == '__main__':
     sys.tracebacklimit = 0  # Suppress traceback in STDERR output
-    main()
+
+    # Raise any caught errors from None to also suppress python's implicit exception chaining
+    try:
+        main()
+    except Exception as e:
+        raise e from None
