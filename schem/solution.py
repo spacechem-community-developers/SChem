@@ -109,26 +109,50 @@ class Solution:
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
         '''
-        first_line = s.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
+        s = s.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
 
-        assert first_line.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
-        fields = first_line[len('SOLUTION:'):].split(',')
+        assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
+        s = s[len('SOLUTION:'):]
+
+        # Iteratively extract fields, accounting for quoting (which SC does for strings containing a comma)
+        fields = []
+        while s:
+            if s[0] != "'":
+                # Unquoted field, just grab everything up to next comma
+                field, *rest = s.split(',', maxsplit=1)
+                s = ','.join(rest)
+                fields.append(field)
+            else:
+                # Quoted field. Search for the next un-doubled (un-escaped) quote and ensure it's at the end of the csv field
+                closing_quote_indices = [i for i, c in enumerate(s) if c == "'"][1::2]  # Every second quote
+                end_quote_idx = next((i for i in closing_quote_indices if s[i + 1:i + 2] != "'"), None)  # First unpaired closing quote
+
+                if end_quote_idx is None or not (end_quote_idx == len(s) - 1  # End of string or end of csv field
+                                                 or s[end_quote_idx + 1] == ','):
+                    raise Exception("Invalid quoted string in solution metadata")
+
+                fields.append(s[1:end_quote_idx].replace("''", "'"))  # Unescape internal quotes
+                s = s[end_quote_idx + 2:]  # Skip ahead past the quote and comma
+
         assert len(fields) >= 3, "Missing fields in solution metadata"
 
-        # Starting from the third CSV value, look for a score-like string and assume it is the expected score
-        score_field_idx = next((i for i in range(2, len(fields)) if Score.is_score_str(fields[i])),
-                               None)
-        assert score_field_idx is not None, "Solution metadata missing expected score"
+        # Modern SC quotes all fields containing a comma so our fields should be split correctly by now.
+        # However in older versions fields with commas weren't quoted, resulting in parsing errors for e.g. levels with
+        # commas in the name. If the third field isn't a valid score, attempt to handle this case elegantly by finding
+        # the real score field and assuming any extra fields (commas) before it were the level name's fault
+        if not Score.is_score_str(fields[2]):
+            # Look for the next score-like field and assume it is the expected score
+            score_field_idx = next((i for i in range(3, len(fields)) if Score.is_score_str(fields[i])),
+                                   None)
+            assert score_field_idx is not None, "Solution metadata missing expected score"
 
-        # Assume any excess commas preceding the score are part of the level name
-        level_name = ','.join(fields[:score_field_idx - 1])
-        author_name = fields[score_field_idx - 1]
+            # Merge all excess pre-score fields into the level name, assuming the author was comma-free
+            fields = [','.join(fields[:score_field_idx - 1])] + fields[score_field_idx - 1:]
 
-        expected_score = Score.from_str(fields[score_field_idx])  # Note that this returns None for an incomplete score
-        soln_name = ','.join(fields[score_field_idx + 1:]) if len(fields) > score_field_idx + 1 else None
-        # Game single-quotes solution names if they contain a comma, strip this
-        if soln_name is not None and ',' in soln_name and soln_name[0] == soln_name[-1] == "'":
-            soln_name = soln_name[1:-1]
+        level_name = fields[0]
+        author_name = fields[1]
+        expected_score = Score.from_str(fields[2])  # Note that this returns None for an incomplete score
+        soln_name = ','.join(fields[3:]) if len(fields) > 3 else None
 
         return level_name, author_name, expected_score, soln_name
 
@@ -519,13 +543,13 @@ class Solution:
 
     def export_str(self):
         # Solution metadata
-        export_str = f"SOLUTION:{self.level['name']},{self.author},{self.expected_score}"
+        fields = [self.level['name'], self.author, str(self.expected_score)]
         if self.name is not None:
-            # SC expects single-quotes surrounding solution names that contain a comma
-            if ',' in self.name:
-                export_str += f",'{self.name}'"
-            else:
-                export_str += f",{self.name}"
+            fields.append(self.name)
+
+        # Quote field names that contain a comma or start with a quote (and escape their internal quotes)
+        export_str = "SOLUTION:" + ','.join(f"""'{s.replace("'", "''")}'""" if s and (',' in s or s[0] == "'") else s
+                                            for s in fields)
 
         # Components
         # Exclude inputs whose pipes are length 1 (unmodified), and out-pipeless components like outputs and recycler
@@ -621,8 +645,8 @@ class Solution:
             try:
                 component.move_contents(self.cycle)
             except Exception as e:
-                # Mention the originating reactor in errors when possible
-                if isinstance(component, Reactor):
+                # Mention the originating reactor in errors when possible for multi-reactor solutions
+                if len(list(self.reactors)) != 1 and isinstance(component, Reactor):
                     for i, reactor in enumerate(self.reactors):
                         if component is reactor:
                             # Mention the reactor index via a chained exception of the same type

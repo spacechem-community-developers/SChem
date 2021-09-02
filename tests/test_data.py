@@ -3991,6 +3991,45 @@ MEMBER:'instr-toggle',-90,0,32,9,2,0,0
 MEMBER:'instr-arrow',180,0,16,9,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
+    # Quotes in level name due to the comma
+    """SOLUTION:'1,3-Dimetoxibencene',andy,922-1-27,s
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',90,0,128,8,4,0,0
+MEMBER:'instr-start',0,0,32,8,7,0,0
+MEMBER:'feature-bonder',-1,0,1,2,3,0,0
+MEMBER:'feature-bonder',-1,0,1,0,4,0,0
+MEMBER:'feature-bonder',-1,0,1,3,3,0,0
+MEMBER:'feature-bonder',-1,0,1,1,4,0,0
+MEMBER:'feature-fuser',-1,0,1,2,4,0,0
+MEMBER:'instr-bond',-1,0,32,9,7,0,0
+MEMBER:'instr-rotate',-1,0,128,4,2,0,0
+MEMBER:'instr-input',-1,0,128,3,0,0,0
+MEMBER:'instr-arrow',180,0,64,3,0,0,0
+MEMBER:'instr-grab',-1,1,128,2,0,0,0
+MEMBER:'instr-arrow',90,0,64,2,0,0,0
+MEMBER:'instr-fuse',-1,0,128,2,3,0,0
+MEMBER:'instr-fuse',-1,0,128,2,4,0,0
+MEMBER:'instr-grab',-1,1,128,2,5,0,0
+MEMBER:'instr-arrow',180,0,64,2,6,0,0
+MEMBER:'instr-grab',-1,0,128,3,4,0,0
+MEMBER:'instr-grab',-1,2,128,7,2,0,0
+MEMBER:'instr-output',-1,0,128,8,6,0,0
+MEMBER:'instr-arrow',0,0,64,0,3,0,0
+MEMBER:'instr-toggle',0,0,128,3,2,0,0
+MEMBER:'instr-grab',-1,1,128,7,5,0,0
+MEMBER:'instr-rotate',-1,0,128,3,5,0,0
+MEMBER:'instr-arrow',90,0,64,8,2,0,0
+MEMBER:'instr-input',-1,1,128,3,6,0,0
+MEMBER:'instr-grab',-1,2,128,1,3,0,0
+MEMBER:'instr-arrow',90,0,64,1,3,0,0
+MEMBER:'instr-grab',-1,1,128,0,5,0,0
+MEMBER:'instr-arrow',-90,0,64,0,6,0,0
+MEMBER:'instr-arrow',-90,0,64,3,5,0,0
+MEMBER:'instr-toggle',180,0,128,8,5,0,0
+MEMBER:'instr-arrow',180,0,64,8,6,0,0
+MEMBER:'instr-arrow',0,0,64,1,5,0,0
+PIPE:0,4,1
+PIPE:1,4,2""",
     # Valid solution that consists of only a solution line, also a fun performance test
     '''SOLUTION:Fastest Puzzle,Zig,1-0-0,Fastest solution''',
     # 2020 Tournament level with a comma in the name and that uses pass-through counters.

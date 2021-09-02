@@ -9,6 +9,7 @@ import sys
 sys.path.insert(1, str(Path(__file__).parent.parent))
 
 import schem
+from schem.solution import Solution
 import test_data
 
 num_subtests = 0
@@ -28,6 +29,46 @@ def iter_test_data(solution_codes):
 
 
 class TestSolution(unittest.TestCase):
+    def test_parse_metadata_valid(self):
+        """Tests for valid solution metadata lines."""
+        in_out_cases = [("SOLUTION:level_name,author,0-0-0", ("level_name", "author", None, None)),
+                        ("SOLUTION:level_name,author,1-0-0", ("level_name", "author", (1, 0, 0), None)),
+                        ("SOLUTION:level_name,author,0-0-0,soln_name", ("level_name", "author", None, "soln_name")),
+                        ("SOLUTION:'commas,in,level,name',author,0-0-0,soln_name",
+                         ("commas,in,level,name", "author", None, "soln_name")),
+                        ("SOLUTION:trailing_field_quote',author,0-0-0,soln_name",
+                         ("trailing_field_quote'", "author", None, "soln_name")),
+                        ("SOLUTION:level_name,'commas,in,author,name',0-0-0,soln_name",
+                         ("level_name", "commas,in,author,name", None, "soln_name")),
+                        ("SOLUTION:level_name,author,0-0-0,unquoted,commas,in,soln name",
+                         ("level_name", "author", None, "unquoted,commas,in,soln name")),
+                        ("SOLUTION:quote_in_soln_name,author,0-0-0,''''",
+                         ("quote_in_soln_name", "author", None, "'")),
+                        ("SOLUTION:level_name,author,0-0-0,'comma , and quote '' in soln name'",
+                         ("level_name", "author", None, "comma , and quote ' in soln name"))]
+
+        for in_str, expected_outs in in_out_cases:
+            with self.subTest(msg=in_str):
+                self.assertEqual(tuple(Solution.parse_metadata(in_str)), expected_outs)
+
+    def test_parse_metadata_invalid(self):
+        """Tests for invalid solution metadata lines which should raise an exception."""
+        invalid_cases = ("SOLUTION:level_name,'unescaped_leading_quote,0-0-0",)
+
+        for invalid_metadata in invalid_cases:
+            with self.subTest(msg=invalid_metadata):
+                with self.assertRaises(Exception):
+                    Solution.parse_metadata(invalid_metadata)
+
+    def test_parse_metadata_legacy_formats(self):
+        """Tests for solution metadata lines that were valid in legacy SC or community tools."""
+        in_out_cases = [("SOLUTION:commas,in,level,name,author,0-0-0,soln_name", ("commas,in,level,name", "author", None, "soln_name")),
+                        ("SOLUTION:level_name,author,Incomplete-0-0,soln_name", ("level_name", "author", None, "soln_name"))]
+
+        for in_str, expected_outs in in_out_cases:
+            with self.subTest(msg=in_str):
+                self.assertEqual(tuple(Solution.parse_metadata(in_str)), expected_outs)
+
     def test_init_errors(self):
         '''Tests for solutions that shouldn't import successfully.'''
         for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):
