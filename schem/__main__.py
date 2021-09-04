@@ -30,10 +30,24 @@ def main():
                         help="Maximum cycle count solutions may be run to. Default double the expected score, or"
                              " 1,000,000 if incomplete score metadata.\n"
                              "Pass -1 to run infinitely.")
-    parser.add_argument('--json', action='store_true',
-                        help="Print a JSON object containing the run data, including level and solution metadata.\n"
-                             "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                             "--json also suppresses default validation STDOUT messages.")
+    parser.add_argument('--check_precog', action='store_true',
+                        help="Check if the given solution(s) are precognitive, per the current community definition.\n"
+                             "\nA solution is considered precognitive if it assumes knowledge of a *particular* input\n"
+                             "molecule. In other words, if, for some n >= 2, there is a choice of the nth input\n"
+                             "for which the solution will always fail regardless of the rest of the input sequence.\n"
+                             "\nNote that this is calculated by running the solution anywhere from 2 (for solutions\n"
+                             "approaching a million+ max_cycle limit) to dozens of times for normal solutions, so the\n"
+                             "runtime will increase accordingly (for non-extreme cycle counts, this will generally be\n"
+                             "less than ~15 seconds per solution, and often sub-second).\n"
+                             "\nIf called with the --json field, adds a boolean 'precog' field to the output JSON.\n"
+                             "Otherwise, prints check result human readably.")
+    stdout_args = parser.add_mutually_exclusive_group()
+    stdout_args.add_argument('--json', action='store_true',
+                             help="Print JSON containing the run data, including level and solution metadata.\n"
+                                  "If multiple solutions are provided, instead print an array of JSON objects.\n"
+                                  "--json also suppresses default validation STDOUT messages.")
+    stdout_args.add_argument('--quiet', dest='verbose', action='store_false',
+                             help="Suppress default STDOUT messages/warnings.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs.\n"
                              "Can accept a comma-separated string with any of the following options:\n"
@@ -43,6 +57,9 @@ def main():
                              "i: Show instructions. Default False since this mode can actually reduce readability.\n"
                              "E.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at half a cycle/s")
     args = parser.parse_args()
+
+    if args.json:
+        args.verbose = False
 
     debug = False
     if args.debug is not None:
@@ -93,13 +110,17 @@ def main():
         try:
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity in case of --json, since we'll be printing the json
-            expected_score = Solution.parse_metadata(solution_str)[2]
+            level_name, author, expected_score, soln_name = Solution.parse_metadata(solution_str)
             if expected_score is not None:
                 ret_val = validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                                   return_json=args.json, verbose=not args.json, debug=debug)
+                                   return_json=args.json, check_precog=args.check_precog, verbose=args.verbose,
+                                   debug=debug)
             else:
                 ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                              return_json=args.json, verbose=not args.json, debug=debug)
+                              return_json=args.json, check_precog=args.check_precog, verbose=args.verbose, debug=debug)
+
+                if args.verbose and not args.json:  # Mutually exclusive but just in case
+                    print(f"Validated {Solution.describe(level_name, author, ret_val, soln_name)}")
 
             if args.json:
                 jsons.append(ret_val)

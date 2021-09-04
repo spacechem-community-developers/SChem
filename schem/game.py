@@ -6,11 +6,12 @@ from typing import Optional
 from .level import Level
 from .levels import levels as built_in_levels, defense_names, resnet_ids
 from .exceptions import ScoreError
+from .precognition import is_precognitive
 from .solution import Score, Solution, DebugOptions
 
 
-def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, verbose=False,
-        debug: Optional[DebugOptions] = False):
+def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,
+        verbose=False, debug: Optional[DebugOptions] = False):
     """Wrapper for Solution.run which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and return the (cycles, reactors, symbols) Score obtained. Raise an error if the solution
@@ -43,6 +44,9 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
             return the metadata of the first level that the solution could be successfully imported into.
 
             Default False.
+        check_precog: If True, do additional runs on the solution to check if it fits the current community definition
+            of a precognitive solution. Currently only useful if return_json is present, in which case an 'is_precog'
+            field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
@@ -92,6 +96,7 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
             raise Exception(f"No known level `{level_name}`")
 
     ret_val = None
+    is_precog = None
     exceptions = []
 
     for level, resnet_id in zip(matching_levels, matching_resnet_ids):
@@ -107,8 +112,15 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
                         'author': solution.author,
                         'solution_name': solution.name}
 
+            if check_precog:
+                is_precog = run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
+                                                                 just_run_cycle_count=cur_score.cycles, verbose=verbose)
+
             # Return the successful run if there was no expected score or it matched the expected cycle count
             if expected_score is None or cur_score.cycles == expected_score.cycles:
+                if verbose and check_precog:
+                    print(f"Solution is{'' if is_precog else ' not'} precognitive")
+
                 return run_data if return_json else cur_score
 
             # Preserve the first successful score (in case the expected score is never found)
@@ -119,13 +131,16 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
 
     # Raise the first error if no successful run was found
     if ret_val is not None:
+        if verbose and check_precog:
+            print(f"Solution is{'' if is_precog else ' not'} precognitive")
+
         return ret_val
     else:
         raise exceptions[0]
 
 
-def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, verbose=False,
-             debug: Optional[DebugOptions] = False):
+def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,
+             verbose=False, debug: Optional[DebugOptions] = False):
     """Sibling of Solution.validate which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and raise an exception if the score does not match that indicated in the solution metadata.
@@ -154,10 +169,12 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
             return the metadata of the first level that the solution could be successfully imported into.
 
             Default False.
+        check_precog: If True, do additional runs on the solution to check if it fits the current community definition
+            of a precognitive solution. Currently only useful if return_json is present, in which case a boolean
+            'precog' field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
-
     """
     level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
     if expected_score is None:
@@ -171,15 +188,9 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
         raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
 
     ret_val = run(soln_str, level_code=level_code, level_codes=level_codes, max_cycles=max_cycles,
-                  return_json=return_json, verbose=verbose, debug=debug)
+                  return_json=return_json, check_precog=check_precog, verbose=verbose, debug=debug)
 
-    if not return_json:
-        score = ret_val
-    # run(return_json=True) only raises an error on solution load errors; runtime errors just set cycles to None
-    elif ret_val['cycles'] is None:
-        raise Exception(f"{soln_descr}: Expected score {expected_score} but solution crashed or timed out.")
-    else:
-        score = Score(ret_val['cycles'], ret_val['reactors'], ret_val['symbols'])
+    score = ret_val if not return_json else Score(ret_val['cycles'], ret_val['reactors'], ret_val['symbols'])
 
     # Validate the score
     if score != expected_score:
