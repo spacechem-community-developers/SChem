@@ -233,3 +233,19 @@ class Waldo:
                 unexplored_branches_stack.append((next_posn, outgoing_dirn))
 
         return traced_posn_dirns
+
+    def reset(self):
+        for posn, (_, cmd) in self.instr_map.items():
+            if cmd is not None and cmd.type == InstructionType.START:
+                self.position = posn
+                self.direction = cmd.direction
+                break
+
+        self.molecule = None
+        self.is_stalled = False
+        self.is_rotating = False
+
+        for k in self.flipflop_states:
+            self.flipflop_states[k] = False
+
+        return self

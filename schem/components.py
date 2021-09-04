@@ -254,6 +254,14 @@ class Component:
         for pipe in self.out_pipes:
             pipe.move_contents()
 
+    def reset(self):
+        """Reset this component and its pipe's contents as if it has never been run."""
+        for pipe in self.out_pipes:
+            for i in range(len(pipe)):
+                pipe[i] = None
+
+        return self
+
     def export_str(self):
         '''Represent this component in solution export string format.'''
         # TODO: I'm still not sure what the 4th component field is used for. Custom reactor names maybe?
@@ -263,7 +271,7 @@ class Component:
 
 
 class Input(Component):
-    __slots__ = 'molecules', 'input_rate'
+    __slots__ = 'molecules', 'input_rate', 'num_inputs'
 
     # Convenience property for when we know we're dealing with an Input
     @property
@@ -302,6 +310,8 @@ class Input(Component):
         else:
             self.input_rate = 10
 
+        self.num_inputs = 0
+
     def move_contents(self, cycle):
         """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
         super().move_contents(cycle)
@@ -309,10 +319,17 @@ class Input(Component):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[0])
+            self.num_inputs += 1
+
+    def reset(self):
+        super().reset()
+        self.num_inputs = 0
+
+        return self
 
 
 class RandomInput(Input):
-    __slots__ = 'random_generator', 'input_counts', 'random_bucket'
+    __slots__ = 'seed', 'random_generator', 'input_counts', 'random_bucket'
 
     def __init__(self, input_dict, _type=None, posn=None, is_research=False):
         super().__init__(input_dict, _type=_type, posn=posn, is_research=is_research)
@@ -320,8 +337,8 @@ class RandomInput(Input):
         assert len(self.molecules) > 1, "Fixed input passed to RandomInput ctor"
 
         # Create a random generator with the given seed. Most levels default to seed 0
-        seed = input_dict['random-seed'] if 'random-seed' in input_dict else 0
-        self.random_generator = SChemRandom(seed=seed)
+        self.seed = input_dict['random-seed'] if 'random-seed' in input_dict else 0
+        self.random_generator = SChemRandom(seed=self.seed)
         self.random_bucket = []  # Bucket of indices for the molecules in the current balancing bucket
 
         molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'
@@ -351,16 +368,25 @@ class RandomInput(Input):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
             self.out_pipe[0] = copy.deepcopy(self.molecules[self.get_next_molecule_idx()])
+            self.num_inputs += 1
+
+    def reset(self):
+        super().reset()
+        self.random_generator = SChemRandom(seed=self.seed)
+        self.random_bucket = []
+
+        return self
 
 
 class ProgrammedInput(Input):
-    __slots__ = 'starting_molecules', 'repeating_molecules', 'repeating_idx'
+    __slots__ = 'starting_molecules', 'starting_idx', 'repeating_molecules', 'repeating_idx'
 
     def __init__(self, input_dict, _type=None, posn=None, is_research=False):
         super(Input, self).__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)
 
         assert len(input_dict['repeating-molecules']) != 0, "No repeating molecules in input dict"
         self.starting_molecules = [Molecule.from_json_string(s) for s in input_dict['starting-molecules']]
+        self.starting_idx = 0
         self.repeating_molecules = [Molecule.from_json_string(s) for s in input_dict['repeating-molecules']]
         self.repeating_idx = 0
 
@@ -371,17 +397,28 @@ class ProgrammedInput(Input):
         else:
             self.input_rate = 10
 
+        self.num_inputs = 0
+
     def move_contents(self, cycle):
         """Move pipe contents, then add a new molecule to pipe if on correct cycle and there is room."""
         super(Input, self).move_contents(cycle)
 
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe[0] is None:
-            if not self.starting_molecules:
+            if self.starting_idx == len(self.starting_molecules):
                 self.out_pipe[0] = copy.deepcopy(self.repeating_molecules[self.repeating_idx])
                 self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
             else:
-                self.out_pipe[0] = copy.deepcopy(self.starting_molecules.pop(0))
+                self.out_pipe[0] = copy.deepcopy(self.starting_molecules[self.starting_idx])
+                self.starting_idx += 1
+
+            self.num_inputs += 1
+
+    def reset(self):
+        super().reset()
+        self.starting_idx = self.repeating_idx = 0
+
+        return self
 
 
 class Output(Component):
@@ -429,6 +466,12 @@ class Output(Component):
 
         return False
 
+    def reset(self):
+        super().reset()
+        self.current_count = 0
+
+        return self
+
 
 class PassThroughCounter(Output):
     __slots__ = 'stored_molecule',
@@ -473,6 +516,12 @@ class PassThroughCounter(Output):
             return super().do_instant_actions(cycle)  # This will set self.in_pipe[-1] to None
 
         return False
+
+    def reset(self):
+        super().reset()
+        self.stored_molecule = None
+
+        return self
 
 
 # It's less confusing for output counting and user-facing purposes if this is not an Output subclass
@@ -549,6 +598,12 @@ class PassThroughPrinter(OutputPrinter):
             self.stored_molecule = self.in_pipe[-1]
             super().do_instant_actions(cycle)  # This will consume and print the input molecule
 
+    def reset(self):
+        super().reset()
+        self.stored_molecule = None
+
+        return self
+
 
 class Recycler(Component):
     __slots__ = ()
@@ -620,6 +675,12 @@ class StorageTank(Component):
 
         return cls(component_type, component_posn, out_pipe=Pipe.from_export_str(pipe_str))
 
+    def reset(self):
+        super().reset()
+        self.contents = collections.deque()
+
+        return self
+
 
 class InfiniteStorageTank(StorageTank):
     MAX_CAPACITY = math.inf
@@ -680,6 +741,12 @@ class TeleporterOutput(Component):
         # Move pipe contents first, then add the teleported molecule to the front to avoid double-moving it
         super().move_contents(cycle)
         self.molecule, self.out_pipe[0] = None, self.molecule
+
+    def reset(self):
+        super().reset()
+        self.molecule = None
+
+        return self
 
 
 class Reactor(Component):
@@ -1706,3 +1773,13 @@ class Reactor(Component):
             for waldo in self.waldos:
                 if waldo.position == next_posn and waldo.molecule is not None:
                     waldo.molecule = molecule  # May be None, which handles the no molecule case correctly
+
+    def reset(self):
+        super().reset()
+
+        self.molecules = {}
+
+        for waldo in self.waldos:
+            waldo.reset()
+
+        return self

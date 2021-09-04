@@ -185,7 +185,7 @@ class Solution:
     # TODO: Solution constructor should probably accept either level or level_code for convenience
     def __init__(self, level, soln_export_str=None):
         self.level = level
-        self.level_name = level['name']
+        self.level_name = level.name
         self.name = None
         self.author = 'Unknown'
         self.expected_score = None
@@ -198,8 +198,8 @@ class Solution:
             # Main game levels have unique terrain which we have to hardcode D:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
-            terrain_id = level['name'] if ('terrain' not in level
-                                           and level['name'] in terrains) else level['terrain']
+            terrain_id = level.name if ('terrain' not in level
+                                        and level.name in terrains) else level['terrain']
 
             # SC caps oversized terrain IDs
             if isinstance(terrain_id, int) and terrain_id > MAX_TERRAIN_INT:
@@ -543,7 +543,7 @@ class Solution:
 
     def export_str(self):
         # Solution metadata
-        fields = [self.level['name'], self.author, str(self.expected_score)]
+        fields = [self.level.name, self.author, str(self.expected_score)]
         if self.name is not None:
             fields.append(self.name)
 
@@ -766,3 +766,12 @@ class Solution:
 
         if verbose:
             print(f"Validated {self.description}")
+
+    def reset(self):
+        """Reset this solution as if it had not yet been run."""
+        for component in self.components:
+            component.reset()
+
+        self.cycle = 0
+
+        return self
