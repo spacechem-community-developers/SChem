@@ -10,8 +10,8 @@ from .precognition import is_precognitive
 from .solution import Score, Solution, DebugOptions
 
 
-def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,
-        verbose=False, debug: Optional[DebugOptions] = False):
+def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, validate_expected_score=False,
+        return_json=False, check_precog=False, verbose=False, debug: Optional[DebugOptions] = False):
     """Wrapper for Solution.run which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and return the (cycles, reactors, symbols) Score obtained. Raise an error if the solution
@@ -36,6 +36,8 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
             built-in levels.
         max_cycles: Maximum cycle count to run to. Default double the expected cycle count in the solution metadata,
             or 1,000,000 cycles if no expected score (use math.inf if you don't fear infinite loop solutions).
+        validate_expected_score: If True, raise an exception if the solution metadata's expected score is missing or
+                                 doesn't match the run result. Default False.
         return_json: If True, instead of a Score return a dict including the usual score fields, but also the level
             title, ResearchNet volume-issue-puzzle tuple (None if not a ResearchNet level), and solution author/title.
 
@@ -52,7 +54,16 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
     """
     assert level_code is None or level_codes is None, "Only one of level_code or level_codes may be specified"
-    level_name, _, expected_score, _ = Solution.parse_metadata(soln_str)
+    level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
+    soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
+
+    if validate_expected_score:
+        if expected_score is None:
+            raise ValueError("Validation requires a valid expected score in the first solution line (currently 0-0-0);"
+                             + " please update it or use run() without validation instead.")
+
+        if max_cycles is not None and expected_score.cycles > max_cycles:
+            raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
 
     # Convert level_code convenience arg to same format as level_codes
     if level_code is not None:
@@ -102,7 +113,13 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
     for level, resnet_id in zip(matching_levels, matching_resnet_ids):
         try:
             solution = Solution(level=level, soln_export_str=soln_str)
-            cur_score = cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
+            score = cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
+
+            # Avoid doing e.g. precog checks if expected score validation failed
+            # Note that the ScoreError will be caught and stored by the except clause so we can remember this score
+            # while still continuing to check any other matching levels
+            if validate_expected_score and score != expected_score:
+                raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
 
             run_data = {'level_name': level.name,
                         'resnet_id': resnet_id,
@@ -114,25 +131,27 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
 
             if check_precog:
                 is_precog = run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
-                                                                 just_run_cycle_count=cur_score.cycles, verbose=verbose)
+                                                                 just_run_cycle_count=score.cycles, verbose=verbose)
 
-            # Return the successful run if there was no expected score or it matched the expected cycle count
-            if expected_score is None or cur_score.cycles == expected_score.cycles:
-                if verbose and check_precog:
-                    print(f"Solution is{'' if is_precog else ' not'} precognitive")
-
-                return run_data if return_json else cur_score
+            # Return the successful run immediately if there was no expected score or it matched
+            if expected_score is None or score.cycles == expected_score.cycles:
+                ret_val = run_data if return_json else score
+                break
 
             # Preserve the first successful score (in case the expected score is never found)
             if ret_val is None:
-                ret_val = run_data if return_json else cur_score
+                ret_val = run_data if return_json else score
         except Exception as e:
             exceptions.append(e)
 
-    # Raise the first error if no successful run was found
+    # Return the first successful run or raise the first error
     if ret_val is not None:
-        if verbose and check_precog:
-            print(f"Solution is{'' if is_precog else ' not'} precognitive")
+        if verbose:
+            if check_precog:
+                print(f"Solution is{'' if is_precog else ' not'} precognitive")
+
+            if validate_expected_score:
+                print(f"Validated {soln_descr}")
 
         return ret_val
     else:
@@ -176,28 +195,9 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
                  Default False.
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
     """
-    level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
-    if expected_score is None:
-        raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
-                         + " please update it or use run() instead.")
-
-    # TODO: Should use level_code's name if conflicting
-    soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
-
-    if max_cycles is not None and expected_score.cycles > max_cycles:
-        raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
-
     ret_val = run(soln_str, level_code=level_code, level_codes=level_codes, max_cycles=max_cycles,
-                  return_json=return_json, check_precog=check_precog, verbose=verbose, debug=debug)
-
-    score = ret_val if not return_json else Score(ret_val['cycles'], ret_val['reactors'], ret_val['symbols'])
-
-    # Validate the score
-    if score != expected_score:
-        raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
-
-    if verbose:
-        print(f"Validated {soln_descr}")
+                  validate_expected_score=True, return_json=return_json, check_precog=check_precog, verbose=verbose,
+                  debug=debug)
 
     if return_json:
         return ret_val
