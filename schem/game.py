@@ -7,11 +7,12 @@ from .level import Level
 from .levels import levels as built_in_levels, defense_names, resnet_ids
 from .exceptions import ScoreError
 from .precognition import is_precognitive
-from .solution import Score, Solution, DebugOptions
+from .solution import Solution, DebugOptions
 
 
 def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, validate_expected_score=False,
-        return_json=False, check_precog=False, verbose=False, debug: Optional[DebugOptions] = False):
+        return_json=False, check_precog=False, max_precog_check_cycles=None, verbose=False, stderr_on_precog=False,
+        debug: Optional[DebugOptions] = False):
     """Wrapper for Solution.run which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and return the (cycles, reactors, symbols) Score obtained. Raise an error if the solution
@@ -49,8 +50,14 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
         check_precog: If True, do additional runs on the solution to check if it fits the current community definition
             of a precognitive solution. Currently only useful if return_json is present, in which case an 'is_precog'
             field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
+        max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if this
+            value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised, or in the
+            case of return_json, the 'is_precog' value is set to None.
+            Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
+        stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
+                          Can be enabled independently of `verbose`. Default False.
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
     """
     assert level_code is None or level_codes is None, "Only one of level_code or level_codes may be specified"
@@ -130,8 +137,18 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
                         'solution_name': solution.name}
 
             if check_precog:
-                is_precog = run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
-                                                                 just_run_cycle_count=score.cycles, verbose=verbose)
+                try:
+                    is_precog = run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
+                                                                     max_total_cycles=max_precog_check_cycles,
+                                                                     just_run_cycle_count=score.cycles,
+                                                                     verbose=verbose,
+                                                                     stderr_on_precog=stderr_on_precog)
+                except TimeoutError:
+                    # If using --json mode, store None for the field instead of propagating any timeout error
+                    if return_json:
+                        is_precog = run_data['precog'] = None
+                    else:
+                        raise
 
             # Return the successful run immediately if there was no expected score or it matched
             if expected_score is None or score.cycles == expected_score.cycles:
@@ -159,7 +176,8 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
 
 
 def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,
-             verbose=False, debug: Optional[DebugOptions] = False):
+             max_precog_check_cycles=None, verbose=False, stderr_on_precog=False,
+             debug: Optional[DebugOptions] = False):
     """Sibling of Solution.validate which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and raise an exception if the score does not match that indicated in the solution metadata.
@@ -191,13 +209,20 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
         check_precog: If True, do additional runs on the solution to check if it fits the current community definition
             of a precognitive solution. Currently only useful if return_json is present, in which case a boolean
             'precog' field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
+        max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if this
+            value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised, or in the
+            case of return_json, the 'is_precog' value is set to None.
+            Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
+        stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
+                          Can be enabled independently of `verbose`. Default False.
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
     """
     ret_val = run(soln_str, level_code=level_code, level_codes=level_codes, max_cycles=max_cycles,
-                  validate_expected_score=True, return_json=return_json, check_precog=check_precog, verbose=verbose,
-                  debug=debug)
+                  validate_expected_score=True, return_json=return_json, check_precog=check_precog,
+                  max_precog_check_cycles=max_precog_check_cycles,
+                  verbose=verbose, stderr_on_precog=stderr_on_precog, debug=debug)
 
     if return_json:
         return ret_val

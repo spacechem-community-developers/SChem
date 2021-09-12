@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 import sys
+import time
 
 import clipboard
 
@@ -13,71 +14,7 @@ from .game import run, validate
 from .solution import Solution, DebugOptions
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('solution_file', type=argparse.FileType('r'), nargs='?',  # Accept either path arg or stdin pipe
-                        default=sys.stdin,
-                        help="File containing the solution(s) to execute."
-                             + " If not provided, attempts to use the contents of the clipboard.")
-    parser.add_argument('-l', '--level_file', '--puzzle_file', type=Path, action='append', dest='level_files',
-                        metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
-                        help="File containing the puzzle to check the solution(s) against.\n"
-                             "If not provided, solution is checked against any official level with a matching title.\n"
-                             "If flag is used multiple times, it will be checked that the solution validates for at"
-                             " least one of the levels.")
-    parser.add_argument('--max_cycles', type=int, default=None,
-                        help="Maximum cycle count solutions may be run to. Default double the expected score, or"
-                             " 1,000,000 if incomplete score metadata.\n"
-                             "Pass -1 to run infinitely.")
-    parser.add_argument('--check_precog', action='store_true',
-                        help="Check if the given solution(s) are precognitive, per the current community definition.\n"
-                             "\nA solution is considered precognitive if it assumes knowledge of a *particular* input\n"
-                             "molecule. In other words, if, for some n >= 2, there is a choice of the nth input\n"
-                             "for which the solution will always fail regardless of the rest of the input sequence.\n"
-                             "\nNote that this is calculated by running the solution anywhere from 2 (for solutions\n"
-                             "approaching a million+ max_cycle limit) to dozens of times for normal solutions, so the\n"
-                             "runtime will increase accordingly (for non-extreme cycle counts, this will generally be\n"
-                             "less than ~15 seconds per solution, and often sub-second).\n"
-                             "\nIf called with the --json field, adds a boolean 'precog' field to the output JSON.\n"
-                             "Otherwise, prints check result human readably.")
-    stdout_args = parser.add_mutually_exclusive_group()
-    stdout_args.add_argument('--json', action='store_true',
-                             help="Print JSON containing the run data, including level and solution metadata.\n"
-                                  "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                                  "--json also suppresses default validation STDOUT messages.")
-    stdout_args.add_argument('--quiet', dest='verbose', action='store_false',
-                             help="Suppress default STDOUT messages/warnings.")
-    parser.add_argument('--debug', nargs='?', const='', type=str,
-                        help="Print an updating view of the solution while it runs.\n"
-                             "Can accept a comma-separated string with any of the following options:\n"
-                             "rR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls).\n"
-                             "cC: Start debugging from cycle C. Default 0.\n"
-                             "sS: Speed of debug in cycles/s. Default 10.\n"
-                             "i: Show instructions. Default False since this mode can actually reduce readability.\n"
-                             "E.g. --debug=r0,c1000,s0.5 will start debugging the first reactor on cycle 1000, at half a cycle/s")
-    args = parser.parse_args()
-
-    if args.json:
-        args.verbose = False
-
-    debug = False
-    if args.debug is not None:
-        reactor = None
-        cycle = 0
-        speed = 10
-        show_instructions = False
-        for s in args.debug.split(','):
-            if s and s[0] == 'r':
-                reactor = int(s[1:])
-            elif s and s[0] == 'c':
-                cycle = int(s[1:])
-            elif s and s[0] == 's':
-                speed = float(s[1:])
-            elif s == 'i':
-                show_instructions = True
-        debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
-
+def main(args: argparse.Namespace):
     with args.solution_file:  # args.solution_file is already open but `with` will close it for us
         if not args.solution_file.isatty():
             solutions_str = args.solution_file.read()
@@ -102,9 +39,6 @@ def main():
     if not solutions:
         raise ValueError(f"{solutions_src} contents are empty.")
 
-    if args.max_cycles == -1:
-        args.max_cycles = math.inf
-
     jsons = []
     for solution_str in solutions:
         try:
@@ -113,13 +47,18 @@ def main():
             level_name, author, expected_score, soln_name = Solution.parse_metadata(solution_str)
             if expected_score is not None:
                 ret_val = validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                                   return_json=args.json, check_precog=args.check_precog, verbose=args.verbose,
+                                   return_json=args.json, check_precog=args.check_precog,
+                                   max_precog_check_cycles=args.max_precog_check_cycles,
+                                   verbose=(not args.quiet), stderr_on_precog=args.verbose,
                                    debug=debug)
             else:
                 ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                              return_json=args.json, check_precog=args.check_precog, verbose=args.verbose, debug=debug)
+                              return_json=args.json, check_precog=args.check_precog,
+                              max_precog_check_cycles=args.max_precog_check_cycles,
+                              verbose=(not args.quiet), stderr_on_precog=args.verbose,
+                              debug=debug)
 
-                if args.verbose and not args.json:  # Mutually exclusive but just in case
+                if not args.quiet:
                     print(f"Validated {Solution.describe(level_name, author, ret_val, soln_name)}")
 
             if args.json:
@@ -143,8 +82,96 @@ def main():
 if __name__ == '__main__':
     sys.tracebacklimit = 0  # Suppress traceback in STDERR output
 
+    parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('solution_file', type=argparse.FileType('r'), nargs='?',  # Accept either path arg or stdin pipe
+                        default=sys.stdin,
+                        help="File containing the solution(s) to execute."
+                             + " If not provided, attempts to use the contents of the clipboard.")
+    parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
+                        metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
+                        help="File containing the puzzle to check the solution(s) against.\n"
+                             "If not provided, solution is checked against any official level with a matching title.\n"
+                             "If flag is used multiple times, it will be checked that the solution validates for at"
+                             " least one of the levels.")
+    parser.add_argument('--max-cycles', type=int, default=None,
+                        help="Maximum cycle count solutions may be run to. Default double the expected score, or"
+                             " 1,000,000 if incomplete score metadata.\n"
+                             "Pass -1 to run infinitely.")
+    parser.add_argument('--check-precog', action='store_true',
+                        help="Check if the given solution(s) are precognitive, per the current community definition.\n"
+                             "\nA solution is considered precognitive if it assumes knowledge of a *particular* input\n"
+                             "molecule. In other words, if, for some n >= 2, there is a choice of the nth input\n"
+                             "for which the solution will always fail regardless of the rest of the input sequence.\n"
+                             "\nNote that this is calculated by running the solution anywhere from 2 (for solutions\n"
+                             "approaching a million+ max_cycle limit) to dozens of times for normal solutions, so the\n"
+                             "runtime will increase accordingly (for non-extreme cycle counts, this will generally be\n"
+                             "less than ~15 seconds per solution, and often sub-second).\n"
+                             "\nIf called with the --json field, adds a boolean 'precog' field to the output JSON.\n"
+                             "Otherwise, prints check result human readably.")
+    parser.add_argument('--max-precog-check-cycles', type=int, default=None,
+                        help="The maximum total cycle count that may be used by all precognition-check runs;\n"
+                             "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
+                             "error will be raised, or in the case of --json, the 'is_precog' value will be set to\n"
+                             "null. Pass -1 to take as many runs as determined to be needed.\n"
+                             "Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).")
+    stdout_args = parser.add_mutually_exclusive_group()
+    stdout_args.add_argument('--json', action='store_true',
+                             help="Print JSON containing the run data, including level and solution metadata.\n"
+                                  "If multiple solutions are provided, instead print an array of JSON objects.\n"
+                                  "--json also suppresses default validation STDOUT messages.")
+    stdout_args.add_argument('--quiet', action='store_true',
+                             help="Suppress default STDOUT messages/warnings.")
+    parser.add_argument('--verbose', action='store_true',
+                        help="In addition to standard STDOUT messages/warnings, report the time schem takes to run,\n"
+                              "and if running with --check_precog, also report to STDERR explanations for why a\n"
+                              "solution is precognitive. Note that --json/--quiet only suppress STDOUT and will keep\n"
+                              "the latter STDERR messages.")
+    parser.add_argument('--debug', nargs='?', const='', type=str,
+                        help="Print an updating view of the solution while it runs.\n"
+                             "Can accept a comma-separated string with any of the following options:\n"
+                             "rR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls).\n"
+                             "cC: Start debugging from cycle C. Default 0.\n"
+                             "sS: Speed of debug in cycles/s. Default 10.\n"
+                             "i: Show instructions. Default False since this mode can actually reduce readability.\n"
+                             "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a cycle/s")
+    args = parser.parse_args()
+
+    if args.max_cycles == -1:
+        args.max_cycles = math.inf
+
+    if args.max_precog_check_cycles == -1:
+        args.max_precog_check_cycles = math.inf
+
+    # Suppress STDOUT if we're outputting JSON
+    if args.json:
+        args.quiet = True
+
+    debug = False
+    if args.debug is not None:
+        reactor = None
+        cycle = 0
+        speed = 10
+        show_instructions = False
+        for s in args.debug.split(','):
+            if s and s[0] == 'r':
+                reactor = int(s[1:])
+            elif s and s[0] == 'c':
+                cycle = int(s[1:])
+            elif s and s[0] == 's':
+                speed = float(s[1:])
+            elif s == 'i':
+                show_instructions = True
+        debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
+
+    start = time.time()
+
     # Raise any caught errors from None to also suppress python's implicit exception chaining
     try:
-        main()
+        main(args)
     except Exception as e:
         raise e from None
+    finally:
+        if args.verbose and not args.quiet:  # Sorry
+            end = time.time()
+            print(f"{end - start:.3f}s elapsed")

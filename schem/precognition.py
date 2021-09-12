@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import math
+from sys import stdout as STDOUT, stderr as STDERR
 
 from .solution import Solution
 from .components import RandomInput
@@ -10,16 +11,16 @@ from .components import RandomInput
 # Lowering this increases the number of runs non-precog solutions require
 # We could probably be more lax on this one since precogs are submitted much less often, but it only saves about
 # 10 runs when checking a typical non-precog production solution
-MAX_FALSE_NEGATIVE_RATE = 0.0001  # 1 in 10,000
+MAX_FALSE_NEGATIVE_RATE = 0.00001  # 1 in 10,000
 # The maximum acceptable rate of non-precognitive solutions being marked as precognitive
 # Lowering this increases the number of runs precog solutions require
 # This is the expensive one, but non-precogs are more common so we need a low false positive rate for them
 MAX_FALSE_POSITIVE_RATE = 0.0001  # 1 in 10,000
 
-# A minimum amount of allowed runtime we prescribe so that our classification accuracy remains at acceptable levels for
-# solutions within any reasonable max_cycles limit, and only degrades for bogosort solutions (assuming the caller
-# has set max_cycles high enough to allow).
-MIN_PRECOG_CHECK_RUN_CYCLES = 2_000_000  # Large enough to ensure it doesn't constrain typical required run counts
+# Since long cycle counts go hand-in-hand with demanding many runs for sufficient certainty, practical applications
+# don't have time to properly check precog for long solutions. By default, cut off the max total cycles runtime and
+# raise an error if this will be exceeded (rather than returning an insufficiently-confident answer)
+DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't constrain typical required run counts
 
 # Fully-precog solutions will only succeed for 1 in hundreds or more seeds.
 # Finding enough success seeds to be confident that their missing variants can't be bad luck can thus take thousands of
@@ -51,8 +52,11 @@ def binary_int_search(f, low=0, high=1):
     return high
 
 
-def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0, verbose=False):
+def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
+                    verbose=False, stderr_on_precog=False):
     """Given a Solution, run/validate it then check if fits the current community definition of a precognitive solution.
+
+    If time constraints do not allow enough runs for our certainty thresholds, raise a TimeoutError.
 
     Currently, this means a solution which assumes the value of the Nth molecule of a random input, for some N >= 2.
     Stated conversely, a solution is non-precognitive if for each random input I, each N >= 2, and each type of molecule
@@ -91,10 +95,14 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             is allowed to run at least twice, with the maximum runs taken being limited for extremely slow solutions.
             This is bounded to 300 runs, since at a certain point it can be assumed that the missing variants are not
             being found because the first molecule was unique in its bucket.
+        max_total_cycles: The maximum total cycle count that may be used by all runs; if this value is exceeded before
+            sufficient confidence in an answer is obtained, a TimeoutError is raised.
         just_run_cycle_count: In order to save on excess runs, if the solution has just been successfully run on the
             loaded level (and not been modified or reset() since), pass its cycle count here to skip the first run (but
             still pull the first run's data from the Solution object).
-        verbose: If true, print more detailed info on the number of runs performed and how many passed before returning.
+        verbose: If True, print more detailed info on the number of runs performed and how many passed before returning.
+        stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
+                          Can be enabled independently of `verbose`. Default False.
     """
     # Same default as Solution.run
     if max_cycles is None:
@@ -103,11 +111,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         else:
             max_cycles = Solution.DEFAULT_MAX_CYCLES
 
-    # Based on the single-run max cycles value, calculate a rough max cycle count for the sum of all runs, such that
-    # solutions that are within the max_cycles limit will be able to run at least twice
-    # Keep it to at least 2,000,000 cycles since for values lower than that, solutions that are well within the
-    # max_cycles limit will tend to not be given enough runs to converge
-    max_run_cycles = max(2 * max_cycles, MIN_PRECOG_CHECK_RUN_CYCLES)
+    if max_total_cycles is None:
+        max_total_cycles = DEFAULT_MAX_PRECOG_CHECK_CYCLES
+
     max_runs = MAX_RUNS  # Will be updated after we've checked the first run's cycle count below
 
     # Hang onto references to each random input in the solution
@@ -136,7 +142,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
     # Calculate the min number of runs seemingly non-precog solutions must take, before we're confident an
     # illegally-assumed molecule would have had its failing variant show up by now (i.e. we haven't false-negatived
-    # a precog solution).
+    # a precog solution). Note that this isn't an absolute minimum on the number of runs since finding all variants is
+    # still a sufficient early-exit condition to declare a solution non-precognitive, but this allows us to exit early
+    # for solutions for which we still haven't found all variants (if none of the missing variants failed).
     # This is based on re-arranging (where n is the index of a molecule the solution illegally assumes):
     # P(nth input has any untested variant)
     # <= (1 - rarest_variant_chance)^runs
@@ -181,10 +189,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 cycles = just_run_cycle_count if just_run_cycle_count else solution.run(max_cycles=max_cycles).cycles
 
                 # Limit the max runs based on the solution's cycle count and our time constraints
-                # Note that max_runs is guaranteed 2 or more here since max_run_cycles is > 2 x max_cycles
-                # More commonly this value will be excessively large, but max_success_runs (calculated after min_runs
+                # Usually this value will be excessively large, and max_success_runs (calculated after min_runs
                 # is reached) serves as the more practical constraint on number of runs taken
-                max_runs = min(max_runs, max_run_cycles // cycles)  # TODO: Might also want // reactors here
+                max_runs = min(max_runs, max_total_cycles // cycles)  # TODO: Might also want // reactors here
             else:
                 solution.run(max_cycles=max_cycles)
 
@@ -204,7 +211,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         except Exception as e:
             if num_runs == 0:
                 # Not allowed to crash on the original seed, otherwise do nothing
-                raise Exception(f"Error in base seed: {type(e).__name__}: {e}")
+                raise Exception(f"Error in base seed: {type(e)}: {e}")
 
             target_variants_data = fail_run_variants  # The data set that this run's variants should be added to
             # Make sure we don't store data on variants of molecules from after the solution crashed
@@ -271,14 +278,15 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             if num_passing_runs >= max_success_runs:
                 # Since we just checked that at least one missing variant is failing, if we've exceeded our maximum
                 # successful runs, we're confident we aren't false-positiving and can mark the solution as precognitive
-                if verbose:
+                if verbose or stderr_on_precog:
                     # This is redundant but I want to report which molecule was precognitive
                     for i, N in enumerate(Ns):
                         for n in range(1, N):
                             # Check for any variants of the ith input that appeared in a failing run but never in a succeeding run
                             if n < len(fail_run_variants[i]) and fail_run_variants[i][n] - success_run_variants[i][n]:
-                                print(f"Molecule {n + 1} / {N} appears to always fail for some variants"
-                                      f" ({num_runs - num_passing_runs} / {num_runs} runs failed)")
+                                print(f"Solution is precognitive; molecule {n + 1} / {N} appears to always fail for some variants"
+                                      f" ({num_runs - num_passing_runs} / {num_runs} runs failed)",
+                                      file=STDERR if stderr_on_precog else STDOUT)
                                 return True
 
                 return True
@@ -297,10 +305,17 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             random_input.seed += 1
 
     # If we escaped the loop without returning and max_runs was constrained by the solution cycle count rather than
-    # the MAX_RUNS constant, warn the user that we've been time-constrained. For typical cycle counts (e.g. < 10k) this
-    # limit will never be encountered before the other probabilistic run count exit points.
-    if verbose and max_runs != MAX_RUNS:
-        print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.")
+    # the MAX_RUNS constant, we've been time-constrained. Since we can't meet our confidence thresholds for deciding
+    # one way or the other, raise an exception. For typical cycle counts (e.g. < 10k) this limit will never be
+    # encountered before the other probabilistic run count exit points.
+    if max_runs != MAX_RUNS:
+        if min_runs > num_runs:
+            runs_msg = f"{num_runs} / {min_runs} runs completed"
+        else:
+            runs_msg = f"{num_passing_runs} / {max_success_runs} passing runs completed"
+
+        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                           f" {runs_msg}.")
 
     # If we reached our time-constrained run limit but never found all variants in successful runs, consider the
     # solution precog if any of the missing variants appeared in any failing run
@@ -308,9 +323,10 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         for n in range(1, N):
             # Check for any variants of the ith input that appeared in a failing run but never in a succeeding run
             if n < len(fail_run_variants[i]) and fail_run_variants[i][n] - success_run_variants[i][n]:
-                if verbose:
-                    print(f"Molecule {n + 1} / {N} appears to always fail for some variants"
-                          f" ({num_runs - num_passing_runs} / {num_runs} runs failed)")
+                if verbose or stderr_on_precog:
+                    print(f"Solution is precognitive; molecule {n + 1} / {N} appears to always fail for some variants"
+                          f" ({num_runs - num_passing_runs} / {num_runs} runs failed).",
+                          file=STDERR if stderr_on_precog else STDOUT)
                 return True
 
     # If none of the missing variants showed up in any of the failing runs, we have no evidence that the solution
