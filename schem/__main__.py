@@ -100,19 +100,19 @@ if __name__ == '__main__':
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
                         help="Check if the given solution(s) are precognitive, per the current community definition.\n"
-                             "\nA solution is considered precognitive if it assumes knowledge of a *particular* input\n"
-                             "molecule. In other words, if, for some n >= 2, there is a choice of the nth input\n"
+                             "\nA solution is considered precognitive if either it fails for >= 50%% of random seeds,\n"
+                             "or it assumes knowledge of a *particular* input molecule other than the first.\n"
+                             "In other words, if, for some n >= 2, there is a choice of the nth input\n"
                              "for which the solution will always fail regardless of the rest of the input sequence.\n"
-                             "\nNote that this is calculated by running the solution anywhere from 2 (for solutions\n"
-                             "approaching a million+ max_cycle limit) to dozens of times for normal solutions, so the\n"
-                             "runtime will increase accordingly (for non-extreme cycle counts, this will generally be\n"
-                             "less than ~15 seconds per solution, and often sub-second).\n"
-                             "\nIf called with the --json field, adds a boolean 'precog' field to the output JSON.\n"
+                             "\nNote that this is calculated by running the solution a dozen to hundreds of times, so\n"
+                             "the runtime will increase accordingly (for typical sub-10k cycle solutions, this will\n"
+                             "be anywhere from sub-second up to ~15 seconds).\n"
+                             "\nIf called with the --json field, adds a 'precog' field to the output JSON.\n"
                              "Otherwise, prints check result human readably.")
     parser.add_argument('--max-precog-check-cycles', type=int, default=None,
                         help="The maximum total cycle count that may be used by all precognition-check runs;\n"
                              "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
-                             "error will be raised, or in the case of --json, the 'is_precog' value will be set to\n"
+                             "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
                              "Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).")
     stdout_args = parser.add_mutually_exclusive_group()

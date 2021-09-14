@@ -48,11 +48,11 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
 
             Default False.
         check_precog: If True, do additional runs on the solution to check if it fits the current community definition
-            of a precognitive solution. Currently only useful if return_json is present, in which case an 'is_precog'
-            field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
+            of a precognitive solution. Currently only useful if return_json is present, in which case a 'precog' field
+            will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
         max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if this
             value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised, or in the
-            case of return_json, the 'is_precog' value is set to None.
+            case of return_json, the 'precog' field is set to None.
             Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
@@ -114,7 +114,6 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
             raise Exception(f"No known level `{level_name}`")
 
     ret_val = None
-    is_precog = None
     exceptions = []
 
     for level, resnet_id in zip(matching_levels, matching_resnet_ids):
@@ -138,15 +137,15 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
 
             if check_precog:
                 try:
-                    is_precog = run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
-                                                                     max_total_cycles=max_precog_check_cycles,
-                                                                     just_run_cycle_count=score.cycles,
-                                                                     verbose=verbose,
-                                                                     stderr_on_precog=stderr_on_precog)
+                    run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
+                                                         max_total_cycles=max_precog_check_cycles,
+                                                         just_run_cycle_count=score.cycles,
+                                                         verbose=verbose,
+                                                         stderr_on_precog=stderr_on_precog)
                 except TimeoutError:
                     # If using --json mode, store None for the field instead of propagating any timeout error
                     if return_json:
-                        is_precog = run_data['precog'] = None
+                        run_data['precog'] = None
                     else:
                         raise
 
@@ -164,9 +163,6 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
     # Return the first successful run or raise the first error
     if ret_val is not None:
         if verbose:
-            if check_precog:
-                print(f"Solution is{'' if is_precog else ' not'} precognitive")
-
             if validate_expected_score:
                 print(f"Validated {soln_descr}")
 
@@ -207,11 +203,11 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
 
             Default False.
         check_precog: If True, do additional runs on the solution to check if it fits the current community definition
-            of a precognitive solution. Currently only useful if return_json is present, in which case a boolean
-            'precog' field will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
+            of a precognitive solution. Currently only useful if return_json is present, in which case a 'precog' field
+            will be included. See `schem.precognition.is_precognitive` for more info and a direct API.
         max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if this
             value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised, or in the
-            case of return_json, the 'is_precog' value is set to None.
+            case of return_json, the 'precog' field is set to None.
             Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
         verbose: If True, print warnings if there is not exactly one level with title matching the solution metadata.
                  Default False.
