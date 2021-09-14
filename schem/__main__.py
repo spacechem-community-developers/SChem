@@ -10,6 +10,7 @@ import time
 
 import clipboard
 
+from ._version import __version__
 from .game import run, validate
 from .solution import Solution, DebugOptions
 
@@ -84,6 +85,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--version', action='store_true', help="Print program version and exit")
     parser.add_argument('solution_file', type=argparse.FileType('r'), nargs='?',  # Accept either path arg or stdin pipe
                         default=sys.stdin,
                         help="File containing the solution(s) to execute."
@@ -136,6 +138,10 @@ if __name__ == '__main__':
                              "i: Show instructions. Default False since this mode can actually reduce readability.\n"
                              "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a cycle/s")
     args = parser.parse_args()
+
+    if args.version:
+        print(__version__)
+        sys.exit()
 
     if args.max_cycles == -1:
         args.max_cycles = math.inf
