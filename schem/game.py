@@ -35,7 +35,7 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
             Note that while some built-in game levels have duplicate titles, currently all of these have conflicting
             level features (bonders etc.), and therefore a solution can't successfully load into / solve multiple
             built-in levels.
-        max_cycles: Maximum cycle count to run to. Default double the expected cycle count in the solution metadata,
+        max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
             or 1,000,000 cycles if no expected score (use math.inf if you don't fear infinite loop solutions).
         validate_expected_score: If True, raise an exception if the solution metadata's expected score is missing or
                                  doesn't match the run result. Default False.
@@ -69,8 +69,12 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
             raise ValueError("Validation requires a valid expected score in the first solution line (currently 0-0-0);"
                              + " please update it or use run() without validation instead.")
 
-        if max_cycles is not None and expected_score.cycles > max_cycles:
-            raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+        if max_cycles is not None:
+            if expected_score.cycles > max_cycles:
+                raise ValueError(f"{soln_descr}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+
+            # If validating, limit the max cycles based on the expected score, to save time
+            max_cycles = min(max_cycles, int(expected_score.cycles * 1.1))
 
     # Convert level_code convenience arg to same format as level_codes
     if level_code is not None:
@@ -193,7 +197,7 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
             Note that while some built-in game levels have duplicate titles, currently all of these have conflicting
             level features (bonders etc.), and therefore a solution can't successfully load into / solve multiple
             built-in levels.
-        max_cycles: Maximum cycle count to run to. Default double the expected cycle count in the solution metadata.
+        max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata.
         return_json: If True, instead of a Score return a dict including the usual score fields, but also the level
             title, ResearchNet volume-issue-puzzle tuple (None if not a ResearchNet level), and solution author/title.
 

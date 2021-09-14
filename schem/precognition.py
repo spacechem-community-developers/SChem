@@ -95,9 +95,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
                           Can be enabled independently of `verbose`. Default False.
     """
-    # Same default as Solution.run
     if max_cycles is None:
         if solution.expected_score is not None:
+            # Larger default than in Solution.run since the seed might change the cycle count by a lot
             max_cycles = 2 * solution.expected_score.cycles
         else:
             max_cycles = Solution.DEFAULT_MAX_CYCLES

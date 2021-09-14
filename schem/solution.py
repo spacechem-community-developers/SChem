@@ -657,7 +657,7 @@ class Solution:
         '''Run this solution, returning a Score or else raising an exception if the level was not solved.
 
         Args:
-            max_cycles: Maximum cycle count to run to. Default double the expected cycle count in the solution metadata,
+            max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                         or 1,000,000 cycles if not provided (use math.inf if you don't fear infinite loop solutions).
             debug: Print an updating view of the solution while running. See DebugOptions.
         '''
@@ -671,7 +671,7 @@ class Solution:
         # Set the maximum runtime if unspecified to ensure a broken solution can't infinite loop forever
         if max_cycles is None:
             if self.expected_score is not None:
-                max_cycles = 2 * self.expected_score.cycles
+                max_cycles = int(1.1 * self.expected_score.cycles)
             else:
                 max_cycles = self.DEFAULT_MAX_CYCLES
 
@@ -756,8 +756,12 @@ class Solution:
             print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
                   + f" constructed for level {repr(self.level_name)}.")
 
-        if max_cycles is not None and self.expected_score.cycles > max_cycles:
-            raise ValueError(f"{self.description}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+        if max_cycles is not None:
+            if self.expected_score.cycles > max_cycles:
+                raise ValueError(f"{self.description}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+
+            # Limit the max cycles based on the expected score, to save time
+            max_cycles = min(max_cycles, int(self.expected_score.cycles * 1.1))
 
         score = self.run(max_cycles=max_cycles, debug=debug)
 

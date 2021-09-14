@@ -95,8 +95,8 @@ if __name__ == '__main__':
                              "If flag is used multiple times, it will be checked that the solution validates for at"
                              " least one of the levels.")
     parser.add_argument('--max-cycles', type=int, default=None,
-                        help="Maximum cycle count solutions may be run to. Default double the expected score, or"
-                             " 1,000,000 if incomplete score metadata.\n"
+                        help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
+                             "1,000,000 if incomplete score metadata.\n"
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
                         help="Check if the given solution(s) are precognitive, per the current community definition.\n"
