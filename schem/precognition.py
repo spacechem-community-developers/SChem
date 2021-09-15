@@ -223,7 +223,19 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             for n in range(1, num_new_variants):
                 variants_data[n].add(random_input.get_next_molecule_idx())
 
-        # Using the binomial cumulative distribution function (= P(successes <= X)), and assuming the most lenient 50%
+        # To save on futile runs, check if our time constraints can allow for us to get a sufficiently confident answer
+        # about the success rate, assuming all future runs are successes or all are failures.
+        # If we have so few runs that we can guarantee we won't be sure of our answer, we can pre-emptively timeout
+        remaining_runs = max_runs - num_runs
+        if not (  # Check if pure failures can confirm a too-low success rate
+                binom.cdf(num_passing_runs - 1, num_runs - 1 + remaining_runs, NON_PRECOG_MIN_PASS_RATE)
+                    < MAX_FALSE_POSITIVE_RATE
+                # Check if pure successes can confirm a sufficiently high success rate
+                or binom.cdf(num_runs - num_passing_runs, num_runs - 1 + remaining_runs, 1 - NON_PRECOG_MIN_PASS_RATE)
+                    < MAX_FALSE_NEGATIVE_RATE):
+            break
+
+        # Using the binomial cumulative distribution function (= P(successes <= X)), and assuming the most lenient
         # allowed success rate, mark the solution as precog if the probability of seeing a failure rate this bad ever
         # falls all the way below our false positive threshold.
         # First run is ignored since it's biased (must always pass).
