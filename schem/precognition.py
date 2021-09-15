@@ -158,13 +158,15 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     num_runs = 0
     num_passing_runs = 0
     while num_runs < max_runs:
+        if num_runs != 0:  # Smelly if, but this way `continue` is safe to use anywhere below
+            for random_input in random_inputs:
+                random_input.seed += 1
+
         solution.reset()  # Reset the solution from any prior run (this also picks up seed changes)
 
         # Skip to the next seed(s) if the first molecule of each random input isn't the same as in the original input
         if any(random_input.get_next_molecule_idx() != first_input_variants[i]
                for i, random_input in enumerate(random_inputs)):
-            for random_input in random_inputs:
-                random_input.seed += 1
             continue
 
         # Reset the inputs after that molecule check
@@ -243,11 +245,14 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             # If we passed the minimum total runs to be sufficiently confident we aren't marking a precog solution as
             # non-precog, we can immediately report the solution as non-precog if there are no failing runs containing a
             # molecule variant we haven't seen succeed yet (even if not all variants have been seen)
-            if (success_rate_okay
-                and all(n >= len(fail_run_variants[i])  # fail_run_variants isn't guaranteed to be of length N
-                        or not (fail_run_variants[i][n] - success_run_variants[i][n])
-                        for i, N in enumerate(Ns)
-                        for n in range(1, N))):
+            if all(n >= len(fail_run_variants[i])  # fail_run_variants isn't guaranteed to be of length N
+                   or not (fail_run_variants[i][n] - success_run_variants[i][n])
+                   for i, N in enumerate(Ns)
+                   for n in range(1, N)):
+                # Continue until we're confident on success rate
+                if not success_rate_okay:
+                    continue
+
                 if verbose:
                     print(f"Solution is not precognitive; no failing variants found for {sum(Ns)} input molecules"
                           f" ({num_passing_runs} / {num_runs} runs passed)")
@@ -288,7 +293,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                                              <= MAX_FALSE_POSITIVE_RATE))
 
             if num_passing_runs >= max_success_runs:
-                # Since we just checked that at least one missing variant is failing, if we've exceeded our maximum
+                # Since we just checked above that at least one missing variant is failing, if we've exceeded our max
                 # successful runs, we're confident we aren't false-positiving and can mark the solution as precognitive
                 if verbose or stderr_on_precog:
                     # This is redundant but I want to report which molecule was precognitive
@@ -315,18 +320,17 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
             return False
 
-        # Increment the random seed(s)
-        for random_input in random_inputs:
-            random_input.seed += 1
-
     # If we escaped the loop without returning, we've been time-constrained. Since we can't meet our confidence
     # thresholds for deciding whether or not the solution is precognitive, raise an exception. For solutions with
-    # typical cycle counts (e.g. < 10k) and which aren't very close to a 50% failure rate, this limit will never be
+    # typical cycle counts (e.g. < 10k) and which aren't very close to a 75% failure rate, this limit will never be
     # encountered before the other probabilistic run count exit conditions.
-    if min_early_exit_runs > num_runs:
+    if num_runs < min_early_exit_runs:
         runs_msg = f"{num_runs} / {min_early_exit_runs} required runs executed"
-    else:
+    elif num_runs < max_success_runs:
         runs_msg = f"{num_passing_runs} / {max_success_runs} required passing runs completed"
+    else:
+        runs_msg = f"success rate too near {100 * NON_PRECOG_MIN_PASS_RATE}% requirement" \
+                   f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed)"
 
     raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
                        f" {runs_msg}.")
