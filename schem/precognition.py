@@ -15,11 +15,11 @@ NON_PRECOG_MIN_PASS_RATE = 0.25
 # Lowering this increases the number of runs non-precog solutions require
 # We could probably be more lax on this one since precogs are submitted much less often, but it only saves about
 # 10 runs when checking a typical non-precog production solution
-MAX_FALSE_NEGATIVE_RATE = 0.0001  # 1 in 10,000
+MAX_FALSE_NEGATIVE_RATE = 0.001  # 1 in 10,000
 # The maximum acceptable rate of non-precognitive solutions being marked as precognitive
 # Lowering this increases the number of runs precog solutions require
 # This is the expensive one, but non-precogs are more common so we need a low false positive rate for them
-MAX_FALSE_POSITIVE_RATE = 0.0001  # 1 in 10,000
+MAX_FALSE_POSITIVE_RATE = 0.001  # 1 in 10,000
 # Since long cycle counts go hand-in-hand with demanding many runs for sufficient certainty, practical applications
 # don't have time to properly check precog for long solutions. By default, cut off the max total cycles runtime and
 # raise an error if this will be exceeded (rather than returning an insufficiently-confident answer)
