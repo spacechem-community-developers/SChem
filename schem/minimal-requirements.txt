@@ -1,0 +1,4 @@
+# Excludes requirements that are only used by the --debug option
+clipboard>=0.0.4
+numpy>=1.19.1
+scipy>=1.6.3
