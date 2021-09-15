@@ -102,7 +102,7 @@ if __name__ == '__main__':
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
                         help="Check if the given solution(s) are precognitive, per the current community definition.\n"
-                             "\nA solution is considered precognitive if either it fails for >= 50%% of random seeds,\n"
+                             "\nA solution is considered precognitive if either it fails for >= 75%% of random seeds,\n"
                              "or it assumes knowledge of a *particular* input molecule other than the first.\n"
                              "In other words, if, for some n >= 2, there is a choice of the nth input\n"
                              "for which the solution will always fail regardless of the rest of the input sequence.\n"

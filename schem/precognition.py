@@ -9,7 +9,7 @@ from scipy.stats import binom
 from .solution import Solution
 from .components import RandomInput
 
-NON_PRECOG_MIN_PASS_RATE = 0.5
+NON_PRECOG_MIN_PASS_RATE = 0.25
 
 # The maximum acceptable rate of precognitive solutions being marked as non-precognitive
 # Lowering this increases the number of runs non-precog solutions require
@@ -51,7 +51,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     If time constraints do not allow enough runs for 99.99% certainty either way, raise a TimeoutError.
 
     Currently, a solution is considered precognitive if:
-    * It fails for >= 50% of random seeds
+    * It fails for >= 75% of random seeds
     * OR it assumes the value of the Nth molecule of a random input, for some N >= 2.
       Stated conversely, a solution (with acceptable success rate) is non-precognitive if, for each random input I,
       each N >= 2, and each type of molecule M that I may create, there exists a random seed where the Nth input of I is
@@ -72,12 +72,12 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
        which variants for a given n have had at least one run succeed.
        If the solution fails, put the same nth-input-variant data in a separate 'failure variants' dataset.
     4. Repeat steps 2-3 until any of the following conditions is met:
-       * The failure rate is measured to be >= 50%, with sufficient confidence (precog).
-       * The success rate is measured to be > 50% with sufficient confidence, and the dataset of succeeding runs covers
+       * The failure rate is measured to be >= 75%, with sufficient confidence (precog).
+       * The success rate is measured to be > 25% with sufficient confidence, and the dataset of succeeding runs covers
          every possible variant of every possible n (2 <= n <= N), for all random input components (non-precog).
        * The maximum allowed runs based on max_total_cycles is reached (TimeoutError).
          With default settings this should only occur for very long (10k+ cycles) solutions or solutions with a
-         failure rate extremely close to 50%.
+         failure rate extremely close to 75%.
 
     Args:
         solution: The loaded solution to check.
@@ -236,7 +236,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
             return True
 
-        # Conversely, if we're not confident enough that the success rate is above 50%, we'll keep running until we are
+        # Conversely, if we're not confident enough that the success rate is over 25%, we'll keep running until we are
         # (= P(failures <= X)).
         success_rate_okay = binom.cdf(num_runs - num_passing_runs, num_runs - 1,  # Always-passing first run ignored
                                       1 - NON_PRECOG_MIN_PASS_RATE) < MAX_FALSE_NEGATIVE_RATE
@@ -309,7 +309,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 return True
 
         # If for every random input, we've succeeded on all variants up to the minimum number of molecules the solution
-        # needs from that input to complete, the solution is guaranteed non-precog (if it passes over half the runs)
+        # needs from that input to complete, the solution is guaranteed non-precog (if it meets the required pass rate)
         if (success_rate_okay
             and all(len(success_run_variants[i][n]) == num_variants[i]
                     for i, N in enumerate(Ns)
