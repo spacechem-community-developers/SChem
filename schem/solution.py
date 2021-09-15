@@ -9,8 +9,12 @@ import platform
 import time
 from typing import Optional
 
-import cursor
-import rich
+# These modules are only used for debug mode's pretty-printing, so make them optional
+try:
+    import cursor
+    import rich
+except ImportError:
+    pass
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
