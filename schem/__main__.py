@@ -102,7 +102,7 @@ if __name__ == '__main__':
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
                         help="Check if the given solution(s) are precognitive, per the current community definition.\n"
-                             "\nA solution is considered precognitive if either it fails for >= 75%% of random seeds,\n"
+                             "\nA solution is considered precognitive if either it fails for >= 50%% of random seeds,\n"
                              "or it assumes knowledge of a *particular* input molecule other than the first.\n"
                              "In other words, if, for some n >= 2, there is a choice of the nth input\n"
                              "for which the solution will always fail regardless of the rest of the input sequence.\n"
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                              "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
                              "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
-                             "Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).")
+                             "Default 2,000,000 cycles (this is sufficient for basically any sub-100k solution).")
     stdout_args = parser.add_mutually_exclusive_group()
     stdout_args.add_argument('--json', action='store_true',
                              help="Print JSON containing the run data, including level and solution metadata.\n"

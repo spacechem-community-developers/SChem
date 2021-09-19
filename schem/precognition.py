@@ -9,7 +9,7 @@ from scipy.stats import binom
 from .solution import Solution
 from .components import RandomInput
 
-NON_PRECOG_MIN_PASS_RATE = 0.25
+NON_PRECOG_MIN_PASS_RATE = 0.5
 
 # We will keep two confidence levels (CLs) for statistical operations; a more strict ideal CL, which we will attempt
 # to achieve if given enough time, and a fallback minimum acceptable CL, which if time-constrained, we will consider
@@ -58,14 +58,16 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                     verbose=False, stderr_on_precog=False):
     """Given a Solution, run/validate it then check if fits the current community definition of a precognitive solution.
 
-    If time constraints do not allow enough runs for 99.99% certainty either way, raise a TimeoutError.
+    If time constraints do not allow enough runs for even 90% certainty either way, raise a TimeoutError.
 
     Currently, a solution is considered precognitive if:
-    * It fails for >= 75% of random seeds
-    * OR it assumes the value of the Nth molecule of a random input, for some N >= 2.
+    * It assumes the value of the Nth molecule of a random input, for some N >= 2.
       Stated conversely, a solution (with acceptable success rate) is non-precognitive if, for each random input I,
       each N >= 2, and each type of molecule M that I may create, there exists a random seed where the Nth input of I is
       M, and the solution succeeds.
+    * OR it fails for >= 50% of random seeds.
+         Accordingly with the first rule excepting the first input molecule, this check only uses seeds that match
+         the first molecule (or all first molecules if there are multiple random inputs), if that is more favourable.
 
     In practice we check this with the following process:
     1. Run the solution on the original level, verifying it succeeds (validate the solution's expected score here too if
@@ -81,13 +83,14 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
        If the solution succeeds, aggregrate the nth-input-variant data with that of the first run, in order to track
        which variants for a given n have had at least one run succeed.
        If the solution fails, put the same nth-input-variant data in a separate 'failure variants' dataset.
-    4. Repeat steps 2-3 until any of the following conditions is met:
-       * The failure rate is measured to be >= 75%, with sufficient confidence (precog).
-       * The success rate is measured to be > 25% with sufficient confidence, and the dataset of succeeding runs covers
+    4. Repeat steps 2-3 until any of the following conditions is met (again ignoring seeds that had a differing first
+       input if that is more forgiving):
+       * The failure rate is measured to be >= 50%, with sufficient confidence (precog).
+       * The success rate is measured to be > 50% with sufficient confidence, and the dataset of succeeding runs covers
          every possible variant of every possible n (2 <= n <= N), for all random input components (non-precog).
        * The maximum allowed runs based on max_total_cycles is reached (TimeoutError).
-         With default settings this should only occur for very long (10k+ cycles) solutions or solutions with a
-         failure rate extremely close to 75%.
+         With default settings this should only occur for very long (100k+ cycles) solutions or solutions with a
+         failure rate extremely close to 50%.
 
     Args:
         solution: The loaded solution to check.
