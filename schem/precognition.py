@@ -11,15 +11,25 @@ from .components import RandomInput
 
 NON_PRECOG_MIN_PASS_RATE = 0.25
 
-# The maximum acceptable rate of precognitive solutions being marked as non-precognitive
+# We will keep two confidence levels (CLs) for statistical operations; a more strict ideal CL, which we will attempt
+# to achieve if given enough time, and a fallback minimum acceptable CL, which if time-constrained, we will consider
+# acceptable for returning an answer anyway even if the ideal is not achieved. If neither of these confidence levels
+# is obtained, an error will be raised
+
+# The preferred rate of precognitive solutions being marked as non-precognitive
 # Lowering this increases the number of runs non-precog solutions require
 # We could probably be more lax on this one since precogs are submitted much less often, but it only saves about
 # 10 runs when checking a typical non-precog production solution
-MAX_FALSE_NEGATIVE_RATE = 0.001  # 1 in 10,000
+PREFERRED_FALSE_NEG_RATE = 0.001
 # The maximum acceptable rate of non-precognitive solutions being marked as precognitive
 # Lowering this increases the number of runs precog solutions require
 # This is the expensive one, but non-precogs are more common so we need a low false positive rate for them
-MAX_FALSE_POSITIVE_RATE = 0.001  # 1 in 10,000
+PREFERRED_FALSE_POS_RATE = 0.001
+
+# Fallback confidence levels used for very slow solutions if we can't run enough to reach the higher confidence levels
+MAX_FALSE_POS_RATE = 0.1
+MAX_FALSE_NEG_RATE = 0.1
+
 # Since long cycle counts go hand-in-hand with demanding many runs for sufficient certainty, practical applications
 # don't have time to properly check precog for long solutions. By default, cut off the max total cycles runtime and
 # raise an error if this will be exceeded (rather than returning an insufficiently-confident answer)
@@ -139,8 +149,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     # This is based on re-arranging (where n is the index of a molecule the solution illegally assumes):
     # P(nth input has any untested variant)
     # <= (1 - rarest_variant_chance)^runs
-    # <= MAX_FALSE_NEGATIVE_RATE
+    # <= PREFERRED_FALSE_NEG_RATE
     min_early_exit_runs = 1
+    fallback_min_early_exit_runs = 1  # Used if we get time constrained
     for i, random_input in enumerate(random_inputs):
         # Since we only check seeds with same first molecule as the base seed to respect the first input assumption,
         # molecules from the first bucket may end up with a rarer variant. Use the worst case (ignoring cases that
@@ -148,8 +159,10 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         rarest_variant_chance = min(rare_counts[i] / bucket_sizes[i],
                                     first_bucket_rare_counts[i] / (bucket_sizes[i] - 1))
 
-        min_early_exit_runs = max(min_early_exit_runs, math.ceil(math.log(MAX_FALSE_NEGATIVE_RATE)
+        min_early_exit_runs = max(min_early_exit_runs, math.ceil(math.log(PREFERRED_FALSE_NEG_RATE)
                                                                  / math.log(1 - rarest_variant_chance)))
+        fallback_min_early_exit_runs = max(fallback_min_early_exit_runs, math.ceil(math.log(MAX_FALSE_NEG_RATE)
+                                                                                   / math.log(1 - rarest_variant_chance)))
 
     # For each random input, keep a list of sets containing all variants that appeared for the i-th input of that
     # random input. We don't store the 1st input's variants so store a dummy value at the front to keep our indices sane
@@ -225,33 +238,36 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
         # To save on futile runs, check if our time constraints can allow for us to get a sufficiently confident answer
         # about the success rate, assuming all future runs are successes or all are failures.
-        # If we have so few runs that we can guarantee we won't be sure of our answer, we can pre-emptively timeout
+        # If we have so few runs that we can guarantee even our fallback confidence level won't be met, we can
+        # immediately timeout
         remaining_runs = max_runs - num_runs
         if not (  # Check if pure failures can confirm a too-low success rate
                 binom.cdf(num_passing_runs - 1, num_runs - 1 + remaining_runs, NON_PRECOG_MIN_PASS_RATE)
-                    < MAX_FALSE_POSITIVE_RATE
+                < MAX_FALSE_POS_RATE
                 # Check if pure successes can confirm a sufficiently high success rate
                 or binom.cdf(num_runs - num_passing_runs, num_runs - 1 + remaining_runs, 1 - NON_PRECOG_MIN_PASS_RATE)
-                    < MAX_FALSE_NEGATIVE_RATE):
-            break
+                < MAX_FALSE_NEG_RATE):
+            raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                               f" too few runs to check {100 * NON_PRECOG_MIN_PASS_RATE}% success rate requirement"
+                               f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed).")
 
         # Using the binomial cumulative distribution function (= P(successes <= X)), and assuming the most lenient
         # allowed success rate, mark the solution as precog if the probability of seeing a failure rate this bad ever
-        # falls all the way below our false positive threshold.
+        # falls all the way below our ideal false positive threshold.
         # First run is ignored since it's biased (must always pass).
-        if binom.cdf(num_passing_runs - 1, num_runs - 1, NON_PRECOG_MIN_PASS_RATE) < MAX_FALSE_POSITIVE_RATE:
+        if binom.cdf(num_passing_runs - 1, num_runs - 1, NON_PRECOG_MIN_PASS_RATE) < PREFERRED_FALSE_POS_RATE:
             if verbose or stderr_on_precog:
                 print(f"Solution is precognitive; <= {100 * NON_PRECOG_MIN_PASS_RATE}% success rate for a random seed"
-                      f" (with {100 * (1 - MAX_FALSE_POSITIVE_RATE)}% confidence);"
+                      f" (with {100 * (1 - PREFERRED_FALSE_POS_RATE)}% confidence);"
                       f" {num_runs - num_passing_runs} / {num_runs} runs failed.",
                       file=STDERR if stderr_on_precog else STDOUT)
 
             return True
 
-        # Conversely, if we're not confident enough that the success rate is over 25%, we'll keep running until we are
+        # Conversely, if we're not confident enough in the success rate, we'll keep running until we are
         # (= P(failures <= X)).
         success_rate_okay = binom.cdf(num_runs - num_passing_runs, num_runs - 1,  # Always-passing first run ignored
-                                      1 - NON_PRECOG_MIN_PASS_RATE) < MAX_FALSE_NEGATIVE_RATE
+                                      1 - NON_PRECOG_MIN_PASS_RATE) < PREFERRED_FALSE_NEG_RATE
 
         if num_runs >= min_early_exit_runs:
             # If we passed the minimum total runs to be sufficiently confident we aren't marking a precog solution as
@@ -286,7 +302,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 # ... (and so on) ...
                 # ~= 1 - [1 - (1 - (first_bucket_rare_count / bucket_size))^successful_runs]^(bucket_size - 1)
                 #        * [1 - (1 - (regular_bucket_rare_count / bucket_size))^successful_runs]^(N - bucket_size)
-                # <= MAX_FALSE_POSITIVE_RATE
+                # <= PREFERRED_FALSE_POS_RATE
                 # With the first bucket bias accounting, this is too complex to solve exactly for successful_runs
                 # unlike with the false negative equation, but since we know it's monotonically increasing, we can just
                 # binary search to find the minimum valid successful_runs
@@ -302,7 +318,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                                              * (1 - (1 - (rare_counts[i] / bucket_size))
                                                     ** success_runs)
                                                ** max(N - bucket_size, 0)  # N might be less than the bucket size
-                                             <= MAX_FALSE_POSITIVE_RATE))
+                                             <= PREFERRED_FALSE_POS_RATE))
 
             if num_passing_runs >= max_success_runs:
                 # Since we just checked above that at least one missing variant is failing, if we've exceeded our max
@@ -332,17 +348,73 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
             return False
 
-    # If we escaped the loop without returning, we've been time-constrained. Since we can't meet our confidence
-    # thresholds for deciding whether or not the solution is precognitive, raise an exception. For solutions with
-    # typical cycle counts (e.g. < 10k) and which aren't very close to a 75% failure rate, this limit will never be
-    # encountered before the other probabilistic run count exit conditions.
-    if num_runs < min_early_exit_runs:
-        runs_msg = f"{num_runs} / {min_early_exit_runs} required runs executed"
-    elif num_runs < max_success_runs:
-        runs_msg = f"{num_passing_runs} / {max_success_runs} required passing runs completed"
-    else:
-        runs_msg = f"success rate too near {100 * NON_PRECOG_MIN_PASS_RATE}% requirement" \
-                   f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed)"
+    # If we escaped the loop without returning, we've been time-constrained in our number of runs.
+    # Attempt to do a final precog check with our fallback relaxed confidence levels, and if even then we aren't
+    # sufficiently confident in our answer, raise an error
+    if verbose:
+        print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.")
+
+    # Check if we're confident the success rate is too low
+    if binom.cdf(num_passing_runs - 1, num_runs - 1, NON_PRECOG_MIN_PASS_RATE) < MAX_FALSE_POS_RATE:
+        if verbose or stderr_on_precog:
+            print(f"Solution is precognitive; <= {100 * NON_PRECOG_MIN_PASS_RATE}% success rate for a random seed"
+                  f" (with {100 * (1 - MAX_FALSE_POS_RATE)}% confidence);"
+                  f" {num_runs - num_passing_runs} / {num_runs} runs failed.",
+                  file=STDERR if stderr_on_precog else STDOUT)
+
+        return True
+
+    # If we're also not confident the success rate is high enough, timeout
+    if not binom.cdf(num_runs - num_passing_runs, num_runs - 1,  1 - NON_PRECOG_MIN_PASS_RATE) < MAX_FALSE_NEG_RATE:
+        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                           f" success rate too near {100 * NON_PRECOG_MIN_PASS_RATE}% requirement"
+                           f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed).")
+
+    # Check for failing variants
+    if all(n >= len(fail_run_variants[i])  # fail_run_variants isn't guaranteed to be of length N
+           or not (fail_run_variants[i][n] - success_run_variants[i][n])
+           for i, N in enumerate(Ns)
+           for n in range(1, N)):
+        # If there were no failing variants, declare non-precog if our number of runs was above the relaxed constraint,
+        # otherwise timeout
+        if num_runs >= fallback_min_early_exit_runs:
+            if verbose:
+                print(f"Solution is not precognitive; no failing variants found for {sum(Ns)} input molecules"
+                      f" ({num_passing_runs} / {num_runs} runs passed)")
+
+            return False
+
+        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                           f" {num_runs} / {fallback_min_early_exit_runs} required runs executed.")
+
+    # Finally, if there were failing variants, re-calculate how many passing runs we needed with our relaxed confidence
+    # level, and call the solution precog if we
+    fallback_max_success_runs = 1
+    for i, (bucket_size, N) in enumerate(zip(bucket_sizes, Ns)):
+        fallback_max_success_runs = max(fallback_max_success_runs, binary_int_search(
+            lambda success_runs: 1 -
+                                 # First bucket
+                                 (1 - (1 - (first_bucket_rare_counts[i] / (bucket_size - 1)))
+                                      ** success_runs)
+                                 ** min(bucket_size - 1, N)  # N might be less than the bucket size
+                                 # Remaining buckets
+                                 * (1 - (1 - (rare_counts[i] / bucket_size))
+                                        ** success_runs)
+                                   ** max(N - bucket_size, 0)  # N might be less than the bucket size
+                                 <= MAX_FALSE_POS_RATE))
+
+    if num_passing_runs >= fallback_max_success_runs:
+        if verbose or stderr_on_precog:
+            # Report which molecule was precognitive
+            for i, N in enumerate(Ns):
+                for n in range(1, N):
+                    # Check for any variants of the ith input that appeared in a failing run but never in a succeeding run
+                    if n < len(fail_run_variants[i]) and fail_run_variants[i][n] - success_run_variants[i][n]:
+                        print(f"Solution is precognitive; molecule {n + 1} / {N} appears to always fail for some variants"
+                              f" ({num_runs - num_passing_runs} / {num_runs} runs failed)",
+                              file=STDERR if stderr_on_precog else STDOUT)
+                        return True
+        return True
 
     raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                       f" {runs_msg}.")
+                       f" {num_passing_runs} / {fallback_max_success_runs} required passing runs completed.")
