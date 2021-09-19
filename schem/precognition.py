@@ -433,8 +433,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                              1 - NON_PRECOG_MIN_PASS_RATE)
                    < MAX_FALSE_NEG_RATE):
             raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                               f" too few runs to check {100 * NON_PRECOG_MIN_PASS_RATE}% success rate requirement"
-                               f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed).")
+                               f" too few runs to ascertain {100 * NON_PRECOG_MIN_PASS_RATE}% success rate requirement"
+                               f" ({num_passing_runs} / {num_runs} runs passed, or"
+                               f" {num_passing_runs_first_match} / {num_runs_first_match} for seeds with same first input).")
 
         if success_rate_too_low(false_pos_rate=PREFERRED_FALSE_POS_RATE):
             return True
