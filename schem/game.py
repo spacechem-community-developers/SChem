@@ -5,7 +5,7 @@ from typing import Optional
 
 from .level import Level
 from .levels import levels as built_in_levels, defense_names, resnet_ids
-from .exceptions import ScoreError
+from .exceptions import SolutionImportError, ScoreError
 from .precognition import is_precognitive
 from .solution import Solution, DebugOptions
 
@@ -164,7 +164,7 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
         except Exception as e:
             exceptions.append(e)
 
-    # Return the first successful run or raise the first error
+    # Return the first successful run or raise the first non-import error, else the first error
     if ret_val is not None:
         if verbose:
             if validate_expected_score:
@@ -172,7 +172,8 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
 
         return ret_val
     else:
-        raise exceptions[0]
+        raise next((e for e in exceptions if not isinstance(e, SolutionImportError)),
+                   exceptions[0])
 
 
 def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,

@@ -19,7 +19,7 @@ except ImportError:
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .waldo import InstructionType
-from .exceptions import ScoreError
+from .exceptions import SolutionImportError, ScoreError
 from .grid import *
 from .level import OVERWORLD_COLS, OVERWORLD_ROWS
 from .terrains import terrains, MAX_TERRAIN_INT
@@ -347,203 +347,206 @@ class Solution:
 
                         posn_to_component[new_component.posn] = new_component
 
-        # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
-        if soln_export_str is not None:
-            # Get the first non-empty line
-            soln_metadata_str, *split_remainder = soln_export_str.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)
-            components_str = '' if not split_remainder else split_remainder[0].strip('\n')
-            self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
+        try:
+            # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
+            if soln_export_str is not None:
+                # Get the first non-empty line
+                soln_metadata_str, *split_remainder = soln_export_str.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)
+                components_str = '' if not split_remainder else split_remainder[0].strip('\n')
+                self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
-            if components_str:
-                assert components_str.startswith('COMPONENT:'), "Unexpected data on line 1"
+                if components_str:
+                    assert components_str.startswith('COMPONENT:'), "Unexpected data on line 1"
 
-            soln_defined_component_posns = set()  # Used to check that the solution doesn't doubly-define a component
+                soln_defined_component_posns = set()  # Used to check that the solution doesn't doubly-define a component
 
-            for component_str in ('COMPONENT:' + s for s in ('\n' + components_str).split('\nCOMPONENT:')[1:]):
-                component_type, component_posn = Component.parse_metadata(component_str)
+                for component_str in ('COMPONENT:' + s for s in ('\n' + components_str).split('\nCOMPONENT:')[1:]):
+                    component_type, component_posn = Component.parse_metadata(component_str)
 
-                # Ensure this component hasn't already been created/updated by the solution
-                if component_posn in soln_defined_component_posns:
-                    raise ValueError(f"Solution defines component at {component_posn} twice")
-                soln_defined_component_posns.add(component_posn)
+                    # Ensure this component hasn't already been created/updated by the solution
+                    if component_posn in soln_defined_component_posns:
+                        raise ValueError(f"Solution defines component at {component_posn} twice")
+                    soln_defined_component_posns.add(component_posn)
 
-                # Create a raw instance of the component if it doesn't exist yet
-                if component_posn not in posn_to_component:
-                    # Ensure this is a legal component type for the level (e.g. drag-starter-reactor -> has-starter)
-                    reactor_type_flag = f'has-{component_type.split("-")[1]}'
-                    assert ((reactor_type_flag in self.level and self.level[reactor_type_flag])
-                            # Misleadingly, allowed-reactor-types includes storage tanks
-                            or ('allowed-reactor-types' in self.level
-                                and component_type in self.level['allowed-reactor-types'])
-                            # Sandbox levels always allow sandbox reactor, infinite storage tank, and printers
-                            or (self.level['type'] == 'sandbox' and component_type in ('drag-sandbox-reactor',
-                                                                                       'drag-storage-tank-infinite',
-                                                                                       'drag-printer-passthrough',
-                                                                                       'drag-printer-output'))), \
-                        f"New component type {component_type} (at {component_posn}) is not legal in this level"
+                    # Create a raw instance of the component if it doesn't exist yet
+                    if component_posn not in posn_to_component:
+                        # Ensure this is a legal component type for the level (e.g. drag-starter-reactor -> has-starter)
+                        reactor_type_flag = f'has-{component_type.split("-")[1]}'
+                        assert ((reactor_type_flag in self.level and self.level[reactor_type_flag])
+                                # Misleadingly, allowed-reactor-types includes storage tanks
+                                or ('allowed-reactor-types' in self.level
+                                    and component_type in self.level['allowed-reactor-types'])
+                                # Sandbox levels always allow sandbox reactor, infinite storage tank, and printers
+                                or (self.level['type'] == 'sandbox' and component_type in ('drag-sandbox-reactor',
+                                                                                           'drag-storage-tank-infinite',
+                                                                                           'drag-printer-passthrough',
+                                                                                           'drag-printer-output'))), \
+                            f"New component type {component_type} (at {component_posn}) is not legal in this level"
 
-                    component_dict = {}
-                    if component_type.startswith('freeform-custom-reactor-'):
-                        # Add custom reactor attributes if needed
-                        i = int(component_type.split('-')[-1]) - 1
-                        component_dict = self.level['custom-reactors'][i]
+                        component_dict = {}
+                        if component_type.startswith('freeform-custom-reactor-'):
+                            # Add custom reactor attributes if needed
+                            i = int(component_type.split('-')[-1]) - 1
+                            component_dict = self.level['custom-reactors'][i]
 
-                    # As a convenience for defining early game levels without needing custom reactors, propagate
-                    # any top-level "disallowed-instructions" value from the level into each reactor
-                    if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
-                        component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
+                        # As a convenience for defining early game levels without needing custom reactors, propagate
+                        # any top-level "disallowed-instructions" value from the level into each reactor
+                        if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
+                            component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
 
-                    component = Component(component_dict, _type=component_type, posn=component_posn)
+                        component = Component(component_dict, _type=component_type, posn=component_posn)
 
-                    # Ensure the component is within the overworld bounds (note that presets don't have this
-                    #       restriction, e.g. Going Green). Its pipes will be bounds-checked later since even pipes of
-                    #       preset components should have bounds checks.
-                    # Note: It looks like other than in Going Green, SC deletes out-of-bound preset components
-                    #       However, so long as its at the puzzle level and not the solution, being a little more
-                    #       permissive than SC should be okay
-                    component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
-                                                  range(component.posn[1], component.posn[1] + component.dimensions[1])))
+                        # Ensure the component is within the overworld bounds (note that presets don't have this
+                        #       restriction, e.g. Going Green). Its pipes will be bounds-checked later since even pipes of
+                        #       preset components should have bounds checks.
+                        # Note: It looks like other than in Going Green, SC deletes out-of-bound preset components
+                        #       However, so long as its at the puzzle level and not the solution, being a little more
+                        #       permissive than SC should be okay
+                        component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
+                                                      range(component.posn[1], component.posn[1] + component.dimensions[1])))
+                        assert all(0 <= p[0] < OVERWORLD_COLS and 0 <= p[1] < OVERWORLD_ROWS
+                                   for p in component_posns), f"Component {component_type} is out of bounds"
+
+                        posn_to_component[component_posn] = component
+
+                    # Update the existing component (e.g. its pipes or reactor internals)
+                    # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
+                    # mutating a preset reactor's 1-long pipe whereas custom levels allow it.
+                    # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
+                    update_pipes = (not self.level['type'].startswith('research')
+                                    and ('mutable-pipes' not in self.level
+                                         or self.level['mutable-pipes']))
+                    component = posn_to_component[component_posn]
+                    try:
+                        component.update_from_export_str(component_str, update_pipes=update_pipes)
+                    except Exception as e:
+                        if not self.level['type'].startswith('research'):
+                            raise type(e)(f"{component.type} at {component.posn}: {e}") from e
+
+                        raise e
+
+                    # TODO: Ensure the updated component pipes are within the overworld bounds
+
+            # Now that we're done updating components, check that all components/pipes are validly placed
+            # TODO: Should probably just be a method validating self.components, and also called at start of run()
+            blocked_posns = set()
+            # Tracks which directions pipes may cross through each other, and implicitly also which cells contain pipes
+            pipe_posns_to_dirns = {}
+
+            # Add impassable terrain
+            if not self.level['type'].startswith('research'):
+                blocked_posns.update(terrains[terrain_id]['obstructed'])
+
+            # Check for component/pipe collisions
+            for component in posn_to_component.values():
+                # Add this component's cells to the blacklist
+                # Check for collisions and add this component's main body (non-pipe) posns to the blacklist
+                component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
+                                              range(component.posn[1], component.posn[1] + component.dimensions[1])))
+                assert (component_posns.isdisjoint(blocked_posns)
+                        and component_posns.isdisjoint(pipe_posns_to_dirns.keys())), \
+                    f"Component at {component.posn} colliding with terrain or another component"
+                blocked_posns.update(component_posns)
+
+                # Check pipes are valid
+                for i, pipe in enumerate(component.out_pipes):
+                    if not pipe:  # TODO: Should maybe yell if the pipe is empty instead of None
+                        continue
+
+                    assert len(pipe.posns) == len(set(pipe.posns)), "Pipe overlaps with itself"
+
+                    # Make sure the pipe is properly connected to this component
+                    # TODO: this code would break if any component had 3 output pipes but none do...
+                    assert pipe.posns[0] == (component.dimensions[0], ((component.dimensions[1] - 1) // 2) + i), \
+                        f"Pipe {i} is not connected to parent component {component.type} at {component.posn}"
+
+                    # Ensure this pipe doesn't collide with a component, terrain, or the overworld edges
+                    # Recall that pipe posns are defined relative to their parent component's posn
+                    cur_pipe_posns = set((component.posn[0] + pipe_posn[0], component.posn[1] + pipe_posn[1])
+                                         for pipe_posn in pipe.posns)
                     assert all(0 <= p[0] < OVERWORLD_COLS and 0 <= p[1] < OVERWORLD_ROWS
-                               for p in component_posns), f"Component {component_type} is out of bounds"
+                               for p in cur_pipe_posns), f"Component {component.type} pipe {i} is out of bounds"
+                    assert cur_pipe_posns.isdisjoint(blocked_posns), \
+                        f"Collision(s) between pipe and terrain/component at {cur_pipe_posns & blocked_posns}"
 
-                    posn_to_component[component_posn] = component
+                    # Identify each pipe segment as vertical, horizontal, or a turn, and ensure all overlaps are legal.
+                    # We can do the latter by tracking which pipe directions have already been 'occupied' by a pipe in any
+                    # given cell - with a turn occupying both directions. We'll use RIGHT/DOWN for horizontal/vertical.
 
-                # Update the existing component (e.g. its pipes or reactor internals)
-                # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
-                # mutating a preset reactor's 1-long pipe whereas custom levels allow it.
-                # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
-                update_pipes = (not self.level['type'].startswith('research')
-                                and ('mutable-pipes' not in self.level
-                                     or self.level['mutable-pipes']))
-                component = posn_to_component[component_posn]
-                try:
-                    component.update_from_export_str(component_str, update_pipes=update_pipes)
-                except Exception as e:
-                    if not self.level['type'].startswith('research'):
-                        raise type(e)(f"{component.type} at {component.posn}: {e}") from e
+                    # To find whether a pipe is straight or not, we need to iterate over each pipe posn with its neighbors
+                    # Ugly edge case: When a pipe starts by moving vertically, it prevents a horizontal pipe from
+                    #                 overlapping it because it 'turns' into its reactor.
+                    #                 But when a vertical pipe ends next to a reactor, it does not prevent another
+                    #                 pipe from crossing through horizontally - in fact, the horizontal pipe will be the
+                    #                 one to connect to the reactor. Therefore, the 'neighbor' of the last posn should
+                    #                 be itself, in order to count the pipe as straight either vertically or horizontally.
+                    #                 However, the 'neighbor' of the first posn should be itself with 1 subtracted
+                    #                 from the column (the connection to the reactor), to ensure it prevents horizontal
+                    #                 crossovers (note that no components have pipes on their top/bottom edges so this is
+                    #                 safe).
+                    #                 This also ensures that a 1-long pipe will count as horizontal and not vertical.
+                    for prev, cur, next_ in zip([pipe.posns[0] + LEFT] + pipe.posns[:-1],
+                                                pipe.posns,
+                                                pipe.posns[1:] + [pipe.posns[-1]]):
+                        real_posn = component.posn + cur
 
-                    raise e
+                        if real_posn not in pipe_posns_to_dirns:
+                            pipe_posns_to_dirns[real_posn] = set()
 
-                # TODO: Ensure the updated component pipes are within the overworld bounds
+                        # Pipe is not vertical (blocks the horizontal direction)
+                        if not prev.col == cur.col == next_.col:
+                            assert RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                            pipe_posns_to_dirns[real_posn].add(RIGHT)
 
-        # Now that we're done updating components, check that all components/pipes are validly placed
-        # TODO: Should probably just be a method validating self.components, and also called at start of run()
-        blocked_posns = set()
-        # Tracks which directions pipes may cross through each other, and implicitly also which cells contain pipes
-        pipe_posns_to_dirns = {}
+                        # Pipe is not horizontal (blocks the vertical direction)
+                        if not prev.row == cur.row == next_.row:
+                            assert UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
+                            pipe_posns_to_dirns[real_posn].add(UP)
 
-        # Add impassable terrain
-        if not self.level['type'].startswith('research'):
-            blocked_posns.update(terrains[terrain_id]['obstructed'])
+            # Store all components, sorting them left-to-right then top-to-bottom to ensure correct I/O priorities
+            # (since posns are col first then row, this is just a regular sort on the posn tuples)
+            self.components = [component for posn, component in sorted(posn_to_component.items())]
 
-        # Check for component/pipe collisions
-        for component in posn_to_component.values():
-            # Add this component's cells to the blacklist
-            # Check for collisions and add this component's main body (non-pipe) posns to the blacklist
-            component_posns = set(product(range(component.posn[0], component.posn[0] + component.dimensions[0]),
-                                          range(component.posn[1], component.posn[1] + component.dimensions[1])))
-            assert (component_posns.isdisjoint(blocked_posns)
-                    and component_posns.isdisjoint(pipe_posns_to_dirns.keys())), \
-                f"Component at {component.posn} colliding with terrain or another component"
-            blocked_posns.update(component_posns)
+            # Connect the ends of all pipes to available component inputs
+            for component in self.components:
+                for pipe in component.out_pipes:
+                    if pipe is None:
+                        continue
 
-            # Check pipes are valid
-            for i, pipe in enumerate(component.out_pipes):
-                if not pipe:  # TODO: Should maybe yell if the pipe is empty instead of None
-                    continue
+                    pipe_end = component.posn + pipe.posns[-1]
 
-                assert len(pipe.posns) == len(set(pipe.posns)), "Pipe overlaps with itself"
+                    # Ugly edge case:
+                    # If there are two pipe ends in the same spot, the vertical one should not connect to a component.
+                    # We can tell when this is happening thanks to the posn_dirn dict we built up earlier while checking for
+                    # pipe collisions. The end of a pipe is always 'straight', so if there are two directions occupied in
+                    # the cell this pipe ends in, we know there are two pipes here. We must ignore this pipe if its second
+                    # last segment is not to the left of its last segment.
+                    if (pipe_posns_to_dirns[pipe_end] == {UP, RIGHT}
+                            and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + LEFT):
+                        continue
 
-                # Make sure the pipe is properly connected to this component
-                # TODO: this code would break if any component had 3 output pipes but none do...
-                assert pipe.posns[0] == (component.dimensions[0], ((component.dimensions[1] - 1) // 2) + i), \
-                    f"Pipe {i} is not connected to parent component {component.type} at {component.posn}"
+                    # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
+                    # component is always 1 up and right of its input pipe, plus one more row for lower inputs (up to 3 for
+                    # recycler). Blindly check the 3 possible positions for components that could connect to this pipe
 
-                # Ensure this pipe doesn't collide with a component, terrain, or the overworld edges
-                # Recall that pipe posns are defined relative to their parent component's posn
-                cur_pipe_posns = set((component.posn[0] + pipe_posn[0], component.posn[1] + pipe_posn[1])
-                                     for pipe_posn in pipe.posns)
-                assert all(0 <= p[0] < OVERWORLD_COLS and 0 <= p[1] < OVERWORLD_ROWS
-                           for p in cur_pipe_posns), f"Component {component.type} pipe {i} is out of bounds"
-                assert cur_pipe_posns.isdisjoint(blocked_posns), \
-                    f"Collision(s) between pipe and terrain/component at {cur_pipe_posns & blocked_posns}"
-
-                # Identify each pipe segment as vertical, horizontal, or a turn, and ensure all overlaps are legal.
-                # We can do the latter by tracking which pipe directions have already been 'occupied' by a pipe in any
-                # given cell - with a turn occupying both directions. We'll use RIGHT/DOWN for horizontal/vertical.
-
-                # To find whether a pipe is straight or not, we need to iterate over each pipe posn with its neighbors
-                # Ugly edge case: When a pipe starts by moving vertically, it prevents a horizontal pipe from
-                #                 overlapping it because it 'turns' into its reactor.
-                #                 But when a vertical pipe ends next to a reactor, it does not prevent another
-                #                 pipe from crossing through horizontally - in fact, the horizontal pipe will be the
-                #                 one to connect to the reactor. Therefore, the 'neighbor' of the last posn should
-                #                 be itself, in order to count the pipe as straight either vertically or horizontally.
-                #                 However, the 'neighbor' of the first posn should be itself with 1 subtracted
-                #                 from the column (the connection to the reactor), to ensure it prevents horizontal
-                #                 crossovers (note that no components have pipes on their top/bottom edges so this is
-                #                 safe).
-                #                 This also ensures that a 1-long pipe will count as horizontal and not vertical.
-                for prev, cur, next_ in zip([pipe.posns[0] + LEFT] + pipe.posns[:-1],
-                                            pipe.posns,
-                                            pipe.posns[1:] + [pipe.posns[-1]]):
-                    real_posn = component.posn + cur
-
-                    if real_posn not in pipe_posns_to_dirns:
-                        pipe_posns_to_dirns[real_posn] = set()
-
-                    # Pipe is not vertical (blocks the horizontal direction)
-                    if not prev.col == cur.col == next_.col:
-                        assert RIGHT not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
-                        pipe_posns_to_dirns[real_posn].add(RIGHT)
-
-                    # Pipe is not horizontal (blocks the vertical direction)
-                    if not prev.row == cur.row == next_.row:
-                        assert UP not in pipe_posns_to_dirns[real_posn], f"Illegal pipe overlap at {real_posn}"
-                        pipe_posns_to_dirns[real_posn].add(UP)
-
-        # Store all components, sorting them left-to-right then top-to-bottom to ensure correct I/O priorities
-        # (since posns are col first then row, this is just a regular sort on the posn tuples)
-        self.components = [component for posn, component in sorted(posn_to_component.items())]
-
-        # Connect the ends of all pipes to available component inputs
-        for component in self.components:
-            for pipe in component.out_pipes:
-                if pipe is None:
-                    continue
-
-                pipe_end = component.posn + pipe.posns[-1]
-
-                # Ugly edge case:
-                # If there are two pipe ends in the same spot, the vertical one should not connect to a component.
-                # We can tell when this is happening thanks to the posn_dirn dict we built up earlier while checking for
-                # pipe collisions. The end of a pipe is always 'straight', so if there are two directions occupied in
-                # the cell this pipe ends in, we know there are two pipes here. We must ignore this pipe if its second
-                # last segment is not to the left of its last segment.
-                if (pipe_posns_to_dirns[pipe_end] == {UP, RIGHT}
-                        and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + LEFT):
-                    continue
-
-                # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
-                # component is always 1 up and right of its input pipe, plus one more row for lower inputs (up to 3 for
-                # recycler). Blindly check the 3 possible positions for components that could connect to this pipe
-
-                # Exception: Teleporter component from Corvi's "Teleporters"
-                # TODO: Calculate components' actual in pipe locations same way we do for out pipes
-                component_posn = pipe_end + (1, 0)
-                if component_posn in posn_to_component:
-                    other_component = posn_to_component[component_posn]
-                    if other_component.dimensions[1] == 1 and len(other_component.in_pipes) == 1:
-                        other_component.in_pipes[0] = pipe
-                    continue
-
-                for i in range(3):
-                    component_posn = pipe_end + (1, -1 - i)
+                    # Exception: Teleporter component from Corvi's "Teleporters"
+                    # TODO: Calculate components' actual in pipe locations same way we do for out pipes
+                    component_posn = pipe_end + (1, 0)
                     if component_posn in posn_to_component:
                         other_component = posn_to_component[component_posn]
-                        if other_component.dimensions[1] > 1 and len(other_component.in_pipes) >= i + 1:
-                            other_component.in_pipes[i] = pipe
-                        break
+                        if other_component.dimensions[1] == 1 and len(other_component.in_pipes) == 1:
+                            other_component.in_pipes[0] = pipe
+                        continue
+
+                    for i in range(3):
+                        component_posn = pipe_end + (1, -1 - i)
+                        if component_posn in posn_to_component:
+                            other_component = posn_to_component[component_posn]
+                            if other_component.dimensions[1] > 1 and len(other_component.in_pipes) >= i + 1:
+                                other_component.in_pipes[i] = pipe
+                            break
+        except Exception as e:
+            raise SolutionImportError(str(e)) from e
 
     def export_str(self):
         # Solution metadata
