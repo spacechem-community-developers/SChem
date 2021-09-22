@@ -236,10 +236,10 @@ terrains = {
     "Sleepless on Sernimir IV": {
         'obstructed': {
             # Top rock
-            *product(range(16, 20), (2,)),
-            *product(range(14, 21), (3,)),
-            *product(range(13, 21), range(4, 5)),
-            *product(range(14, 21), (6,)),
+            *product(range(17, 21), (2,)),
+            *product(range(15, 22), (3,)),
+            *product(range(14, 22), range(4, 6)),
+            *product(range(15, 22), (6,)),
         },
         'fixed-input-zones': (('drag-silo-input', (4, 2)),
                               ('drag-silo-input', (5, 9)),
@@ -253,10 +253,9 @@ terrains = {
     "Nothing Works": {
         'obstructed': {
             # Rock
-            *product(range(20, 23), (10,)),
-            *product(range(19, 23), (11,)),
-            *product(range(19, 23), (12,)),
-            *product(range(20, 23), (13,)),
+            *product(range(20, 23), (9,)),
+            *product(range(19, 23), range(10, 12)),
+            *product(range(20, 23), (12,)),
         },
         'fixed-input-zones': (('drag-oceanic-input', (8, 10)),
                               ('drag-atmospheric-input', (5, 19))),
