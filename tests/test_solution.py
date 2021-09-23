@@ -74,7 +74,7 @@ class TestSolution(unittest.TestCase):
         for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
-                with self.assertRaises(Exception):
+                with self.assertRaises(schem.SolutionImportError):
                     schem.Solution(level, solution_code)
                 print(f"✅  {test_id}")
 
@@ -124,7 +124,7 @@ class TestSolution(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
-                with self.assertRaises(schem.exceptions.InvalidOutputError):
+                with self.assertRaises(schem.InvalidOutputError):
                     solution.run()
                     print(f"✅  {test_id}")
 
@@ -134,7 +134,7 @@ class TestSolution(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = schem.Level(level_code)
                 solution = schem.Solution(level, solution_code)
-                with self.assertRaises(TimeoutError):  # TODO: schem.exceptions.InfiniteLoopError
+                with self.assertRaises(TimeoutError):  # TODO: schem.InfiniteLoopError
                     solution.run()
                 print(f"✅  {test_id}")
 
@@ -145,7 +145,7 @@ class TestSolution(unittest.TestCase):
                 solution = schem.Solution(level, solution_code)
 
                 # Run the solution and expect it to pause
-                with self.assertRaises(schem.exceptions.PauseException):
+                with self.assertRaises(schem.PauseException):
                     solution.run()
 
                 # Make sure the displayed cycle on immediate pause matches SC's

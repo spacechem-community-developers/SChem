@@ -66,7 +66,7 @@ class TestGame(unittest.TestCase):
 
     def test_run_json_duplicate_levels_import_error(self):
         """Test game.run with return_json=True and a solution which crashes on import to two same-name levels."""
-        with self.assertRaises(Exception):
+        with self.assertRaises(schem.SolutionImportError):
             soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0,Unnamed Solution
 COMPONENT:'custom-research-reactor',2,0,''"""
             schem.run(soln_str, return_json=True, verbose=False)
@@ -85,7 +85,7 @@ MEMBER:'feature-bonder',-1,0,1,2,5,0,0
 MEMBER:'feature-bonder',-1,0,1,1,5,0,0
 MEMBER:'feature-splitter',-1,0,1,0,1,0,0"""
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(TimeoutError):
             schem.run(soln_str, return_json=True, max_cycles=10, verbose=False)
 
     def test_run_json_duplicate_levels_success(self):
