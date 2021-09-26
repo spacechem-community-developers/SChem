@@ -10,9 +10,60 @@ from .precognition import is_precognitive
 from .solution import Solution, DebugOptions
 
 
-def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, validate_expected_score=False,
-        return_json=False, check_precog=False, max_precog_check_cycles=None, verbose=False, stderr_on_precog=False,
-        debug: Optional[DebugOptions] = False):
+def load_solution(soln_str: str, level_codes=None, _return_resnet_id=False):
+    """Given a solution export string, return a Solution object loaded into the level with matching name.
+
+    If multiple official or given levels match the level name in the solution's metadata, returns the first Solution
+    object that can be successfully loaded from them. Note that in the case of official levels, there are currently no
+    levels sharing a name that have compatible features, so this is guaranteed to load the correct level if possible.
+    If multiple custom levels of the same name are provided, no guarantee is made that the solution doesn't load into
+    multiple of them; only the first successful load is returned.
+
+    If level_code or level_codes is provided, only the given level(s) are checked (official levels are ignored).
+
+    Note: To attempt to load a solution into a level with mis-matched name, use the Solution constructor directly.
+    """
+    level_name = Solution.parse_metadata(soln_str)[0]
+
+    # If no levels were provided, fetch the matching official level(s)
+    if level_codes is None:
+        # Determine the built-in game level to run the solution against based on the level name in its metadata
+        if level_name in built_in_levels:
+            level_codes = []
+            matching_resnet_ids = []
+            if isinstance(built_in_levels[level_name], str):
+                level_codes.append(built_in_levels[level_name])
+                matching_resnet_ids.append(resnet_ids[level_name] if level_name in resnet_ids else None)
+            else:
+                level_codes.extend(built_in_levels[level_name])
+                matching_resnet_ids.extend(resnet_ids[level_name] if level_name in resnet_ids
+                                           else [None for _ in range(len(built_in_levels[level_name]))])
+        elif level_name in defense_names:
+            raise NotImplementedError("Defense levels unsupported")
+        else:
+            raise Exception(f"No known level `{level_name}`")
+    else:
+        # Return None for the resnet ID if not defaulting to official levels
+        matching_resnet_ids = [None for _ in range(len(level_codes))]
+
+    exceptions = []
+    for level_code, resnet_id in zip(level_codes, matching_resnet_ids):
+        level = Level(level_code)
+        if level.name == level_name:
+            try:
+                solution = Solution(level=level, soln_export_str=soln_str)
+                return solution if not _return_resnet_id else (solution, resnet_id)
+            except SolutionImportError as e:
+                exceptions.append(e)
+
+    raise exceptions[0] if exceptions else Exception(f"No level `{level_name}` provided")
+
+
+def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False,
+        check_precog=False, max_precog_check_cycles=None,
+        verbose=False, stderr_on_precog=False,
+        debug: Optional[DebugOptions] = False,
+        _validate_expected_score=False):
     """Wrapper for Solution.run which identifies the level to run in as needed, based on the solution metadata.
 
     Run the given solution, and return the (cycles, reactors, symbols) Score obtained. Raise an error if the solution
@@ -37,8 +88,6 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
             built-in levels.
         max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
             or 1,000,000 cycles if no expected score (use math.inf if you don't fear infinite loop solutions).
-        validate_expected_score: If True, raise an exception if the solution metadata's expected score is missing or
-                                 doesn't match the run result. Default False.
         return_json: If True, instead of a Score return a dict including the usual score fields, but also the level
             title, ResearchNet volume-issue-puzzle tuple (None if not a ResearchNet level), and solution author/title.
 
@@ -64,7 +113,7 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
     level_name, author, expected_score, soln_name = Solution.parse_metadata(soln_str)
     soln_descr = Solution.describe(level_name, author, expected_score, soln_name)
 
-    if validate_expected_score:
+    if _validate_expected_score:
         if expected_score is None:
             raise ValueError("Validation requires a valid expected score in the first solution line (currently 0-0-0);"
                              + " please update it or use run() without validation instead.")
@@ -80,100 +129,54 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, valid
     if level_code is not None:
         level_codes = [level_code]
 
-    matching_levels = []
-    matching_resnet_ids = []  # Used for reporting resnet ID of the run level when return_json is True
-    if level_codes:
-        levels = [Level(s) for s in level_codes]
-        matching_levels = [level for level in levels if level.name == level_name]
-        matching_resnet_ids = [None for _ in range(len(matching_levels))]
-
-        if not matching_levels:
-            if len(levels) == 1:
-                # If only a single level was provided, run against it anyway but warn of the mismatch
-                if verbose:
-                    print(f"Warning: Running solution against level {repr(levels[0].name)} that was originally"
-                          + f" constructed for level {repr(level_name)}.")
-                matching_levels.append(levels[0])
-                matching_resnet_ids.append(None)
-            else:
-                raise Exception(f"No level `{level_name}` provided")
-        elif len(matching_levels) > 1 and verbose:
-            print(f"Warning: Multiple levels with name {level_name} given, checking solution against all of them.")
+    # Load the solution
+    if level_code is None:
+        solution, resnet_id = load_solution(soln_str, level_codes=level_codes, _return_resnet_id=True)
     else:
-        # Determine the built-in game level to run the solution against based on the level name in its metadata
-        if level_name in built_in_levels:
-            if isinstance(built_in_levels[level_name], str):
-                matching_levels.append(Level(built_in_levels[level_name]))
-                matching_resnet_ids.append(resnet_ids[level_name] if level_name in resnet_ids else None)
-            else:
-                matching_levels.extend(Level(export_str) for export_str in built_in_levels[level_name])
-                matching_resnet_ids.extend(resnet_ids[level_name] if level_name in resnet_ids
-                                           else [None for _ in range(len(built_in_levels[level_name]))])
+        solution, resnet_id = Solution(level=Level(level_code), soln_export_str=soln_str), None
 
-            if verbose and len(matching_levels) > 1:
-                print(f"Warning: Multiple levels with name {level_name} found, checking solution against all of them.")
-        elif level_name in defense_names:
-            raise Exception("Defense levels unsupported")
-        else:
-            raise Exception(f"No known level `{level_name}`")
+    # Exit early if we're validating and the reactor or symbol count doesn't match that expected
+    if _validate_expected_score:
+        reactors = len(list(solution.reactors))
+        if reactors != expected_score.reactors:
+            raise ScoreError(f"{soln_descr}: Expected {expected_score.reactors} reactors but got {reactors}.")
 
-    ret_val = None
-    exceptions = []
+        symbols = solution.symbols
+        if symbols != expected_score.symbols:
+            raise ScoreError(f"{soln_descr}: Expected {expected_score.symbols} symbols but got {symbols}.")
 
-    for level, resnet_id in zip(matching_levels, matching_resnet_ids):
+    score = cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
+
+    # Skip precog check if expected score validation failed
+    if _validate_expected_score and score != expected_score:
+        raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
+
+    run_data = {'level_name': solution.level.name,
+                'resnet_id': resnet_id,
+                'cycles': cycles,
+                'reactors': reactors,
+                'symbols': symbols,
+                'author': solution.author,
+                'solution_name': solution.name}
+
+    if check_precog:
         try:
-            solution = Solution(level=level, soln_export_str=soln_str)
-            score = cycles, reactors, symbols = solution.run(max_cycles=max_cycles, debug=debug)
+            run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
+                                                 max_total_cycles=max_precog_check_cycles,
+                                                 just_run_cycle_count=score.cycles,
+                                                 verbose=verbose,
+                                                 stderr_on_precog=stderr_on_precog)
+        except TimeoutError:
+            # If using --json mode, store None for the field instead of propagating any timeout error
+            if return_json:
+                run_data['precog'] = None
+            else:
+                raise
 
-            # Avoid doing e.g. precog checks if expected score validation failed
-            # Note that the ScoreError will be caught and stored by the except clause so we can remember this score
-            # while still continuing to check any other matching levels
-            if validate_expected_score and score != expected_score:
-                raise ScoreError(f"{soln_descr}: Expected score {expected_score} but got {score}")
+    if verbose and _validate_expected_score:
+        print(f"Validated {soln_descr}")
 
-            run_data = {'level_name': level.name,
-                        'resnet_id': resnet_id,
-                        'cycles': cycles,
-                        'reactors': reactors,
-                        'symbols': symbols,
-                        'author': solution.author,
-                        'solution_name': solution.name}
-
-            if check_precog:
-                try:
-                    run_data['precog'] = is_precognitive(solution, max_cycles=max_cycles,
-                                                         max_total_cycles=max_precog_check_cycles,
-                                                         just_run_cycle_count=score.cycles,
-                                                         verbose=verbose,
-                                                         stderr_on_precog=stderr_on_precog)
-                except TimeoutError:
-                    # If using --json mode, store None for the field instead of propagating any timeout error
-                    if return_json:
-                        run_data['precog'] = None
-                    else:
-                        raise
-
-            # Return the successful run immediately if there was no expected score or it matched
-            if expected_score is None or score.cycles == expected_score.cycles:
-                ret_val = run_data if return_json else score
-                break
-
-            # Preserve the first successful score (in case the expected score is never found)
-            if ret_val is None:
-                ret_val = run_data if return_json else score
-        except Exception as e:
-            exceptions.append(e)
-
-    # Return the first successful run or raise the first non-import error, else the first error
-    if ret_val is not None:
-        if verbose:
-            if validate_expected_score:
-                print(f"Validated {soln_descr}")
-
-        return ret_val
-    else:
-        raise next((e for e in exceptions if not isinstance(e, SolutionImportError)),
-                   exceptions[0])
+    return run_data if return_json else score
 
 
 def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, return_json=False, check_precog=False,
@@ -221,9 +224,10 @@ def validate(soln_str: str, level_code=None, level_codes=None, max_cycles=None, 
         debug: Print an updating view of the solution while running; see DebugOptions. Default False.
     """
     ret_val = run(soln_str, level_code=level_code, level_codes=level_codes, max_cycles=max_cycles,
-                  validate_expected_score=True, return_json=return_json, check_precog=check_precog,
+                  return_json=return_json, check_precog=check_precog,
                   max_precog_check_cycles=max_precog_check_cycles,
-                  verbose=verbose, stderr_on_precog=stderr_on_precog, debug=debug)
+                  verbose=verbose, stderr_on_precog=stderr_on_precog, debug=debug,
+                  _validate_expected_score=True)
 
     if return_json:
         return ret_val

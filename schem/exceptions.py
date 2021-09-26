@@ -11,21 +11,26 @@ class SolutionImportError(Exception):
     __module__ = Exception.__module__
 
 
-class ReactionError(Exception):
+class SolutionRunError(RuntimeError):
+    """Raised when a solution encounters an error while being run."""
+    __module__ = Exception.__module__
+
+
+class ReactionError(SolutionRunError):
     """Raised if there is a molecule collision or a molecule is pulled apart in a reactor."""
     __module__ = Exception.__module__
 
 
-class PauseException(Exception):
+class PauseException(SolutionRunError):
     """Raised when a Pause command is encountered by a waldo."""
     __module__ = Exception.__module__
 
 
-class InvalidOutputError(Exception):
+class InvalidOutputError(SolutionRunError):
     """Raised when an invalid molecule is passed to a level output zone."""
     __module__ = Exception.__module__
 
 
 class ScoreError(Exception):
-    """Raised during validations if solution's expected score does not match."""
+    """Raised during validations if a solution's expected score does not match its actual score."""
     __module__ = Exception.__module__
