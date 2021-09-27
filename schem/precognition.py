@@ -142,9 +142,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     rare_counts = [min(random_input.input_counts) for random_input in random_inputs]  # Bucket's rarest molecule count
     # Rarest molecule count in first bucket, accounting for the fixed first molecule
     # and ignoring now-impossible variants (since they can't fail a run)
-    first_bucket_rare_counts = [min(true_count for variant, count in enumerate(random_input.input_counts)
-                                    if (true_count := (count - 1 if variant == first_variant else count))
-                                       != 0)
+    first_bucket_rare_counts = [min(count - 1 if variant == first_variant else count
+                                    for variant, count in enumerate(random_input.input_counts)
+                                    if (count - 1 if variant == first_variant else count) != 0)
                                 for random_input, first_variant in zip(random_inputs, first_input_variants)]
 
     # Calculate the min number of runs seemingly non-precog solutions must take, before we're confident an
