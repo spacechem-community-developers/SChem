@@ -24,8 +24,9 @@ def main(args: argparse.Namespace):
             solutions_str = clipboard.paste()
             solutions_src = 'Clipboard'  # For more helpful error message
 
-    level_codes = []
+    level_codes = None
     if args.level_files:
+        level_codes = []
         if any(level_file.suffix != '.puzzle' for level_file in args.level_files):
             print("Warning: Parsing file(s) without extension .puzzle as SpaceChem level(s)")
 
