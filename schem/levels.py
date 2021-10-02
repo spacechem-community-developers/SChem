@@ -137,11 +137,11 @@ LgHLx8EoITp2wTeaqJRnDdxEQjdGEETqJetaUesKqroijyXBwy0VFAz82i3Nt9Z0DB/3N+exog
 rBp4S34teXLcCDVY+aFHRoNy8h4cWM7eBmDk1znpLDhQtht4fpoCGr9K0MYbQllGOaopzV3wgb
 RgdoZojx1tnBpHWkBLg461XdxKn4sEpKe+56Pb/QWmXD2YLAEAAA==''',
     # Note: In the below two levels I used 'has-fusion' instead of 'has-nuclear' as a hack to get 'drag-fusion-reactor'
-    "Falling": '''H4sIAKHS+l8C/22RS2vDMAyA/0rxeQE7e7DN9zEodMfRjh1cx00NiRUUeWsWst8+KSuMkvlg8C
-d9euBRHeIpVEVMXabiC1Lo1eNqVJpv9eoooH3+1uWLNXy0Lc29NrYsjdbqaqWMZK1x6AiSXSMn
-Xd9xZOIQZFpWHFULTfC5CSJuiTDm1m7Fe/it6CEn4qDR07n+pbOL6CGJtZN2N/o/rVxomwh7kT
-Z7kcxCEqt1pwKD8wQoE98yOrq+cNWHSz5UjAhzONND7iOkS4bBD74J+Edp6Ob2HUKVPYnBNLl2
-pk+uaWKqBVWx5wd8zj/Rsz0nyxhvagYFQV3zLu/TD3Llv36yAQAA''',
+    "Falling": '''H4sIAPO0WGEC/22R30vDMBCA/5WRZwtJdaLmXYTBfJRNfMjSrAu0uXK96Gqpf7t3dSBz5iGQ7+
+67H2RU+3gMVRFTl6n4hBR69bAYleZbvTgKaJ++dPlsDR9tS3OnjS1Lo7W6WigjWSscOoJkV8hJ
+17ccmTgEmS4rjqqFJvjcBBE3RBhzazfi3f9U9JATcXA5ncqfK9uIHpJIW+l2o/+xygtrHWEnzn
+onjvnriNS6Y4HBeQKUcZeMDq4vXPXukg8VI8IcTnSf+wjpnGHwg28C/lIaurl7h1BlT2IwTa6d
+6aNrmphqQVXs+QEf8zf0bM/JMsarmkFBUNe8ytv0DTFiyEWvAQAA''',
     "Challenge: Applied Fusion": '''H4sIAKHS+l8C/22QTWsDIRCG/8riuQuj/WDJnkKg9Jbceig5iJpdwXXEjzZt2Pz2jqbQSzwM8s
 z4vDIXFqXXuPTWh5L7H/QmsU13YdBqoxV8HNf1oWMnezb67ix7l9nE8e0KYj9yOjAKPgAfheAA
 rD7Gku9lLOiMKs5UyWHGFGaMVnVbZXXVPR72V3iqymfOR+ADmTkMIJqf7qISAF6zbrUlUqDC4j
