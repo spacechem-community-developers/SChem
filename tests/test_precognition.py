@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
+
 from pathlib import Path
 import unittest
 import sys
@@ -35,8 +37,9 @@ class TestPrecognition(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = Level(level_code)
                 solution = Solution(level, soln_export_str=solution_code)
+                start = time.time()
                 self.assertTrue(schem.is_precognitive(solution))
-                print(f"✅  {test_id}")
+                print(f"✅ {time.time() - start:.3f}s - {test_id}")
 
     def test_is_precognitive_negative(self):
         """Test that run() does not require an expected score."""
@@ -44,8 +47,9 @@ class TestPrecognition(unittest.TestCase):
             with self.subTest(msg=test_id):
                 level = Level(level_code)
                 solution = Solution(level, soln_export_str=solution_code)
+                start = time.time()
                 self.assertFalse(schem.is_precognitive(solution))
-                print(f"✅  {test_id}")
+                print(f"✅ {time.time() - start:.3f}s - {test_id}")
 
 
 if __name__ == '__main__':

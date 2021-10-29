@@ -10,7 +10,7 @@ from .precognition import is_precognitive
 from .solution import Solution, DebugOptions
 
 
-def load_solution(soln_str: str, level_codes=None, _return_resnet_id=False):
+def load_solution(soln_str: str, level_codes=None, _return_resnet_id=False) -> Solution:
     """Given a solution export string, return a Solution object loaded into the level with matching name.
 
     If multiple official or given levels match the level name in the solution's metadata, returns the first Solution
@@ -19,7 +19,7 @@ def load_solution(soln_str: str, level_codes=None, _return_resnet_id=False):
     If multiple custom levels of the same name are provided, no guarantee is made that the solution doesn't load into
     multiple of them; only the first successful load is returned.
 
-    If level_code or level_codes is provided, only the given level(s) are checked (official levels are ignored).
+    If level_codes is provided, only the given level(s) are checked (official levels are ignored).
 
     Note: To attempt to load a solution into a level with mis-matched name, use the Solution constructor directly.
     """
@@ -44,7 +44,7 @@ def load_solution(soln_str: str, level_codes=None, _return_resnet_id=False):
             raise Exception(f"No known level `{level_name}`")
     else:
         # Return None for the resnet ID if not defaulting to official levels
-        matching_resnet_ids = [None for _ in range(len(level_codes))]
+        matching_resnet_ids = [None] * len(level_codes)
 
     exceptions = []
     for level_code, resnet_id in zip(level_codes, matching_resnet_ids):
@@ -129,7 +129,7 @@ def run(soln_str: str, level_code=None, level_codes=None, max_cycles=None, retur
     if level_code is not None:
         level_codes = [level_code]
 
-    # Load the solution
+    # Load the solution, skipping strict level name matching if the singular level_code was given.
     if level_code is None:
         solution, resnet_id = load_solution(soln_str, level_codes=level_codes, _return_resnet_id=True)
     else:
