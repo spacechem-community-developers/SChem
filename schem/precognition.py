@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from collections import Counter
 import math
 from sys import stdout as STDOUT, stderr as STDERR
 
@@ -29,29 +30,21 @@ PREFERRED_FALSE_POS_RATE = 0.001
 # Fallback confidence levels used for very slow solutions if we can't run enough to reach the higher confidence levels
 MAX_FALSE_POS_RATE = 0.1
 MAX_FALSE_NEG_RATE = 0.1
+# A constant factor that determines how quickly we decide a molecule variant has been assumed, if we see it fail X times
+# without ever succeeding. We declare precog if the variant's success rate is provably (to within our above
+# false positive confidence level) less than this ratio of the solution's observed success rate. Check the comments near
+# its usage for a fuller explanation, but I don't believe it actually has to be near 0, and putting it near 0 scales the
+# time precog solutions take to evaluate. For example, at a factor of 0.75 and false positive rate 0.001, for a solution
+# that was originally observed to have 100% success rate before searching for missing variants, it will only be
+# declared precog if a variant of the Nth molecule appears in 8 failing runs without ever appearing in a succeeding run.
+# We do want it to be less than 1 however since that saves us from edge case handling if the success rate was originally
+# measured to be 100%
+MOLECULE_SUCCESS_RATE_DEVIATION_LIMIT = 0.75
 
 # Since long cycle counts go hand-in-hand with demanding many runs for sufficient certainty, practical applications
 # don't have time to properly check precog for long solutions. By default, cut off the max total cycles runtime and
 # raise an error if this will be exceeded (rather than returning an insufficiently-confident answer)
 DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't constrain typical required run counts
-
-
-def binary_int_search(f, low=0, high=1):
-    """Given a boolean function f(n) of the form g(n) >= c, where g is monotonically increasing, use binary search to
-    find the minimum natural value of n that solves the equation.
-    """
-    # Init: double high until we find an upper bound
-    while not f(high):
-        high *= 2
-
-    while high != low + 1:
-        mid = (high + low) // 2
-        if f(mid):
-            high = mid
-        else:
-            low = mid
-
-    return high
 
 
 def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
@@ -108,9 +101,16 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
                           Can be enabled independently of `verbose`. Default False.
     """
+    # Hang onto references to each random input in the solution
+    random_inputs = [input_component for input_component in solution.inputs
+                     if isinstance(input_component, RandomInput)]
+
+    if not random_inputs:
+        return False  # duh
+
     if max_cycles is None:
         if solution.expected_score is not None:
-            # Larger default than in Solution.run since the seed might change the cycle count by a lot
+            # Set a larger default than in Solution.run since the seed might change the cycle count by a lot
             max_cycles = 2 * solution.expected_score.cycles
         else:
             max_cycles = Solution.DEFAULT_MAX_CYCLES
@@ -123,71 +123,44 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     # Track the min cycles a passing run takes so we can exit early if we know we can't prove anything before timeout
     min_passing_run_cycles = math.inf
 
-    # Hang onto references to each random input in the solution
-    random_inputs = [input_component for input_component in solution.inputs
-                     if isinstance(input_component, RandomInput)]
-
-    if not random_inputs:
-        return False  # duh
-
-    # For each input, N is the minimum molecules the solution must use from that input
+    # For each input zone, let N be the minimum molecules the solution must use from that input
     # Before we do any checks that require resetting the input objects, initialize Ns to the data from the last run if
     # just_run_cycle_count was provided
+    # TODO: re-jigger this with the below check so we pick up the ignore-pipe refinement but preferably
+    #       without having the same code in two places
     Ns = [random_input.num_inputs if just_run_cycle_count else math.inf for random_input in random_inputs]
 
     # Collect a bunch of information about each random input which we'll use for calculating how many runs are needed
     num_variants = [len(random_input.molecules) for random_input in random_inputs]
     first_input_variants = [random_input.reset().get_next_molecule_idx() for random_input in random_inputs]
-    bucket_sizes = [sum(random_input.input_counts) for random_input in random_inputs]
-    rare_counts = [min(random_input.input_counts) for random_input in random_inputs]  # Bucket's rarest molecule count
-    # Rarest molecule count in first bucket, accounting for the fixed first molecule
-    # and ignoring now-impossible variants (since they can't fail a run)
-    first_bucket_rare_counts = [min(count - 1 if variant == first_variant else count
-                                    for variant, count in enumerate(random_input.input_counts)
-                                    if (count - 1 if variant == first_variant else count) != 0)
+    # When accounting for the allowable first input assumption, we need to know whether that variant will be impossible
+    # to find for the rest of its bucket
+    first_input_is_unique = [random_input.input_counts[first_variant] == 1
                                 for random_input, first_variant in zip(random_inputs, first_input_variants)]
+    bucket_sizes = [sum(random_input.input_counts) for random_input in random_inputs]
 
-    # Calculate the min number of runs seemingly non-precog solutions must take, before we're confident an
-    # illegally-assumed molecule would have had its failing variant show up by now (i.e. we haven't false-negatived
-    # a precog solution). Note that this isn't an absolute minimum on the number of runs since finding all variants is
-    # still a sufficient condition to declare a solution non-precognitive, but this allows us to exit early
-    # for solutions for which we still haven't found all variants (if none of the missing variants failed).
-    # This is based on re-arranging (where n is the index of a molecule the solution illegally assumes):
-    # P(nth input has any untested variant)
-    # <= (1 - rarest_variant_chance)^runs
-    # <= PREFERRED_FALSE_NEG_RATE
-    min_early_exit_runs = 1
-    fallback_min_early_exit_runs = 1  # Used if we get time constrained
-    for i, random_input in enumerate(random_inputs):
-        # Since we only check seeds with same first molecule as the base seed to respect the first input assumption,
-        # molecules from the first bucket may end up with a rarer variant. Use the worst case (ignoring cases that
-        # become impossible in the first bucket since those can also never cause a run to fail)
-        rarest_variant_chance = min(rare_counts[i] / bucket_sizes[i],
-                                    first_bucket_rare_counts[i] / (bucket_sizes[i] - 1))
-
-        min_early_exit_runs = max(min_early_exit_runs, math.ceil(math.log(PREFERRED_FALSE_NEG_RATE)
-                                                                 / math.log(1 - rarest_variant_chance)))
-        fallback_min_early_exit_runs = max(fallback_min_early_exit_runs, math.ceil(math.log(MAX_FALSE_NEG_RATE)
-                                                                                   / math.log(1 - rarest_variant_chance)))
-
-    # For each random input, keep a list of sets containing all variants that appeared for the i-th input of that
-    # random input. We don't store the 1st input's variants so store a dummy value at the front to keep our indices sane
-    success_run_variants = [[set()] for _ in range(len(random_inputs))]
-    fail_run_variants = [[set()] for _ in range(len(random_inputs))]
+    # For each random input, track which variants of the Nth molecule have been seen, and how many runs it passed vs
+    # failed. We could get away with Sets instead of Counters for the success data but I prefer to keep things symmetric
+    # Since we allow first input assumptions, we don't store the 1st input's variants, but store a dummy
+    # value at the front to keep our indices sane
+    # Success data could get away with just set() but the symmetry keeps the code cleaner for negligible extra memory
+    # TODO: This variable is unused now; rip it out without hurting the code symmetry too much
+    #       Probably switching success data back to set() at the same time will make the two asymmetries mostly cancel out
+    success_run_variants = [[Counter()] for _ in range(len(random_inputs))]
+    fail_run_variants = [[Counter()] for _ in range(len(random_inputs))]
     num_runs = 0
     num_passing_runs = 0
 
     # Keep additional datasets that track only data from runs that had the same first molecule(s) as the base seed, so
     # our checks are unbiased for solutions that use the allowable assumption on the first input
     # Note that we don't need a separate measure of Ns since it is a minimum of any successful run, regardless of seed
-    success_run_variants_first_match = [[set()] for _ in range(len(random_inputs))]
-    fail_run_variants_first_match = [[set()] for _ in range(len(random_inputs))]
+    success_run_variants_first_match = [[Counter()] for _ in range(len(random_inputs))]
+    fail_run_variants_first_match = [[Counter()] for _ in range(len(random_inputs))]
     num_runs_first_match = 0
     num_passing_runs_first_match = 0
 
     # Since in the case of a timeout we'll need to redo the precog checks with a different confidence level,
     # define some helpers for the precog checks
-
     def success_rate_okay(false_neg_rate):
         """Check if, with sufficient confidence, the success rate is high enough."""
         # Using the binomial cumulative distribution function of the failure count (= P(failures <= X)), and assuming
@@ -223,59 +196,30 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
         return False
 
-    max_success_runs = None  # Not calculated until we reach the minimum early exit condition
-
-    def calc_max_success_runs(Ns, false_pos_rate):
-        """Calculate the number of passing runs we must see before we can declare a molecule has been assumed."""
-        # This is based on:
-        # P(false positive)
-        # ~= P(any molecule is missing a success variant)
-        # = 1 - P(no molecule missing success variant)
-        # = 1 - P(single molecule has all success variants)^(N - 1)
-        # = 1 - P(first bucket molecule has all success variants)^(bucket_size - 1)
-        #       * P(normal bucket molecule has all success variants)^(N - bucket_size)
-        # ... (and so on) ...
-        # ~= 1 - [1 - (1 - (first_bucket_rare_count / bucket_size))^successful_runs]^(bucket_size - 1)
-        #        * [1 - (1 - (regular_bucket_rare_count / bucket_size))^successful_runs]^(N - bucket_size)
-        # <= MAX_FALSE_POSITIVE_RATE
-        # With the first bucket bias accounting, this is too complex to solve exactly for successful_runs
-        # unlike with the false negative equation, but since we know it's monotonically increasing, we can just
-        # binary search to find the minimum valid successful_runs
-        max_success_runs = 1
-        for i, (bucket_size, N) in enumerate(zip(bucket_sizes, Ns)):
-            max_success_runs = max(max_success_runs, binary_int_search(
-                lambda success_runs: 1 -
-                                     # First bucket
-                                     (1 - (1 - (first_bucket_rare_counts[i] / (bucket_size - 1)))
-                                      ** success_runs)
-                                     ** min(bucket_size - 1, N)  # N might be less than the bucket size
-                                     # Remaining buckets
-                                     * (1 - (1 - (rare_counts[i] / bucket_size))
-                                        ** success_runs)
-                                     ** max(N - bucket_size, 0)  # N might be less than the bucket size
-                                     <= false_pos_rate))
-
-        return max_success_runs
-
-    def check_molecule_assumptions(min_early_exit_runs, false_pos_rate, skip_non_precog_checks=False):
+    def check_molecule_assumptions(false_pos_rate, skip_non_precog_checks=False):
         """Return True if we can safely declare the solution assumes a particular molecule (other than the first),
         return False if we can safely declare it does not, and return None if we aren't confident either way yet.
 
-        Also accept a flag to skip non-precog checks in the case that the success rate check hasn't passed yet.
+        Also accept a flag to skip non-precog checks (saving a little computation) in the case that the success rate
+        check hasn't passed yet. Checks that would determine the solution to be precog are still performed.
         """
-        nonlocal max_success_runs  # We'll update this once after we've reached min_early_exit_runs
+        # TODO: skip_non_precog_checks flag is ugly, split this into two functions now that it's two independent blocks
 
-        # If for every random input, we've succeeded on all variants up to the minimum number of molecules the solution
-        # needs from that input to complete, there are guaranteed no assumed molecules
-        # It is sufficient to fulfill this condition in either the subset of seeds matching the base seed's first
-        # molecules, or for the aggregrate data from all seeds
+        # If for every random input, we've succeeded at least once on all molecule variants (ignoring the first
+        # molecule) up to the minimum number of molecules the solution needs from that input to complete, there are
+        # guaranteed no assumed molecules.
+        # Note that we don't need to ignore successes from seeds with a differing first molecule from the base seed,
+        # since if there's a difference then the solution, by definition, didn't assume the first molecule.
         if (not skip_non_precog_checks
-            and (all(len(success_run_variants[i][n]) == num_variants[i]
-                     for i, N in enumerate(Ns)
-                     for n in range(1, N))
-                 or all(len(success_run_variants_first_match[i][n]) == num_variants[i]
-                        for i, N in enumerate(Ns)
-                        for n in range(1, N)))):
+            and all(len(success_run_variants[i][n]) == num_variants[i]
+                    # To account for the allowed first molecule assumption, ignore the first molecule's variant in its
+                    # bucket if it was unique, since it can be impossible for it to show up again.
+                    or (first_input_is_unique[i]
+                        and n < bucket_sizes[i]
+                        and len(success_run_variants[i][n]) == num_variants[i] - 1
+                        and first_input_variants[i] not in success_run_variants[i][n])
+                    for i, N in enumerate(Ns)
+                    for n in range(1, N))):  # Ignore first molecule
             if verbose:
                 print("Solution is not precognitive; successful variants found for all input molecules"
                       f" ({num_passing_runs} / {num_runs} runs passed, or"
@@ -283,70 +227,122 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
             return False
 
-        # Since waiting until all variants show up is often overkill, we'll provide early exit conditions for if there
-        # is/isn't a failing variant, once we've done enough runs to satisfy our required confidence level.
-        # While min_early_exit_runs is technically calculated only for preventing false negatives, in practice it is
-        # always less than max_success_runs (the anti-false-positive run threshold), so we will use it as a pre-req for
-        # both checks. This ensures that we don't calculate max_success_runs until we have an accurate count of how many
-        # molecules the solution uses at minimum (`N`).
-        if num_runs >= min_early_exit_runs:
-            # Exit early if there are no failing runs containing a molecule variant we haven't seen succeed yet
-            # (even if not all variants have been seen).
-            # It is sufficient for this to be true in either the restricted or unrestricted seed datasets
-            if (all(n >= len(fail_run_variants[i])  # fail_run_variants isn't guaranteed to be of length N
-                   or not (fail_run_variants[i][n] - success_run_variants[i][n])
-                   for i, N in enumerate(Ns)
-                   for n in range(1, N))
-                or all(n >= len(fail_run_variants_first_match[i])
-                       or not (fail_run_variants_first_match[i][n] - success_run_variants_first_match[i][n])
-                       for i, N in enumerate(Ns)
-                       for n in range(1, N))):
-                if skip_non_precog_checks:
-                    return None
+        # Otherwise, check if any of the variants has failed X times without ever succeeding.
+        # Before calculating X, we need to know what confidence level to use for its calculation.
+        # To account for the increased chance of a false positive caused by individually testing every variant (e.g. for
+        # a 50/50 production level, we'd have 80 individual variants to check, hence 80 chances for a variant to only
+        # show up during failing runs by pure bad luck), we do a little rejiggering with some basic math:
+        # total_false_positive_rate = P(any variant false positives)
+        # = 1 - P(no variant false positives)
+        # = 1 - P(single variant doesnt false positive)^total_variants
+        # = 1 - (1 - P(single variant false positives))^total_variants
+        # Rearranging, we get the stricter confidence level we must use for each individual variant check:
+        # P(single variant false positives) = 1 - (1 - total_false_positive_rate)^(1 / total_variants)
+        # Note that we don't care about the relative probabilities of the variants, since the solution has no control
+        # over which variants it is tested on; more common molecule variants will be seen in successful runs sooner, but
+        # the total probability that a variant eventually hits X failures before 1 success is the same as that for a
+        # rarer variant, all things being equal.
+        total_variants = sum(Ns[i] * num_variants[i] for i in range(len(random_inputs)))
+        individual_false_pos_rate = 1 - (1 - false_pos_rate)**(1 / total_variants)
+        # Now, to calculate X, consider that the solution has some unknown probability of succeeding for each given
+        # variant of the Nth molecule (e.g. P(success | 3rd molecule is Nitrogen)). In order to declare the solution
+        # precognitive, we must find one of these variants for which we can prove, with sufficient confidence, that
+        # its probability of success equals 0.
+        # However since proving an event is impossible is a hard problem (?), we'll settle for proving that a particular
+        # molecule variant's success rate is statistically significantly far below some constant factor of the
+        # solution's current success rate.
+        # E.g. if the solution succeeds 90% of the time, we will be much more suspicious of always-failing variants than
+        # if it succeeds 50% of the time. This isn't perfect since assumptions on sequences (allowed) might cause
+        # certain molecules' variants to have a lower success rate, but my expectation is that this bias will be
+        # somewhat counteracted by the stricter individual check confidence level (see above), since for
+        # any single variant to be significantly below the average success rate, other variants must be above it, and
+        # will thus have a reduced chance to false positive their own checks; making the effective confidence level
+        # stricter in the worst case of a single 'biased but not assumed' variant.
+        # In any case, this means we want (for some constant factor c < 1 that we'll pick to our liking):
+        # P(false positive) <= P(X failures in X tries) = (1 - c * success_rate)^X
+        # => X = log(P(false positive), base=(1 - c * success_rate))
+        # Note that this becomes prohibitively large for success rates close to 0, but we restrict success rate anyway
+        # so this is not a problem.
+        # TODO: Probably need to do two sets of checks, both with and without the off-seed runs
+        # TODO 2: This includes the first run, which is biased. If we want to exclude it, need to handle the
+        #         success rate = 0 case too. I don't think the bias matters much though especially with the factor.
+        max_variant_failures = math.ceil(math.log(individual_false_pos_rate,
+                                                  1 - (MOLECULE_SUCCESS_RATE_DEVIATION_LIMIT
+                                                       * success_rate_first_match)))
+        # TODO: This check is doing much more work than needed since only newly-failing variants need to be re-checked
+        #       It's insignificant compared to the cost of schem.run, but still.
+        for i, N in enumerate(Ns):
+            for n in range(1, N):
+                if n >= len(fail_run_variants_first_match[i]):
+                    continue
 
-                if verbose:
-                    print(f"Solution is not precognitive; no failing variants found for {sum(Ns)} input molecules"
-                          f" ({num_passing_runs} / {num_runs} runs passed, or"
-                          f" {num_passing_runs_first_match} / {num_runs_first_match} for seeds with same first molecule).")
+                # TODO: Is there any point also analyzing failures caused by differing first molecule runs?
+                #       No, but we CAN account for successes from off-seed runs. Of course, if a success appears in an
+                #       off-seed run then we clearly haven't assumed the first input...
+                for variant_idx in range(num_variants[i]):
+                    if ((n > len(success_run_variants[i])
+                         or variant_idx not in success_run_variants[i][n])
+                            and fail_run_variants_first_match[i][n][variant_idx] >= max_variant_failures):
+                        if verbose:
+                            # TODO: Use the molecule's name for clarity, or its formula if the formula is unique
+                            print(f"Solution is precognitive; variant {variant_idx} of molecule {n + 1} / {N}"
+                                  f" failed every time in {max_variant_failures} appearances (whereas solution success"
+                                  f" rate was otherwise {round(100 * success_rate_first_match)}%).",
+                                  file=STDERR if stderr_on_precog else STDOUT)
 
-                return False
-
-            if max_success_runs is None:
-                max_success_runs = calc_max_success_runs(Ns, false_pos_rate=false_pos_rate)
-
-            # Since we just confirmed that at least one missing variant is failing (in each seeds dataset), if we've
-            # exceeded our max successful runs (i.e. we're confident we aren't false-positiving), mark the solution as
-            # precog
-            if num_passing_runs >= max_success_runs:
-                if verbose or stderr_on_precog:
-                    # This is redundant but I want to report which molecule was precognitive
-                    for i, N in enumerate(Ns):
-                        for n in range(1, N):
-                            # Check for any variants of the ith input that appeared in a failing run but never in a succeeding run
-                            if n < len(fail_run_variants[i]) and fail_run_variants[i][n] - success_run_variants[i][n]:
-                                print(f"Solution is precognitive; molecule {n + 1} / {N} appears to always fail for some variants"
-                                      f" ({num_passing_runs} / {num_runs} runs passed, or"
-                                      f" {num_passing_runs_first_match} / {num_runs_first_match} for seeds with same first molecule).",
-                                      file=STDERR if stderr_on_precog else STDOUT)
-                                return True
-
-                return True
+                        return True
 
         return None
 
+    # Track when we can start skipping seeds without introducing bias in the success check
+    # Once we start skipping seeds we will also stop updating the success rate vars so they remain unbiased
+    success_check_passed = False
+    success_rate = None
+    success_rate_first_match = None
     while total_cycles < max_total_cycles:
         if num_runs != 0:  # Smelly if, but this way `continue` is safe to use anywhere below
             for random_input in random_inputs:
                 random_input.seed += 1
 
-        solution.reset()  # Reset the solution from any prior run (this also picks up seed changes)
+        # If we have already achieved sufficient confidence on the success rate, we are just waiting for all input
+        # variants to show up and no longer need to worry about biasing the success rate; skip seeds which consist
+        # entirely of input variants we've already seen in a previous successful run
+        # TODO: This is very unfocused seed skipping, simply ensuring bounded run time
+        #       Assuming the search for a relevant seed doesn't start to surpass schem.run in terms of compute cost,
+        #       it should be possible to achieve much faster convergence by strategically searching for seeds with
+        #       multiple variants that have yet to succeed/be seen, or to speed up precog solutions, by specifically
+        #       targeting the variants with the highest failure count, so we can quickly hit the cutoff point.
+        #       Doing the latter should be okay in terms of not introducing bias, but I'll have to have a think
+        #       about whether the former could increase variant failure rates in case say, the last two variants
+        #       always fail if they appear together - we could get caught purposely feeding the solution its bad
+        #       case when it would eventually succeed if given either bad variant individually.
+        #       For now we'll do the bare minimum seed skipping to ensure an unbiased proof-of-concept.
+        # TODO 2: It'd be nice to not have to wait for the success rate check to be done to start skipping seeds...
+        #         Possibly some skipping can be done that just fixes 'bad luck', and in theory only reduces
+        #         volatility in the success rate measurement rather than really biasing it - for example, skipping
+        #         an all-successful-variants seed if there exist variants that should have appeared by now but
+        #         haven't due to bad luck.
+        #         However this has to be implemented in a way that we're not forcing low-probability variants to appear
+        #         at a rate higher than they should (or biasing their neighbor molecules' variants, etc...).
+        # TODO 3: If the solution has never succeeded with a differing first molecule, it might be worth skipping those
+        #         seeds too. However would have to be careful of bad luck causing us to never give it a chance to pass
+        #         the off-brand seeds again.
+        if success_check_passed:
+            for i, random_input in enumerate(random_inputs):
+                random_input.reset().get_next_molecule_idx()  # Reset and skip past the first molecule
+
+                # Make sure at least one molecule variant in the seed is one we haven't seen succeed yet
+                if any(random_input.get_next_molecule_idx() not in success_run_variants[i][n]
+                       for n in range(1, Ns[i])):
+                    break
+            else:
+                continue
 
         # Check if the first molecule of each random input is the same as in the original input
-        first_molecule_matches = all(random_input.get_next_molecule_idx() == first_input_variants[i]
+        first_molecule_matches = all(random_input.reset().get_next_molecule_idx() == first_input_variants[i]
                                      for i, random_input in enumerate(random_inputs))
-        # Reset the inputs after that molecule check
-        for random_input in random_inputs:
-            random_input.reset()
+
+        solution.reset()  # Reset the solution from any prior run (this also picks up seed changes)
 
         # Run the solution with this seed of the input, checking if it succeeds (ignoring the exact score)
         try:
@@ -389,6 +385,12 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         if first_molecule_matches:
             num_runs_first_match += 1
 
+        # Update the success rate, unless we've started skipping seeds
+        if not success_check_passed:
+            success_rate = num_passing_runs / num_runs
+            if first_molecule_matches:
+                success_rate_first_match = num_passing_runs_first_match / num_runs_first_match
+
         # Track all nth input variants that appeared in this run for 2 <= n <= N
         datasets_to_update = ([target_variants_data, target_variants_data_first_match]
                               if first_molecule_matches else
@@ -398,10 +400,10 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 random_input.reset().get_next_molecule_idx()  # Reset and skip past n = 0
 
                 if num_new_variants > len(variants_data):
-                    variants_data.extend([set() for _ in range(num_new_variants - len(variants_data))])
+                    variants_data.extend([Counter() for _ in range(num_new_variants - len(variants_data))])
 
                 for n in range(1, num_new_variants):
-                    variants_data[n].add(random_input.get_next_molecule_idx())
+                    variants_data[n][random_input.get_next_molecule_idx()] += 1
 
         # To save on futile runs, check if our time constraints can allow for us to get a sufficiently confident answer
         # about the success rate, assuming all future runs are successes or all are failures.
@@ -437,13 +439,15 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                                f" ({num_passing_runs} / {num_runs} runs passed, or"
                                f" {num_passing_runs_first_match} / {num_runs_first_match} for seeds with same first input).")
 
-        if success_rate_too_low(false_pos_rate=PREFERRED_FALSE_POS_RATE):
-            return True
+        if not success_check_passed:
+            if success_rate_too_low(false_pos_rate=PREFERRED_FALSE_POS_RATE):
+                return True
+            elif success_rate_okay(false_neg_rate=PREFERRED_FALSE_NEG_RATE):
+                success_check_passed = True
 
         molecule_assumption_check_result = check_molecule_assumptions(
-            min_early_exit_runs=min_early_exit_runs,
             # Skip non-precog exit conditions if we aren't confident in the success rate yet
-            skip_non_precog_checks=not success_rate_okay(false_neg_rate=PREFERRED_FALSE_NEG_RATE),
+            skip_non_precog_checks=not success_check_passed,
             false_pos_rate=PREFERRED_FALSE_POS_RATE)
 
         if molecule_assumption_check_result is not None:
@@ -455,23 +459,21 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     if verbose:
         print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.")
 
-    if success_rate_too_low(false_pos_rate=MAX_FALSE_POS_RATE):
-        return True
+    # Skip these checks if the success check already passed. This is important because after the success check passes
+    # seeds with particular variants are searched for, which means the success rate is no longer unbiased
+    if not success_check_passed:
+        if success_rate_too_low(false_pos_rate=MAX_FALSE_POS_RATE):
+            return True
 
-    if not success_rate_okay(false_neg_rate=MAX_FALSE_NEG_RATE):
-        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                           f" success rate too near {100 * NON_PRECOG_MIN_PASS_RATE}% requirement"
-                           f" ({num_passing_runs} / {num_runs} = {100 * num_passing_runs / num_runs:.1f}% runs passed).")
+        if not success_rate_okay(false_neg_rate=MAX_FALSE_NEG_RATE):
+            raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                               f" success rate too near {100 * NON_PRECOG_MIN_PASS_RATE}% requirement"
+                               f" ({num_passing_runs} / {num_runs} = {100 * success_rate:.1f}% runs passed).")
 
-    max_success_runs = None  # Reset max_success_runs so the check will re-calculate it
-    molecule_assumption_check_result = check_molecule_assumptions(min_early_exit_runs=fallback_min_early_exit_runs,
-                                                                  false_pos_rate=MAX_FALSE_POS_RATE)
+    molecule_assumption_check_result = check_molecule_assumptions(false_pos_rate=MAX_FALSE_POS_RATE)
     if molecule_assumption_check_result is not None:
         return molecule_assumption_check_result
 
-    if num_runs < fallback_min_early_exit_runs:
-        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                           f" {num_runs} / {fallback_min_early_exit_runs} required runs executed.")
-    else:
-        raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                           f" {num_passing_runs} / {max_success_runs} required passing runs completed.")
+    # TODO: Be explicit about how many times we wanted to see each variant and which variants were still uncertain
+    raise TimeoutError("Precog check could not be completed due to time constraints; certain non-succeeding molecule"
+                       " variants not encountered enough times to be confident they always fail.")
