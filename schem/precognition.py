@@ -3,9 +3,18 @@
 
 from collections import Counter
 import math
-from sys import stdout as STDOUT, stderr as STDERR
+import sys
+# Convenience
+STDOUT, STDERR = sys.stdout, sys.stderr
 
 from scipy.stats import binom
+# Stupid black magic to suppress rare `divide by zero encountered in _binom_cdf` warning when calling binom for first
+# time with very particular values; scipy version 1.7.1. Python suppresses warnings past the first so we purposely
+# trigger it here. Messing with warnings management didn't help since reverting them to normal resets the count.
+import os
+sys.stderr = open(os.devnull, 'w')
+binom.cdf(39, 43097, 0.5)  # No, it doesn't occur for 38 or 40, or for any n lower than 43097
+sys.stderr = STDERR
 
 from .solution import Solution
 from .components import RandomInput
