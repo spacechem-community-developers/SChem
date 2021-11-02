@@ -314,37 +314,63 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 random_input.seed += 1
 
         # If we have already achieved sufficient confidence on the success rate, we are just waiting for all input
-        # variants to show up and no longer need to worry about biasing the success rate; skip seeds which consist
-        # entirely of input variants we've already seen in a previous successful run
-        # TODO: This is very unfocused seed skipping, simply ensuring bounded run time
-        #       Assuming the search for a relevant seed doesn't start to surpass schem.run in terms of compute cost,
-        #       it should be possible to achieve much faster convergence by strategically searching for seeds with
-        #       multiple variants that have yet to succeed/be seen, or to speed up precog solutions, by specifically
-        #       targeting the variants with the highest failure count, so we can quickly hit the cutoff point.
-        #       Doing the latter should be okay in terms of not introducing bias, but I'll have to have a think
-        #       about whether the former could increase variant failure rates in case say, the last two variants
-        #       always fail if they appear together - we could get caught purposely feeding the solution its bad
-        #       case when it would eventually succeed if given either bad variant individually.
-        #       For now we'll do the bare minimum seed skipping to ensure an unbiased proof-of-concept.
-        # TODO 2: It'd be nice to not have to wait for the success rate check to be done to start skipping seeds...
-        #         Possibly some skipping can be done that just fixes 'bad luck', and in theory only reduces
-        #         volatility in the success rate measurement rather than really biasing it - for example, skipping
-        #         an all-successful-variants seed if there exist variants that should have appeared by now but
-        #         haven't due to bad luck.
-        #         However this has to be implemented in a way that we're not forcing low-probability variants to appear
-        #         at a rate higher than they should (or biasing their neighbor molecules' variants, etc...).
-        # TODO 3: If the solution has never succeeded with a differing first molecule, it might be worth skipping those
+        # variants to show up and no longer need to worry about biasing the success rate; skip seeds to speed this
+        # process up. Specifically, we will pick the variant we've seen fail the most runs without ever succeeding, and
+        # skip all seeds not containing it. This will obviously speed up analysis of precog solutions, since the
+        # assumed molecule's failing variant will quickly be specifically targeted to reach our desired failure count
+        # threshold.
+        # Additionally, compared to just skipping seeds where all variants have succeeded, this approach is also subtly
+        # faster for non-precog solutions, because while the former will be indiscriminate in the number of failing
+        # variants in the seed it picks (as long as there is at least one), the first seed to contain a particular
+        # failing variant is more likely to be one that contains many failing variants, and thus it will tend to take
+        # fewer runs to succeed every variant (this is true even if the chosen variant has an inherently higher failure
+        # rate, since either way the expected number of runs containing that variant will be the same - there's just a
+        # higher chance that when it succeeds, it also fulfills other variants).
+        # Note that we can't directly require seeds with at least 2+ failing variants, because we could get locked into
+        # continuously picking a particular sequence the solution (legally) assumes does not occur.
+        # TODO: It'd be nice to not have to wait for the success rate check to be done to start skipping seeds...
+        #       Possibly some skipping can be done that just fixes 'bad luck', and in theory only reduces
+        #       volatility in the success rate measurement rather than really biasing it - for example, skipping
+        #       an all-successful-variants seed if there exist variants that should have appeared by now but
+        #       haven't due to bad luck.
+        #       However this has to be implemented in a way that we're not forcing low-probability variants to appear
+        #       at a rate higher than they should (or biasing their neighbor molecules' variants, etc...).
+        # TODO 2: If the solution has never succeeded with a differing first molecule, it might be worth skipping those
         #         seeds too. However would have to be careful of bad luck causing us to never give it a chance to pass
         #         the off-brand seeds again.
         if success_check_passed:
-            for i, random_input in enumerate(random_inputs):
-                random_input.reset().get_next_molecule_idx()  # Reset and skip past the first molecule
+            # Identify the input zone, molecule, and variant for which we've seen the most failures
+            target_input, target_molecule, target_variant = None, None, None
+            max_variant_fail_count = -1
+            for i, input_data in enumerate(fail_run_variants_first_match):
+                for m in range(1, len(input_data)):
+                    for v in range(num_variants[i]):
+                        if (v not in success_run_variants[i][m]
+                                and input_data[m][v] > max_variant_fail_count):
+                            target_input, target_molecule, target_variant = i, m, v
+                            max_variant_fail_count = input_data[m][v]
 
-                # Make sure at least one molecule variant in the seed is one we haven't seen succeed yet
-                if any(random_input.get_next_molecule_idx() not in success_run_variants[i][n]
-                       for n in range(1, Ns[i])):
-                    break
-            else:
+            # If no runs have failed yet, pick the next variant we haven't seen succeed (ignoring first molecule)
+            if target_input is None:
+                # Awkward wrapped iterable to avoid having to break from a nested loop
+                for i, m, v in ((i, m, v) for i in range(len(random_inputs))
+                                          for m in range(1, Ns[i])
+                                          for v in range(num_variants[i])):
+                    if ((m >= len(success_run_variants[i]) or v not in success_run_variants[i][m])
+                            # Make sure we don't pick a variant that's impossible under the first molecule assumption
+                            and not (first_input_is_unique[i]
+                                     and m < bucket_sizes[i]
+                                     and v == first_input_variants[i])):
+                        target_input, target_molecule, target_variant = i, m, v
+                        break
+
+            # Reset and skip past the molecules we don't care about
+            random_inputs[target_input].reset()
+            for n in range(target_molecule):
+                random_inputs[target_input].get_next_molecule_idx()
+
+            # Skip this seed if the target variant is not present
+            if random_inputs[target_input].get_next_molecule_idx() != target_variant:
                 continue
 
         # Check if the first molecule of each random input is the same as in the original input
