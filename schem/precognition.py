@@ -65,7 +65,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     Currently, a solution is considered precognitive if:
     * It assumes the value of the Nth molecule of a random input, for some N >= 2.
       Stated conversely, a solution (with acceptable success rate) is non-precognitive if, for each random input I,
-      each N >= 2, and each type of molecule M that I may create, there exists a random seed where the Nth input of I is
+      each N >= 2, and each type of molecule M that I produces, there exists a random seed where the Nth input of I is
       M, and the solution succeeds.
     * OR it fails for >= 50% of random seeds.
          Accordingly with the first rule excepting the first input molecule, this check only uses seeds that match
@@ -73,23 +73,18 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
     In practice we check this with the following process:
     1. Run the solution on the original level, verifying it succeeds (validate the solution's expected score here too if
-       possible). Track how many molecules were generated from each random input (call this N), and what the nth
-       molecule's variant was for every n up to N.
-    2. Increment the seeds of all random inputs at once until a set of seeds is found that has the same first molecule
-       produced for each input (since assumptions on the first input are allowed). Incrementing the seeds in lockstep
-       also ensures assumptions about inputs that share a seed are not violated (such assumptions are not forbidden in
-       non-precognitive solutions).
-    3. Repeat step 1 with the new random seed(s) (but without requiring that it succeed). Update N for each random input
-       to be whichever run used less molecules (since the solution might always terminate on a certain molecule, using
-       the max would risk the last n never being able to 'find' all variants).
-       If the solution succeeds, aggregrate the nth-input-variant data with that of the first run, in order to track
-       which variants for a given n have had at least one run succeed.
-       If the solution fails, put the same nth-input-variant data in a separate 'failure variants' dataset.
+       possible). Track how many molecules were generated from each random input (call this M), and what the mth
+       molecule's variant was for every m up to M.
+    2. Increment each random input's seed.
+    3. Repeat step 1 with the new random seed(s) (but without requiring that the run succeed). Update M for each random
+       input to be the minimum number of molecules produced from that input for any run (since any unconsumed input
+       cannot have been assumed). Once again track the molecule variants that appeared, keeping a tally of how many
+       times each variant has been in a passing vs failing run.
     4. Repeat steps 2-3 until any of the following conditions is met (again ignoring seeds that had a differing first
        input if that is more forgiving):
-       * The failure rate is measured to be >= 50%, with sufficient confidence (precog).
-       * The success rate is measured to be > 50% with sufficient confidence, and the dataset of succeeding runs covers
-         every possible variant of every possible n (2 <= n <= N), for all random input components (non-precog).
+       * The success rate is measured to be < 50%, with 99.9% confidence (precog).
+       * The success rate is measured to be > 50% with 99.9% confidence, and the dataset of succeeding runs covers
+         every possible variant of every possible mth molecule (2 <= m <= M), for all random inputs (non-precog).
        * The maximum allowed runs based on max_total_cycles is reached (TimeoutError).
          With default settings this should only occur for very long (100k+ cycles) solutions or solutions with a
          failure rate extremely close to 50%.
@@ -132,12 +127,12 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     # Track the min cycles a passing run takes so we can exit early if we know we can't prove anything before timeout
     min_passing_run_cycles = math.inf
 
-    # For each input zone, let N be the minimum molecules the solution must use from that input
-    # Before we do any checks that require resetting the input objects, initialize Ns to the data from the last run if
+    # For each input zone, let M be the minimum molecules the solution must use from that input
+    # Before we do any checks that require resetting the input objects, initialize Ms to the data from the last run if
     # just_run_cycle_count was provided
     # TODO: re-jigger this with the below check so we pick up the ignore-pipe refinement but preferably
     #       without having the same code in two places
-    Ns = [random_input.num_inputs if just_run_cycle_count else math.inf for random_input in random_inputs]
+    Ms = [random_input.num_inputs if just_run_cycle_count else math.inf for random_input in random_inputs]
 
     # Collect a bunch of information about each random input which we'll use for calculating how many runs are needed
     num_variants = [len(random_input.molecules) for random_input in random_inputs]
@@ -162,7 +157,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
 
     # Keep additional datasets that track only data from runs that had the same first molecule(s) as the base seed, so
     # our checks are unbiased for solutions that use the allowable assumption on the first input
-    # Note that we don't need a separate measure of Ns since it is a minimum of any successful run, regardless of seed
+    # Note that we don't need a separate measure of Ms since it is a minimum of any successful run, regardless of seed
     success_run_variants_first_match = [[Counter()] for _ in range(len(random_inputs))]
     fail_run_variants_first_match = [[Counter()] for _ in range(len(random_inputs))]
     num_runs_first_match = 0
@@ -220,15 +215,15 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         # Note that we don't need to ignore successes from seeds with a differing first molecule from the base seed,
         # since if there's a difference then the solution, by definition, didn't assume the first molecule.
         if (not skip_non_precog_checks
-            and all(len(success_run_variants[i][n]) == num_variants[i]
+            and all(len(success_run_variants[i][m]) == num_variants[i]
                     # To account for the allowed first molecule assumption, ignore the first molecule's variant in its
                     # bucket if it was unique, since it can be impossible for it to show up again.
                     or (first_input_is_unique[i]
-                        and n < bucket_sizes[i]
-                        and len(success_run_variants[i][n]) == num_variants[i] - 1
-                        and first_input_variants[i] not in success_run_variants[i][n])
-                    for i, N in enumerate(Ns)
-                    for n in range(1, N))):  # Ignore first molecule
+                        and m < bucket_sizes[i]
+                        and len(success_run_variants[i][m]) == num_variants[i] - 1
+                        and first_input_variants[i] not in success_run_variants[i][m])
+                    for i, M in enumerate(Ms)
+                    for m in range(1, M))):  # Ignore first molecule
             if verbose:
                 print("Solution is not precognitive; successful variants found for all input molecules"
                       f" ({num_passing_runs} / {num_runs} runs passed, or"
@@ -251,7 +246,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         # over which variants it is tested on; more common molecule variants will be seen in successful runs sooner, but
         # the total probability that a variant eventually hits X failures before 1 success is the same as that for a
         # rarer variant, all things being equal.
-        total_variants = sum(Ns[i] * num_variants[i] for i in range(len(random_inputs)))
+        total_variants = sum(Ms[i] * num_variants[i] for i in range(len(random_inputs)))
         individual_false_pos_rate = 1 - (1 - false_pos_rate)**(1 / total_variants)
         # Now, to calculate X, consider that the solution has some unknown probability of succeeding for each given
         # variant of the Nth molecule (e.g. P(success | 3rd molecule is Nitrogen)). In order to declare the solution
@@ -280,21 +275,21 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                                                        * success_rate_first_match)))
         # TODO: This check is doing much more work than needed since only newly-failing variants need to be re-checked
         #       It's insignificant compared to the cost of schem.run, but still.
-        for i, N in enumerate(Ns):
-            for n in range(1, N):
-                if n >= len(fail_run_variants_first_match[i]):
+        for i, M in enumerate(Ms):
+            for m in range(1, M):
+                if m >= len(fail_run_variants_first_match[i]):
                     continue
 
                 # TODO: Is there any point also analyzing failures caused by differing first molecule runs?
                 #       No, but we CAN account for successes from off-seed runs. Of course, if a success appears in an
                 #       off-seed run then we clearly haven't assumed the first input...
                 for variant_idx in range(num_variants[i]):
-                    if ((n > len(success_run_variants[i])
-                         or variant_idx not in success_run_variants[i][n])
-                            and fail_run_variants_first_match[i][n][variant_idx] >= max_variant_failures):
+                    if ((m > len(success_run_variants[i])
+                         or variant_idx not in success_run_variants[i][m])
+                            and fail_run_variants_first_match[i][m][variant_idx] >= max_variant_failures):
                         if verbose:
                             # TODO: Use the molecule's name for clarity, or its formula if the formula is unique
-                            print(f"Solution is precognitive; variant {variant_idx} of molecule {n + 1} / {N}"
+                            print(f"Solution is precognitive; variant {variant_idx} of molecule {m + 1} / {M}"
                                   f" failed every time in {max_variant_failures} appearances (whereas solution success"
                                   f" rate was otherwise {round(100 * success_rate_first_match)}%).",
                                   file=STDERR if stderr_on_precog else STDOUT)
@@ -354,7 +349,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             if target_input is None:
                 # Awkward wrapped iterable to avoid having to break from a nested loop
                 for i, m, v in ((i, m, v) for i in range(len(random_inputs))
-                                          for m in range(1, Ns[i])
+                                          for m in range(1, Ms[i])
                                           for v in range(num_variants[i])):
                     if ((m >= len(success_run_variants[i]) or v not in success_run_variants[i][m])
                             # Make sure we don't pick a variant that's impossible under the first molecule assumption
@@ -386,18 +381,18 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
             cycles = just_run_cycle_count if (num_runs == 0 and just_run_cycle_count) \
                      else solution.run(max_cycles=max_cycles).cycles
 
-            # Check how many molecules the solution consumed for each random input, and lower each N if possible
-            # Note that if just_run_cycle_count was provided, we initialized N already and reset the solution,
+            # Check how many molecules the solution consumed for each random input, and lower each M if possible
+            # Note that if just_run_cycle_count was provided, we initialized M already and reset the solution,
             # so we skip in that case
             if not (num_runs == 0 and just_run_cycle_count):
                 for i, random_input in enumerate(random_inputs):
                     # Ignore molecules that only made it into the pipe since their variant can't affect the solution
-                    this_N = random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
-                    Ns[i] = min(Ns[i], this_N)
+                    this_M = random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
+                    Ms[i] = min(Ms[i], this_M)
 
             target_variants_data = success_run_variants
             target_variants_data_first_match = success_run_variants_first_match
-            num_variants_to_store = Ns  # Direct reference is safe since we only read from this
+            num_variants_to_store = Ms  # Direct reference is safe since we only read from this
 
             min_passing_run_cycles = min(min_passing_run_cycles, cycles)
             num_passing_runs += 1

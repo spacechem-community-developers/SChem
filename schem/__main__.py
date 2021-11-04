@@ -15,7 +15,23 @@ from .game import run, validate
 from .solution import Solution, DebugOptions
 
 
+def elapsed_readable(seconds):
+    """Given an elapsed time in seconds, return a human-readable string describing it."""
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(int(minutes), 60)
+    s = f"{seconds}s"
+
+    if minutes != 0:
+        s = f"{minutes}m " + s
+
+    if hours != 0:
+        s = f"{hours}h " + s
+
+    return s
+
+
 def main(args: argparse.Namespace):
+    total_start = time.time()
     with args.solution_file:  # args.solution_file is already open but `with` will close it for us
         if not args.solution_file.isatty():
             solutions_str = args.solution_file.read()
@@ -43,6 +59,9 @@ def main(args: argparse.Namespace):
 
     jsons = []
     for solution_str in solutions:
+        if args.verbose and not args.quiet:
+            start = time.time()
+
         try:
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity in case of --json, since we'll be printing the json
@@ -74,11 +93,18 @@ def main(args: argparse.Namespace):
                 raise e
             else:
                 print(f"{type(e).__name__}: {e}")
+        finally:
+            if args.verbose and not args.quiet:  # Sorry
+                print(f"{elapsed_readable(seconds=round(time.time() - start, 3))} elapsed")
 
     if args.json:
         # If a single solution is provided, output only its json, if multiple are provided, include them all in an array
         print(json.dumps(jsons[0] if len(jsons) == 1 else jsons,
                          indent=4))
+
+    # If there were multiple solutions provided, report the total time elapsed
+    if len(solutions) >= 2 and args.verbose and not args.quiet:
+        print(f"Total elapsed time: {elapsed_readable(seconds=round(time.time() - total_start, 1))}")
 
 
 if __name__ == '__main__':
@@ -171,14 +197,8 @@ if __name__ == '__main__':
                 show_instructions = True
         debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
 
-    start = time.time()
-
     # Raise any caught errors from None to also suppress python's implicit exception chaining
     try:
         main(args)
     except Exception as e:
         raise e from None
-    finally:
-        if args.verbose and not args.quiet:  # Sorry
-            end = time.time()
-            print(f"{end - start:.3f}s elapsed")
