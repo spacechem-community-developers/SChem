@@ -3,6 +3,7 @@
 
 from collections import Counter
 import math
+import random
 import sys
 # Convenience
 STDOUT, STDERR = sys.stdout, sys.stderr
@@ -18,6 +19,7 @@ sys.stderr = STDERR
 
 from .solution import Solution
 from .components import RandomInput
+from .schem_random import SChemRandom
 
 NON_PRECOG_MIN_PASS_RATE = 0.5
 
@@ -303,10 +305,27 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     success_check_passed = False
     success_rate = None
     success_rate_first_match = None
+
+    # Use a local random generator with fixed seed, to ensure results are reproducible
+    rng = random.Random(0)
+    first_seed = random_inputs[0].seed
+    used_seeds = set()  # Track which seeds we've used (for the first input) to avoid duplicates
+    # If there are multiple random inputs, keep the difference between their seeds fixed; in particular, we care about
+    # ensuring that any random inputs that had the same seed will always be given the same seed, as there are currently
+    # no rules against exploiting ramifications of this.
+    input_seed_increments = [random_input.seed - first_seed for random_input in random_inputs]
+
     while total_cycles < max_total_cycles:
-        if num_runs != 0:  # Smelly if, but this way `continue` is safe to use anywhere below
-            for random_input in random_inputs:
-                random_input.seed += 1
+        # Randomize the seed
+        # We've found that the SC RNG does not seem to be random enough when simply incrementing seeds;
+        # instead choose the first input's seed randomly from all allowed seeds, using a static python RNG
+        while first_seed in used_seeds:  # Note that this does nothing for the first run, as desired
+            first_seed = rng.randint(0, SChemRandom.MAX_SEED)
+        used_seeds.add(first_seed)
+
+        # Set the other random input seeds to have the same increments off the first input's seed as originally
+        for random_input, seed_increment in zip(random_inputs, input_seed_increments):
+            random_input.seed = (first_seed + seed_increment) % (SChemRandom.MAX_SEED + 1)
 
         # If we have already achieved sufficient confidence on the success rate, we are just waiting for all input
         # variants to show up and no longer need to worry about biasing the success rate; skip seeds to speed this

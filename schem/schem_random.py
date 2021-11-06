@@ -41,12 +41,21 @@ class SChemRandom:
     inextp: int
     SeedArray: List[np.int32]
 
-    INT32_MAX = np.iinfo(np.int32).max
+    MAX_SEED = 161803398  # If seeds higher than this are given the PRNG is liable to produce overflow errors
+
+    INT32_MIN = np.iinfo(np.int32).min  # -2147483648
+    INT32_MAX = np.iinfo(np.int32).max  # 2147483647
 
     def __init__(self, seed=0):
-        '''Uses Spacechem's default seed of 0 if seed not specified.'''
+        """Initialize the PRNG. Seed must be from 0 to 161,803,398 (inclusive); default 0."""
+        # The PRNG originally accepted negative seeds, but since all it did was use their absolute value, I think it's
+        # less misleading to just explicitly disallow them. The upper bound here is because the below constructor math
+        # can overflow if given values above the constant used to set `mj`.
+        if not (0 <= seed <= self.MAX_SEED):
+            raise ValueError(f"Seed must be from 0 to {self.MAX_SEED}.")
+
         seed = np.int32(seed)
-        mj = np.int32(161803398) - (abs(seed) if (seed != np.iinfo(np.int32).min) else np.iinfo(np.int32).max)
+        mj = np.int32(161803398) - seed
         self.SeedArray = 55 * [np.int32(0)]
         self.SeedArray[54] = mj
         mk = np.int32(1)
