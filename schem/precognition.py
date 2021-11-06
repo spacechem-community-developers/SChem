@@ -21,7 +21,7 @@ from .solution import Solution
 from .components import RandomInput
 from .schem_random import SChemRandom
 
-NON_PRECOG_MIN_PASS_RATE = 0.5
+NON_PRECOG_MIN_PASS_RATE = 0.2
 
 # We will keep two confidence levels (CLs) for statistical operations; a more strict ideal CL, which we will attempt
 # to achieve if given enough time, and a fallback minimum acceptable CL, which if time-constrained, we will consider
@@ -69,7 +69,7 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
       Stated conversely, a solution (with acceptable success rate) is non-precognitive if, for each random input I,
       each N >= 2, and each type of molecule M that I produces, there exists a random seed where the Nth input of I is
       M, and the solution succeeds.
-    * OR it fails for >= 50% of random seeds.
+    * OR it succeeds for < 20% of random seeds.
          Accordingly with the first rule excepting the first input molecule, this check only uses seeds that match
          the first molecule (or all first molecules if there are multiple random inputs), if that is more favourable.
 
@@ -84,12 +84,12 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
        times each variant has been in a passing vs failing run.
     4. Repeat steps 2-3 until any of the following conditions is met (again ignoring seeds that had a differing first
        input if that is more forgiving):
-       * The success rate is measured to be < 50%, with 99.9% confidence (precog).
-       * The success rate is measured to be > 50% with 99.9% confidence, and the dataset of succeeding runs covers
+       * The success rate is measured to be < 20%, with 99.9% confidence (precog).
+       * The success rate is measured to be > 20% with 99.9% confidence, and the dataset of succeeding runs covers
          every possible variant of every possible mth molecule (2 <= m <= M), for all random inputs (non-precog).
        * The maximum allowed runs based on max_total_cycles is reached (TimeoutError).
          With default settings this should only occur for very long (100k+ cycles) solutions or solutions with a
-         failure rate extremely close to 50%.
+         failure rate extremely close to 20%.
 
     Args:
         solution: The loaded solution to check.
