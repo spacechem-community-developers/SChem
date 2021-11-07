@@ -15,11 +15,13 @@ from .game import run, validate
 from .solution import Solution, DebugOptions
 
 
-def elapsed_readable(seconds):
-    """Given an elapsed time in seconds, return a human-readable string describing it."""
+def elapsed_readable(seconds, decimals=0):
+    """Given an elapsed time in seconds and optionally number of decimal places to round seconds to,
+    return a human-readable string describing it.
+    """
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(int(minutes), 60)
-    s = f"{seconds}s"
+    s = f"{round(seconds, decimals)}s"
 
     if minutes != 0:
         s = f"{minutes}m " + s
@@ -95,7 +97,7 @@ def main(args: argparse.Namespace):
                 print(f"{type(e).__name__}: {e}")
         finally:
             if args.verbose and not args.quiet:  # Sorry
-                print(f"{elapsed_readable(seconds=round(time.time() - start, 3))} elapsed")
+                print(f"{elapsed_readable(time.time() - start, decimals=3)} elapsed")
 
     if args.json:
         # If a single solution is provided, output only its json, if multiple are provided, include them all in an array
@@ -104,7 +106,7 @@ def main(args: argparse.Namespace):
 
     # If there were multiple solutions provided, report the total time elapsed
     if len(solutions) >= 2 and args.verbose and not args.quiet:
-        print(f"Total elapsed time: {elapsed_readable(seconds=round(time.time() - total_start, 1))}")
+        print(f"Total elapsed time: {elapsed_readable(time.time() - total_start, decimals=1)}")
 
 
 if __name__ == '__main__':
