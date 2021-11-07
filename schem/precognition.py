@@ -332,15 +332,23 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
                 # TODO: Is there any point also analyzing failures caused by differing first molecule runs?
                 #       No, but we CAN account for successes from off-seed runs. Of course, if a success appears in an
                 #       off-seed run then we clearly haven't assumed the first input...
-                for variant_idx in range(num_variants[i]):
+                for v in range(num_variants[i]):
                     if ((m > len(success_run_variants[i])
-                         or variant_idx not in success_run_variants[i][m])
-                            and fail_run_variants_first_match[i][m][variant_idx] >= max_variant_failures):
+                         or v not in success_run_variants[i][m])
+                            and fail_run_variants_first_match[i][m][v] >= max_variant_failures):
                         if verbose:
-                            # TODO: Use the molecule's name for clarity, or its formula if the formula is unique
-                            print(f"Solution is precognitive; variant {variant_idx} of molecule {m + 1} / {M}"
-                                  f" failed every time in {max_variant_failures} appearances (whereas solution success"
-                                  f" rate was otherwise {round(100 * success_rate_first_match)}%).",
+                            # Use the human-readable name for the variant if it's present and unique
+                            # (for some levels, all input molecules have the same name which isn't very helpful)
+                            mol_name = None
+                            if len(set(mol.name for mol in random_inputs[i].molecules)) == num_variants[i]:
+                                mol_name = random_inputs[i].molecules[v].name
+
+                            if not mol_name:
+                                mol_name = f"variant {v + 1}"  # 1-indexed for human-readability
+
+                            print(f"Solution is precognitive; failed whenever molecule {m + 1} was {mol_name}, for"
+                                  f" {max_variant_failures} such appearances (whereas solution success rate was"
+                                  f" otherwise {round(100 * success_rate_first_match)}%).",
                                   file=STDERR if stderr_on_precog else STDOUT)
 
                         return True
