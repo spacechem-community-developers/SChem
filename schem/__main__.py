@@ -113,8 +113,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--version', action='store_true', help="Print program version and exit")
-    parser.add_argument('solution_file', type=argparse.FileType('r'), nargs='?',  # Accept either path arg or stdin pipe
-                        default=sys.stdin,
+    parser.add_argument('solution_file', type=argparse.FileType('r', encoding='utf-8'),  # Accept path arg or stdin pipe
+                        nargs='?', default=sys.stdin,
                         help="File containing the solution(s) to execute."
                              + " If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
