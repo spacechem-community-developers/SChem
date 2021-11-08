@@ -157,6 +157,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     # Keep some variables tracking the state of relevant checks, and extra counters that count runs of various bias
     # levels.
     global_success_check_failed = False  # If the global success rate fails, we start focusing on first-matching runs
+    global_success_check_succeeded = False  # Only used for more precise post-run reports
     success_check_passed = False  # Once either success rate check passes, we start focusing on particular variants
 
     # Runs for which no seed skipping of any sort was done
@@ -167,21 +168,30 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     num_runs_first_match_unbiased = 0
     num_passing_runs_first_match_unbiased = 0
 
+    def global_success_rate_okay(false_neg_rate):
+        """Check if, with sufficient confidence, the all-seeds success rate is high enough."""
+        # Using the binomial cumulative distribution function of the failure count (= P(failures <= X)), and assuming
+        # the highest disallowed success rate, check if the probability of seeing this few failures is below our false
+        # negative threshold.
+        return binom.cdf(num_runs_unbiased - num_passing_runs_unbiased,
+                         num_runs_unbiased,
+                         1 - NON_PRECOG_MIN_PASS_RATE) < false_neg_rate
+
+    def first_match_success_rate_okay(false_neg_rate):
+        """Check if, with sufficient confidence, the success rate is high enough for first-molecule-matching seeds."""
+        return binom.cdf(num_runs_first_match_unbiased - num_passing_runs_first_match_unbiased,
+                         num_runs_first_match_unbiased,
+                         1 - NON_PRECOG_MIN_PASS_RATE) < false_neg_rate
+
     def success_rate_okay(false_neg_rate):
         """Check if, with sufficient confidence, the success rate is high enough, for either all seeds or all seeds
         where the first molecule matched.
         """
-        # Using the binomial cumulative distribution function of the failure count (= P(failures <= X)), and assuming
-        # the highest disallowed success rate, check if the probability of seeing this few failures is below our false
-        # negative threshold.
-        return (  # Global success rate
-                binom.cdf(num_runs_unbiased - num_passing_runs_unbiased,
-                          num_runs_unbiased,
-                          1 - NON_PRECOG_MIN_PASS_RATE) < false_neg_rate
-                # First-molecule-matching success rate
-                or binom.cdf(num_runs_first_match_unbiased - num_passing_runs_first_match_unbiased,
-                             num_runs_first_match_unbiased,
-                             1 - NON_PRECOG_MIN_PASS_RATE) < false_neg_rate)
+        nonlocal global_success_check_succeeded
+        if not global_success_check_succeeded:
+            global_success_check_succeeded = global_success_rate_okay(false_neg_rate)
+
+        return global_success_check_succeeded or first_match_success_rate_okay(false_neg_rate)
 
     def global_success_rate_too_low(false_pos_rate):
         """Check if, with sufficient confidence, the success rate is too low for all seeds."""
@@ -209,12 +219,21 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         # and not including seeds that match the base seed's first molecule(s)
         if global_success_check_failed and first_match_success_rate_too_low(false_pos_rate):
             if verbose or stderr_on_precog:
-                print(f"Solution is precognitive; <= {100 * NON_PRECOG_MIN_PASS_RATE}% success rate for a random seed"
-                      f" (with {100 * (1 - false_pos_rate)}% confidence);"
-                      f" {num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs passed"
-                      f" (or {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
-                      " when targeting seeds with same first molecule as the base seed).",
-                      file=STDERR if stderr_on_precog else STDOUT)
+                # Since it's a pretty common case, we'll simplify the message if everything failed
+                if num_passing_runs_unbiased == num_passing_runs_first_match_unbiased == 0:
+                    print(f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
+                          f" random seed (with {100 * (1 - false_pos_rate)}% confidence); all {num_runs - 1}"
+                          f" alternate-seed runs failed.",
+                          file=STDERR if stderr_on_precog else STDOUT)
+                else:
+                    success_rate = num_passing_runs_unbiased / num_runs_unbiased
+                    success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
+                    print(f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
+                          f" random seed (with {100 * (1 - false_pos_rate)}% confidence);"
+                          f" {round(100 * success_rate)}% of {num_runs_unbiased} alternate-seed runs passed"
+                          f" (or {round(100 * success_rate_first_match)}% of {num_runs_first_match_unbiased} runs"
+                          " when targeting seeds with same first molecule as the base seed).",
+                          file=STDERR if stderr_on_precog else STDOUT)
 
             return True
 
@@ -259,13 +278,18 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                     for i, M in enumerate(Ms)
                     for m in range(1, M))):  # Ignore first molecule
             if verbose:
-                # We won't try to explain all the data bias-handling going on to the user; just report the unbiased
-                # success rates, as well as the actual number of runs used in case they're wondering why it's slow
-                success_rate = num_passing_runs_unbiased / num_runs_unbiased
-                success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
-                print(f"Solution is not precognitive; successful variants found for all input molecules in {num_runs}"
-                      f" runs ({round(100 * success_rate)}% success rate, or {round(100 * success_rate_first_match)}%"
-                      f" for seeds with same first molecule as base seed).")
+                # We won't try to explain all the data bias-handling going on to the user; just report whichever
+                # unbiased success rate passed the check, as well as the actual number of runs used in case they're
+                # wondering why it's slow
+                if global_success_check_succeeded:
+                    success_rate = num_passing_runs_unbiased / num_runs_unbiased
+                    print("Solution is not precognitive; successful variants found for all input molecules in"
+                          f" {num_runs} runs ({round(100 * success_rate)}% success rate).")
+                else:
+                    success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
+                    print("Solution is not precognitive; successful variants found for all input molecules in"
+                          f" {num_runs} runs ({round(100 * success_rate_first_match)}% success rate for seeds with same"
+                          f" first molecule as base seed).")
 
             return False
 
@@ -556,9 +580,9 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                              1 - NON_PRECOG_MIN_PASS_RATE)
                    < MAX_FALSE_NEG_RATE):
             raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                               f" too few runs to ascertain {100 * NON_PRECOG_MIN_PASS_RATE}% success rate requirement"
-                               f" ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs passed, or"
-                               f" {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
+                               f" too few runs to ascertain {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate"
+                               f" requirement ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs"
+                               f" passed, or {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
                                " when targeting seeds with same first molecule as the base seed).")
 
         if not success_check_passed:
@@ -588,9 +612,9 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
 
         if not success_rate_okay(false_neg_rate=MAX_FALSE_NEG_RATE):
             raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                               f" too few runs to ascertain {100 * NON_PRECOG_MIN_PASS_RATE}% success rate requirement"
-                               f" ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs passed, or"
-                               f" {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
+                               f" too few runs to ascertain {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate"
+                               f" requirement ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs"
+                               f" passed, or {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
                                " when targeting seeds with same first molecule as the base seed).")
 
     molecule_assumption_check_result = check_molecule_assumptions(false_pos_rate=MAX_FALSE_POS_RATE)
