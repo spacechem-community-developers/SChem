@@ -17,7 +17,6 @@ sys.stderr = open(os.devnull, 'w')
 binom.cdf(39, 43097, 0.5)  # No, it doesn't occur for 38 or 40, or for any n lower than 43097
 sys.stderr = STDERR
 
-from .solution import Solution
 from .components import RandomInput
 from .schem_random import SChemRandom
 
@@ -58,7 +57,10 @@ MOLECULE_SUCCESS_RATE_DEVIATION_LIMIT = 0.75
 DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't constrain typical required run counts
 
 
-def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
+# TODO: Might want type hinting here, this post suggests a way to type hint Solution without introducing a circular
+#       import or needing to merge the modules:
+#       https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
+def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
                     verbose=False, stderr_on_precog=False):
     """Given a Solution, run/validate it then check if fits the current community definition of a precognitive solution.
 
@@ -114,12 +116,9 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
     if not random_inputs:
         return False  # duh
 
-    if max_cycles is None:
-        if solution.expected_score is not None:
-            # Set a larger default than in Solution.run since the seed might change the cycle count by a lot
-            max_cycles = 2 * solution.expected_score.cycles
-        else:
-            max_cycles = Solution.DEFAULT_MAX_CYCLES
+    # Set a larger default for max_cycles than in Solution.run, since the seed might change the cycle count by a lot
+    if max_cycles is None and solution.expected_score is not None:
+        max_cycles = 2 * solution.expected_score.cycles
 
     if max_total_cycles is None:
         # TODO: Might also want to limit this by reactor count
@@ -451,8 +450,8 @@ def is_precognitive(solution: Solution, max_cycles=None, just_run_cycle_count=0,
         try:
             # Run the solution
             # if just_run_cycle_count was given, skip the first run to save time
-            cycles = just_run_cycle_count if (num_runs == 0 and just_run_cycle_count) \
-                     else solution.run(max_cycles=max_cycles).cycles
+            cycles = just_run_cycle_count if num_runs == 0 and just_run_cycle_count \
+                     else solution._run(max_cycles=max_cycles).cycles
 
             min_passing_run_cycles = min(min_passing_run_cycles, cycles)
 

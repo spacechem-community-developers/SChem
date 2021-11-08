@@ -6,14 +6,18 @@ Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.c
 
 ## Usage
 
-`python -m schem [solution_file]`
+Command line:
+```
+python -m schem [-h] [--version] [-l LEVEL_FILE] [--max-cycles MAX_CYCLES]
+                [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
+                [--json | --quiet] [--verbose] [--debug [DEBUG]]
+                [solution_file]
+```
 
-Will validate the cycles-reactors-symbols score of the provided solution file, or of any solution in the user's
-clipboard if a file is not specified.
+E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export in the user's clipboard.
 
-This is equivalent to:
-
+This is roughly equivalent to:
 ```
 import schem
-schem.validate(soln_str, verbose=True)
+schem.Solution(soln_str).validate(verbose=True)
 ```

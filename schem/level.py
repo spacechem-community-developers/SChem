@@ -19,7 +19,7 @@ class Level:
     is appropriate.
     '''
     export_line_len = 74
-    __slots__ = 'dict',
+    __slots__ = 'dict', 'resnet_id'
 
     @classmethod
     def code_to_json(cls, code):
@@ -55,6 +55,10 @@ class Level:
             self['difficulty'] = 0
         else:
             self.dict = self.code_to_json(code)
+
+        # Since unfortunately some official levels share names, sometimes we want to track which volume/issue/puzzle the
+        # level is, if it's a ResNet level.
+        self.resnet_id = None
 
     def __eq__(self, other):
         return isinstance(other, Level) and self.dict == other.dict
@@ -96,6 +100,8 @@ class Level:
     def type(self, s):
         assert isinstance(s, str), "Level type must be a string"
         self.dict['type'] = s
+
+    # TODO: More properties
 
 
 class ResearchLevel(Level):

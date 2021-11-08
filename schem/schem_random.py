@@ -55,7 +55,7 @@ class SChemRandom:
             raise ValueError(f"Seed must be from 0 to {self.MAX_SEED}.")
 
         seed = np.int32(seed)
-        mj = np.int32(161803398) - seed
+        mj = np.int32(self.MAX_SEED) - seed
         self.SeedArray = 55 * [np.int32(0)]
         self.SeedArray[54] = mj
         mk = np.int32(1)

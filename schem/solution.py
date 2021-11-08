@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from itertools import product
 import platform
 import time
-from typing import Optional
+from typing import Optional, Union
 
 # These modules are only used for debug mode's pretty-printing, so make them optional
 try:
@@ -21,7 +21,9 @@ from .components import Component, Input, Output, Reactor, Recycler, DisabledOut
 from .waldo import InstructionType
 from .exceptions import SolutionImportError, ScoreError
 from .grid import *
-from .level import OVERWORLD_COLS, OVERWORLD_ROWS
+from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
+from .levels import levels as built_in_levels, defense_names, resnet_ids
+from .precognition import is_precognitive
 from .terrains import terrains, MAX_TERRAIN_INT
 
 IS_WINDOWS = platform.system() == 'Windows'
@@ -43,18 +45,18 @@ class DebugOptions:
 
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
-    '''Immutable class representing a SpaceChem solution score.'''
+    """Immutable class representing a SpaceChem solution score."""
     __slots__ = ()
 
     def __str__(self):
-        '''Convert to the format used in solution metadata.'''
+        """Convert to the format used in solution metadata."""
         return '-'.join(str(i) for i in self)
 
     @classmethod
     def is_score_str(cls, s):
-        '''Return True if the given string is formatted like a Spacechem score, e.g. 45-1-14.
+        """Return True if the given string is formatted like a Spacechem score, e.g. 45-1-14.
         Incomplete score formats (0-0-0, and Incomplete-r-s from the old SCT) are included.
-        '''
+        """
         parts = s.split('-')
         return (len(parts) == 3
                 and (parts[0].isdigit() or parts[0] == 'Incomplete')  # Thinks 045-1-14 is a score but whatever
@@ -74,9 +76,9 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
 
 
 class Solution:
-    '''Class for constructing and running game entities from a given level object and solution code.'''
-    __slots__ = ('level_name', 'author', 'expected_score', 'name',
-                 'level', 'components', 'cycle')
+    """Class for constructing and running game entities from a given level object and solution code."""
+    __slots__ = ('level', 'expected_score', 'author', 'name',
+                 'components', 'cycle')
 
     DEFAULT_MAX_CYCLES = 1_000_000  # Default timeout for solutions whose expected cycle count is unknown
 
@@ -100,6 +102,20 @@ class Solution:
     @property
     def description(self):
         return self.describe(self.level.name, self.author, self.expected_score, self.name)
+
+    @classmethod
+    def split_solutions(cls, solns_str):
+        """Given a string potentially containing multiple solutions, return an iterator of them.
+        Returns an empty iterator if the given string has no non-empty lines.
+        """
+        solns_str = '\n'.join(s for s in solns_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
+
+        # Ensure first non-empty line is a solution string
+        if solns_str and not solns_str.startswith('SOLUTION:'):
+            raise ValueError("Invalid solution string: expected SOLUTION: on line 1")
+
+        # Split with newline prefix in case some fucker names themselves SOLUTION:
+        return (f'SOLUTION:{s}' for s in ('\n' + solns_str).split('\nSOLUTION:')[1:])
 
     @classmethod
     def parse_metadata(cls, s):
@@ -172,28 +188,71 @@ class Solution:
 
         return soln_descr
 
-    @classmethod
-    def split_solutions(cls, solns_str):
-        """Given a string potentially containing multiple solutions, return an iterator of them.
-        Returns an empty iterator if the given string has no non-empty lines.
+    def __init__(self, solution_str: Optional[str], level: Optional[Union[Level, str]] = None):
+        """Load a solution string as exported by SC, instantiating both level-defined and solution-defined components.
+
+        To load an empty solution for the given level, set solution_str to None.
+
+        Args:
+            solution_str: Solution string as exported by SpaceChem Community Edition (steam beta).
+            level: The level to load the solution for. Either a Level object, or string of the puzzle export code.
+
+                If level is not provided, the level name from the solution metadata is used to search for a matching
+                official level(s).
+                When multiple official levels match the solution metadata's level name, attempt to load into each in
+                turn until one with matching features is found.
+                Note that all official levels with duplicate titles have incompatible level features (bonder counts
+                etc.), so it is guaranteed that the correct level will be loaded if possible.
         """
-        solns_str = '\n'.join(s for s in solns_str.replace('\r\n', '\n').split('\n') if s)  # Remove empty lines
-
-        # Ensure first non-empty line is a solution string
-        if solns_str and not solns_str.startswith('SOLUTION:'):
-            raise ValueError("Invalid solution string: expected SOLUTION: on line 1")
-
-        # Split with newline prefix in case some fucker names themselves SOLUTION:
-        return (f'SOLUTION:{s}' for s in ('\n' + solns_str).split('\nSOLUTION:')[1:])
-
-    # TODO: Solution constructor should probably accept either level or level_code for convenience
-    def __init__(self, level, soln_export_str=None):
-        self.level = level
-        self.level_name = level.name
-        self.name = None
-        self.author = 'Unknown'
-        self.expected_score = None
         self.cycle = 0
+
+        # Load metadata
+        if solution_str is not None:
+            try:
+                level_name, self.author, self.expected_score, self.name = self.parse_metadata(solution_str)
+            except Exception as e:
+                raise SolutionImportError(str(e)) from e
+        elif level is None:
+            raise ValueError("Solution string or level must be provided")
+        else:
+            self.author, self.expected_score, self.name = 'Unknown', None, None
+
+        if level is None:
+            # Determine the built-in game level to use based on the level name in its metadata
+            if level_name in built_in_levels:
+                # The official levels dict stores lists of level codes in the case of levels sharing a names
+                if isinstance(built_in_levels[level_name], str):
+                    level_codes = [built_in_levels[level_name]]
+                    matching_resnet_ids = [resnet_ids[level_name] if level_name in resnet_ids else None]
+                else:
+                    level_codes = built_in_levels[level_name]
+                    matching_resnet_ids = (resnet_ids[level_name] if level_name in resnet_ids
+                                           else len(built_in_levels[level_name]) * [None])
+            elif level_name in defense_names:
+                raise NotImplementedError("Defense levels unsupported")
+            else:
+                raise Exception(f"No known level `{level_name}`")
+
+            # Use the first level which can be successfully loaded, or raise the first exception if none can
+            exceptions = []
+            for level_code, resnet_id in zip(level_codes, matching_resnet_ids):
+                level = Level(level_code)
+                level.resnet_id = resnet_id
+                try:
+                    self._load(level=level, soln_export_str=solution_str)
+                    return
+                except SolutionImportError as e:
+                    exceptions.append(e)
+
+            raise exceptions[0]
+        elif isinstance(level, Level):
+            self._load(level=level, soln_export_str=solution_str)
+        elif isinstance(level, str):
+            self._load(level=Level(level), soln_export_str=solution_str)
+
+    def _load(self, level: Level, soln_export_str=None):
+        """Helper to do the bulk of the constructor's work, attempting to load the solution using the given level."""
+        self.level = level
 
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
         if level['type'].startswith('research'):
@@ -218,7 +277,6 @@ class Solution:
         posn_to_component = {}  # Note that components are referenced by their top-left corner posn
 
         # Inputs
-        input_zone_types = None
         if self.level['type'].startswith('research'):
             input_zone_types = ('input-zones',)
             output_zone_type = 'output-zones'
@@ -243,8 +301,9 @@ class Solution:
                     i = int(i)
 
                     # For some reason production fixed inputs are defined less flexibly than in researches
-                    # TODO: Input class should probably accept raw molecule string instead of having to stuff it into a dict
-                    #       One does wonder why Zach separated random from fixed inputs in productions but not researches...
+                    # TODO: Input class should probably accept raw molecule string instead of having to stuff it into a
+                    #       dict. One does wonder why Zach separated random from fixed inputs in productions but not
+                    #       researches...
                     if isinstance(input_dict, str):
                         # Convert from molecule string to input zone dict format
                         input_dict = {'inputs': [{'molecule': input_dict, 'count': 12}]}
@@ -350,10 +409,9 @@ class Solution:
         try:
             # Add solution-defined components and update preset level components (e.g. inputs' pipes, preset reactor contents)
             if soln_export_str is not None:
-                # Get the first non-empty line
-                soln_metadata_str, *split_remainder = soln_export_str.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)
+                # Strip the SOLUTION: line
+                _, *split_remainder = soln_export_str.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)
                 components_str = '' if not split_remainder else split_remainder[0].strip('\n')
-                self.level_name, self.author, self.expected_score, self.name = self.parse_metadata(soln_metadata_str)
 
                 if components_str:
                     assert components_str.startswith('COMPONENT:'), "Unexpected data on line 1"
@@ -569,7 +627,7 @@ class Solution:
         return export_str
 
     def __str__(self):
-        '''Return a string representing the overworld of this solution including all components/pipes, and the cycle.'''
+        """Return a string representing the overworld of this solution including all components/pipes, and the cycle."""
         # 1 character per tile
         grid = [[' ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
 
@@ -611,12 +669,12 @@ class Solution:
         return result
 
     def debug_print(self, duration=0.5, reactor_idx=None, flash_features=True, show_instructions=False):
-        '''Print the currently running solution state then clear it from the terminal.
+        """Print the currently running solution state then clear it from the terminal.
         Args:
             duration: Seconds before clearing the printout from the screen. Default 0.5.
             reactor_idx: If specified, only print the contents of the reactor with specified index.
             flash_features: Whether to flash activated features, inputs, and outputs.
-        '''
+        """
         if reactor_idx is None:
             output = str(self)
         else:
@@ -638,9 +696,9 @@ class Solution:
             print(cursor_reset, end='')
 
     def validate_components(self):
-        '''Validate that this solution is legal (whether or not it can run to completion).
+        """Validate that this solution is legal (whether or not it can run to completion).
         Called at the start of each run to ensure that no trickery was done on this object post-construction.
-        '''
+        """
         # Make sure the reactor limit has been respected
         if self.level['type'].startswith('production'):
             assert sum(1 if isinstance(component, Reactor) else 0
@@ -660,14 +718,15 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
-    def run(self, max_cycles=None, debug: Optional[DebugOptions] = False):
-        '''Run this solution, returning a Score or else raising an exception if the level was not solved.
+    def _run(self, max_cycles=None, debug: Optional[DebugOptions] = False):
+        """Helper to run() which does a single run of the solution - this will be called multiple times by run()
+        if a precog check was requested.
 
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                         or 1,000,000 cycles if not provided (use math.inf if you don't fear infinite loop solutions).
             debug: Print an updating view of the solution while running. See DebugOptions.
-        '''
+        """
         # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
         #       and waldo.position/waldo.direction before each run, or otherwise prevent these from persisting.
         #       Otherwise a solution will only be safely runnable once.
@@ -691,6 +750,8 @@ class Solution:
         outputs = list(self.outputs)
 
         # If we are continuing running from a pause, start with a movement phase
+        # TODO: If it was a red pause, need to do the blue instants phase first... and if both
+        #       there's no way to tell which it was without storing an extra variable in Solution
         if any(waldo.instr_map[waldo.position][1].type == InstructionType.PAUSE
                for reactor in reactors
                for waldo in reactor.waldos
@@ -714,8 +775,6 @@ class Solution:
                         # win even if never triggered). Not checking until an output completes also matches the expected
                         # behaviour of puzzles where all outputs are 0/0
                         if all(output.current_count >= output.target_count for output in outputs):
-                            # TODO: Update solution expected score? That would match the game's behavior, but makes the validator
-                            #       potentially misleading. Maybe run() and validate() should be the same thing.
                             # -1 looks weird but seems provably right based on output vs pause comparison
                             return Score(self.cycle - 1, len(reactors), self.symbols)
 
@@ -753,30 +812,122 @@ class Solution:
                 # Restore the cursor
                 cursor.show()
 
-    def validate(self, max_cycles=None, verbose=False, debug=False):
-        '''Run this solution and assert that the score matches the expected score from its metadata.'''
-        if self.expected_score is None:
-            raise ValueError("validate() requires a valid expected score in the first solution line (currently 0-0-0);"
-                             + " please update it or use run() instead.")
+    def run(self, max_cycles=None,
+            return_json=False,
+            check_precog=False, max_precog_check_cycles=None, stderr_on_precog=False,
+            verbose=False, debug: Optional[DebugOptions] = False,
+            _validate_expected_score=False) -> Union[Score, dict]:
+        """Run this solution, returning a Score or raising an exception if it crashes or exceeds max_cycles.
 
-        if verbose and self.level_name != self.level.name:
-            print(f"Warning: Validating solution against level {repr(self.level.name)} that was originally"
-                  + f" constructed for level {repr(self.level_name)}.")
+        Args:
+            max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
+                or 1,000,000 cycles if no expected_score (use math.inf if you don't fear infinite loop solutions).
+            return_json: If True, instead of a Score, return a dict including: level_name, resnet_id (a tuple of the
+                ResearchNet volume/issue/puzzle, or None if not a ResearchNet level), cycles, reactors, symbols, author,
+                and solution_name.
+                Additionally, raise an exception only if the solution cannot be imported into any level; if the solution
+                encounters a reaction error or exceeds max_cycles, return None in the dict's 'cycles' field and
+                return the metadata of the first level that the solution could be successfully imported into.
+                Default False.
+            check_precog: If True, do additional runs on the solution to check if it fits the current community
+                definition of a precognitive solution.
+                Should only be used with `verbose` or `return_json`, else the result will not be available. In the case
+                of return_json, a 'precog' field will be included in the returned dict, with a boolean value unless the
+                precog check times out, in which case it will be None.
+                See `Solution.is_precognitive` for more info and a direct API.
+            max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if
+                this value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised,
+                or in the case of return_json, the 'precog' field is set to None.
+                Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
+            stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
+                              Can be enabled independently of `verbose`. Default False.
+            verbose: If True, print a report of the successfully validated score and the precog check result to STDOUT.
+                     Default False.
+            debug: Print an updating view of the solution while running; see DebugOptions. Default False.
+        """
+        # To reduce duplicate code, validate() calls this with _validate_expected_score. It cannot just validate
+        # before/after this call since the precog check shouldn't be performed if score validation fails
+        if _validate_expected_score:
+            # Sanity check arguments
+            if self.expected_score is None:
+                raise ValueError(f"{self.description}: validate() requires a valid expected score (currently 0-0-0);"
+                                 " update the solution metadata line or use run() instead.")
 
-        if max_cycles is not None:
-            if self.expected_score.cycles > max_cycles:
-                raise ValueError(f"{self.description}: Cannot validate; expected cycles > max cycles ({max_cycles})")
+            if max_cycles is not None:
+                if self.expected_score.cycles > max_cycles:
+                    raise ValueError(f"{self.description}: Cannot validate; expected cycles"
+                                     f" ({self.expected_score.cycles}) > max cycles ({max_cycles})")
 
-            # Limit the max cycles based on the expected score, to save time
-            max_cycles = min(max_cycles, int(self.expected_score.cycles * 1.1))
+                # If validating, limit the max cycles based on the expected score, to save time
+                max_cycles = min(max_cycles, int(self.expected_score.cycles * 1.1))
 
-        score = self.run(max_cycles=max_cycles, debug=debug)
+        # When returning JSON, catch runtime and score errors so we can still report which level the solution was for
+        reactors, symbols = len(list(self.reactors)), self.symbols
+        try:
+            # Validate the reactor/symbol counts
+            if _validate_expected_score:
+                if reactors != self.expected_score.reactors:
+                    raise ScoreError(f"{self.description}: Expected {self.expected_score.reactors} reactors but got {reactors}.")
 
-        if score != self.expected_score:
-            raise ScoreError(f"{self.description}: Expected score {self.expected_score} but got {score}")
+                if symbols != self.expected_score.symbols:
+                    raise ScoreError(f"{self.description}: Expected {self.expected_score.symbols} symbols but got {symbols}.")
 
-        if verbose:
-            print(f"Validated {self.description}")
+            # Run the solution to completion
+            score = cycles, _, _ = self._run(max_cycles=max_cycles, debug=debug)
+
+            # Validate the cycle count
+            if _validate_expected_score and cycles != self.expected_score.cycles:
+                raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {cycles}.")
+        except Exception:
+            if not return_json:
+                raise
+
+            # If the solution crashed at runtime or failed the score check, set the cycles to None
+            cycles = None
+
+        run_data = {'level_name': self.level.name,
+                    'resnet_id': self.level.resnet_id,
+                    'cycles': cycles,
+                    'reactors': reactors,
+                    'symbols': symbols,
+                    'author': self.author,
+                    'solution_name': self.name}
+
+        if check_precog:
+            try:
+                # Do the precog check (unless the base run/score check failed)
+                run_data['precog'] = (self.is_precognitive(max_cycles=max_cycles,
+                                                           max_total_cycles=max_precog_check_cycles,
+                                                           just_run_cycle_count=cycles,
+                                                           verbose=verbose,
+                                                           stderr_on_precog=stderr_on_precog)
+                                      if cycles is not None else None)
+            except TimeoutError:
+                # If returning JSON, store None for the field instead of propagating any timeout error
+                if return_json:
+                    run_data['precog'] = None
+                else:
+                    raise
+
+        if verbose and cycles is not None:
+            print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
+
+        return run_data if return_json else score
+
+    def validate(self, *args, **kwargs) -> Union[Score, dict]:
+        """Same behaviour as Solution.run, but additionally raises an exception if the score does not match
+        the expected score in solution metadata (expected_score).
+
+        See Solution.run for details and available arguments.
+        Also note that when return_json is used, score check errors will also be suppressed, instead returning a None
+        value for cycles and the true reactor/symbol counts.
+        """
+        return self.run(*args, **kwargs, _validate_expected_score=True)
+
+    def is_precognitive(self, *args, **kwargs):
+        """Run this solution enough times to check if fits the current community definition of a precognitive solution.
+        """
+        return is_precognitive(self, *args, **kwargs)
 
     def reset(self):
         """Reset this solution as if it had not yet been run."""

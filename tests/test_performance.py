@@ -27,8 +27,9 @@ def iter_test_data(solution_codes):
 
         # Parse only the metadata line so we can error out from the appropriate subTest if the full parse fails
         level_name, _, _, solution_name = schem.Solution.parse_metadata(solution_code)
-        test_id = f'{level_name} - {solution_name}'
-        level_code = schem.levels[level_name] if level_name in schem.levels else test_data.test_levels[level_name]
+        test_id = f'{level_name} - {solution_name}' if solution_name is not None else level_name
+        # Leave the level selection to Solution's constructor unless it's a custom level
+        level_code = test_data.test_levels[level_name] if level_name in test_data.test_levels else None
 
         yield test_id, level_code, solution_code
 
@@ -58,8 +59,7 @@ class TestPerformace(unittest.TestCase):
         for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
             with self.subTest(msg=test_id):
                 # Sanity check that the test is passing
-                level = schem.Level(level_code)
-                solution = schem.Solution(level, solution_code)
+                solution = schem.Solution(solution_code, level=level_code)
                 self.assertEqual(solution.run(), solution.expected_score)
 
                 # TODO: This is only measuring the final object, we don't know the max runtime mem usage
@@ -67,7 +67,7 @@ class TestPerformace(unittest.TestCase):
 
                 # Check the time performance of the solver
                 timer = Timer(('l=schem.Level(level_code)'
-                               ';s=schem.Solution(l, solution_code)'
+                               ';s=schem.Solution(solution_code, level=l)'
                                ';s.run()'),
                               globals={'level_code': level_code,
                                        'solution_code': solution_code,

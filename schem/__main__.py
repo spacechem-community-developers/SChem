@@ -11,7 +11,7 @@ import time
 import clipboard
 
 from ._version import __version__
-from .game import run, validate
+from .level import Level
 from .solution import Solution, DebugOptions
 
 
@@ -42,10 +42,10 @@ def main(args: argparse.Namespace):
             solutions_str = clipboard.paste()
             solutions_src = 'Clipboard'  # For more helpful error message
 
-    level_codes = None
+    # If multiple custom levels were provided, store them by name so we can grab the right one for each solution
+    levels = {}
     if args.level_files:
-        level_codes = []
-        if any(level_file.suffix != '.puzzle' for level_file in args.level_files):
+        if args.verbose and not args.quiet and any(level_file.suffix != '.puzzle' for level_file in args.level_files):
             print("Warning: Parsing file(s) without extension .puzzle as SpaceChem level(s)")
 
         for level_file in args.level_files:
@@ -53,11 +53,15 @@ def main(args: argparse.Namespace):
                 raise FileNotFoundError(f"{level_file} not found")
 
             with level_file.open(encoding='utf-8') as f:
-                level_codes.append(f.read())
+                level = Level(f.read())
+                if level.name in levels:
+                    raise ValueError(f"Multiple levels named `{level.name}` provided.")
+
+                levels[level.name] = level
 
     solutions = list(Solution.split_solutions(solutions_str))
     if not solutions:
-        raise ValueError(f"{solutions_src} contents are empty.")
+        raise ValueError(f"{solutions_src} is empty.")
 
     jsons = []
     for solution_str in solutions:
@@ -65,28 +69,43 @@ def main(args: argparse.Namespace):
             start = time.time()
 
         try:
+            # Parse metadata
+            level_name, author, expected_score, soln_name = Solution.parse_metadata(solution_str)
+
+            level = None
+            # If custom level(s) were provided, pick the corresponding level to load this solution into
+            if levels:
+                if level_name in levels:
+                    level = levels[level_name]
+                elif len(levels) == 1:
+                    # If only one level was given, we'll accept a solution with mismatched name (but warn the user)
+                    level = next(iter(levels.values()))
+                    if not args.quiet:
+                        print(f"Warning: Validating solution against level `{level.name}` that was originally"
+                              f" constructed for level `{level_name}`.")
+                else:
+                    raise ValueError(f"{Solution.describe(level_name, author, expected_score, soln_name)}:"
+                                     f" no level named `{level_name}` provided")
+
+            solution = Solution(solution_str, level=level)
+
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity in case of --json, since we'll be printing the json
-            level_name, author, expected_score, soln_name = Solution.parse_metadata(solution_str)
-            if expected_score is not None:
-                ret_val = validate(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                                   return_json=args.json, check_precog=args.check_precog,
-                                   max_precog_check_cycles=args.max_precog_check_cycles,
-                                   verbose=(not args.quiet), stderr_on_precog=args.verbose,
-                                   debug=debug)
+            if solution.expected_score is not None:
+                ret_val = solution.validate(max_cycles=args.max_cycles, return_json=args.json,
+                                            check_precog=args.check_precog,
+                                            max_precog_check_cycles=args.max_precog_check_cycles,
+                                            verbose=(not args.quiet), stderr_on_precog=args.verbose,
+                                            debug=debug)
             else:
-                ret_val = run(solution_str, level_codes=level_codes, max_cycles=args.max_cycles,
-                              return_json=args.json, check_precog=args.check_precog,
-                              max_precog_check_cycles=args.max_precog_check_cycles,
-                              verbose=(not args.quiet), stderr_on_precog=args.verbose,
-                              debug=debug)
-
-                if not args.quiet:
-                    print(f"Validated {Solution.describe(level_name, author, ret_val, soln_name)}")
+                ret_val = solution.run(max_cycles=args.max_cycles, return_json=args.json,
+                                       check_precog=args.check_precog,
+                                       max_precog_check_cycles=args.max_precog_check_cycles,
+                                       verbose=(not args.quiet), stderr_on_precog=args.verbose,
+                                       debug=debug)
 
             if args.json:
                 jsons.append(ret_val)
-
         except Exception as e:
             # If not in --json mode, print all errors instead of exiting early in the case of multiple solutions
             # In --json mode users are relying on our STDOUT output so we have to make sure we exit properly with an
@@ -112,26 +131,27 @@ def main(args: argparse.Namespace):
 if __name__ == '__main__':
     sys.tracebacklimit = 0  # Suppress traceback in STDERR output
 
-    parser = argparse.ArgumentParser(description="Validate the solution(s) copied to the clipboard or in the given file.",
+    parser = argparse.ArgumentParser(prog='python -m schem',  # Don't show Usage: __main__.py
+                                     description="Validate the solution(s) copied to the clipboard or in the given file.",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--version', action='store_true', help="Print program version and exit")
     parser.add_argument('solution_file', type=argparse.FileType('r', encoding='utf-8'),  # Accept path arg or stdin pipe
                         nargs='?', default=sys.stdin,
-                        help="File containing the solution(s) to execute."
-                             + " If not provided, attempts to use the contents of the clipboard.")
+                        help="File containing the solution(s) to execute.\n"
+                             "If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
                         metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
                         help="File containing the puzzle to check the solution(s) against.\n"
                              "If not provided, solution is checked against any official level with a matching title.\n"
-                             "If flag is used multiple times, it will be checked that the solution validates for at"
-                             " least one of the levels.")
+                             "If flag is used multiple times, it will be checked that the solution validates for at\n"
+                             "least one of the levels.")
     parser.add_argument('--max-cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
                              "1,000,000 if incomplete score metadata.\n"
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
                         help="Check if the given solution(s) are precognitive, per the current community definition.\n"
-                             "\nA solution is considered precognitive if either it fails for >= 50%% of random seeds,\n"
+                             "\nA solution is considered precognitive if either it fails for > 80%% of random seeds,\n"
                              "or it assumes knowledge of a *particular* input molecule other than the first.\n"
                              "In other words, if, for some n >= 2, there is a choice of the nth input\n"
                              "for which the solution will always fail regardless of the rest of the input sequence.\n"
@@ -155,17 +175,18 @@ if __name__ == '__main__':
                              help="Suppress default STDOUT messages/warnings.")
     parser.add_argument('--verbose', action='store_true',
                         help="In addition to standard STDOUT messages/warnings, report the time schem takes to run,\n"
-                              "and if running with --check_precog, also report to STDERR explanations for why a\n"
-                              "solution is precognitive. Note that --json/--quiet only suppress STDOUT and will keep\n"
-                              "the latter STDERR messages.")
+                             "and if running with --check_precog, also report to STDERR explanations for why a\n"
+                             "solution is precognitive. Note that --json/--quiet only suppress STDOUT and will keep\n"
+                             "the latter STDERR messages.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs.\n"
                              "Can accept a comma-separated string with any of the following options:\n"
-                             "rR: Debug the reactor with idx R (if unspecified, overworld is shown in production lvls).\n"
+                             "rR: Debug reactor R (0-indexed). If unspecified, overworld is shown in production lvls.\n"
                              "cC: Start debugging from cycle C. Default 0.\n"
                              "sS: Speed of debug in cycles/s. Default 10.\n"
                              "i: Show instructions. Default False since this mode can actually reduce readability.\n"
-                             "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a cycle/s")
+                             "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a\n"
+                             "cycle per second.")
     args = parser.parse_args()
 
     if args.version:
