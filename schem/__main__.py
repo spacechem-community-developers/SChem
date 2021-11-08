@@ -12,6 +12,8 @@ import clipboard
 
 from ._version import __version__
 from .level import Level
+from .schem_random import SChemRandom
+from .components import RandomInput
 from .solution import Solution, DebugOptions
 
 
@@ -89,6 +91,20 @@ def main(args: argparse.Namespace):
 
             solution = Solution(solution_str, level=level)
 
+            # Update the random input seed(s) if requested
+            if args.seed is not None:
+                random_inputs = [input_component for input_component in solution.inputs
+                                 if isinstance(input_component, RandomInput)]
+                # Do nothing for non-random levels
+                if random_inputs:
+                    # Set the first random input to the given seed, while maintaining the difference between it
+                    # and the other random inputs' seeds
+                    input_seed_increments = [random_input.seed - random_inputs[0].seed
+                                             for random_input in random_inputs]
+                    for random_input, increment in zip(random_inputs, input_seed_increments):
+                        random_input.seed = (args.seed + increment) % (SChemRandom.MAX_SEED + 1)
+                        random_input.reset()  # Reset to pick up the seed change
+
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity in case of --json, since we'll be printing the json
             if solution.expected_score is not None:
@@ -145,6 +161,12 @@ if __name__ == '__main__':
                              "If not provided, solution is checked against any official level with a matching title.\n"
                              "If flag is used multiple times, it will be checked that the solution validates for at\n"
                              "least one of the levels.")
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Override the seed of the level's random input.\n"
+                             "Expected cycle count is ignored when this flag is used.\n"
+                             "If multiple random inputs are present, sets the first input to the given seed, and\n"
+                             "keeps the relative difference between it and other inputs' seeds the same.\n"
+                             "E.g. if a level had two same-seed inputs, both will use the given seed.")
     parser.add_argument('--max-cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
                              "1,000,000 if incomplete score metadata.\n"
