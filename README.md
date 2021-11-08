@@ -8,7 +8,7 @@ Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.c
 
 Command line:
 ```
-python -m schem [-h] [--version] [-l LEVEL_FILE] [--max-cycles MAX_CYCLES]
+python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX_CYCLES]
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
                 [--json | --quiet] [--verbose] [--debug [DEBUG]]
                 [solution_file]
