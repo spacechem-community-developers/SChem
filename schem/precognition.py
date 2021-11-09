@@ -359,7 +359,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                     if ((m > len(success_run_variants[i])
                          or v not in success_run_variants[i][m])
                             and fail_run_variants_first_match[i][m][v] >= max_variant_failures):
-                        if verbose:
+                        if verbose or stderr_on_precog:
                             # Use the human-readable name for the variant if it's present and unique
                             # (for some levels, all input molecules have the same name which isn't very helpful)
                             mol_name = None
@@ -604,7 +604,8 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     # Attempt to redo the precog check with our fallback relaxed confidence levels, and if even then we aren't
     # sufficiently confident in our answer, raise an error
     if verbose:
-        print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.")
+        print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.",
+              file=STDERR)
 
     if not success_check_passed:
         if success_rate_too_low(false_pos_rate=MAX_FALSE_POS_RATE):
