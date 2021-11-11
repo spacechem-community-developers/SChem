@@ -434,13 +434,13 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         #         seeds too. However would have to be careful of bad luck causing us to never give it a chance to pass
         #         the off-brand seeds again.
         if success_check_passed:
-            # Identify the input zone, molecule, and variant for which we've seen the most failures
+            # Identify the input zone, molecule, and variant for which we've seen the most failures without a success
             target_input, target_molecule, target_variant = None, None, None
             max_variant_fail_count = -1
             for i, input_data in enumerate(fail_run_variants_first_match):
                 for m in range(1, len(input_data)):
                     for v in range(num_variants[i]):
-                        if (v not in success_run_variants[i][m]
+                        if ((m >= len(success_run_variants[i]) or v not in success_run_variants[i][m])
                                 and input_data[m][v] > max_variant_fail_count):
                             target_input, target_molecule, target_variant = i, m, v
                             max_variant_fail_count = input_data[m][v]
