@@ -886,7 +886,7 @@ class Solution:
             # If the solution crashed at runtime or failed the score check, set the cycles to None and print the error
             # to STDERR, but still return the JSON
             cycles = None
-            print(f"{type(e)}: {e}", file=sys.stderr)
+            print(f"{type(e).__name__}: {e}", file=sys.stderr)
 
         run_data = {'level_name': self.level.name,
                     'resnet_id': self.level.resnet_id,
