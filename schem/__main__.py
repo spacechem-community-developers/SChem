@@ -123,13 +123,13 @@ def main(args: argparse.Namespace):
             if args.json:
                 jsons.append(ret_val)
         except Exception as e:
-            # If not in --json mode, print all errors instead of exiting early in the case of multiple solutions
-            # In --json mode users are relying on our STDOUT output so we have to make sure we exit properly with an
-            # error code instead of printing errors
+            # If not in --json mode, print errors to STDERR instead of exiting early in the case of multiple solutions
+            # In --json mode, users are relying on our STDOUT output so we have to make sure we exit properly with an
+            # error code if we manage to produce the JSON
             if len(solutions) == 1 or args.json:
                 raise e
             else:
-                print(f"{type(e).__name__}: {e}")
+                print(f"{type(e).__name__}: {e}", file=sys.stderr)
         finally:
             if args.verbose and not args.quiet:  # Sorry
                 print(f"{elapsed_readable(time.time() - start, decimals=3)} elapsed")

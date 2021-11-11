@@ -8,6 +8,7 @@ from itertools import product
 import platform
 import time
 from typing import Optional, Union
+import sys
 
 # These modules are only used for debug mode's pretty-printing, so make them optional
 try:
@@ -826,8 +827,8 @@ class Solution:
                 ResearchNet volume/issue/puzzle, or None if not a ResearchNet level), cycles, reactors, symbols, author,
                 and solution_name.
                 Additionally, raise an exception only if the solution cannot be imported into any level; if the solution
-                encounters a reaction error or exceeds max_cycles, return None in the dict's 'cycles' field and
-                return the metadata of the first level that the solution could be successfully imported into.
+                encounters a reaction error or exceeds max_cycles, print the exception to STDERR and return None in the
+                dict's 'cycles' field, but still return the remaining metadata.
                 Default False.
             check_precog: If True, do additional runs on the solution to check if it fits the current community
                 definition of a precognitive solution.
@@ -878,12 +879,14 @@ class Solution:
             # Validate the cycle count
             if _validate_expected_score and cycles != self.expected_score.cycles:
                 raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {cycles}.")
-        except Exception:
+        except Exception as e:
             if not return_json:
                 raise
 
-            # If the solution crashed at runtime or failed the score check, set the cycles to None
+            # If the solution crashed at runtime or failed the score check, set the cycles to None and print the error
+            # to STDERR, but still return the JSON
             cycles = None
+            print(f"{type(e)}: {e}", file=sys.stderr)
 
         run_data = {'level_name': self.level.name,
                     'resnet_id': self.level.resnet_id,
