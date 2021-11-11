@@ -905,10 +905,11 @@ class Solution:
                                                            verbose=verbose,
                                                            stderr_on_precog=stderr_on_precog)
                                       if cycles is not None else None)
-            except TimeoutError:
-                # If returning JSON, store None for the field instead of propagating any timeout error
+            except TimeoutError as e:
+                # If returning JSON, store None and print to STDERR instead of raising
                 if return_json:
                     run_data['precog'] = None
+                    print(f"{type(e).__name__}: {e}", file=sys.stderr)
                 else:
                     raise
 

@@ -438,7 +438,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             target_input, target_molecule, target_variant = None, None, None
             max_variant_fail_count = -1
             for i, input_data in enumerate(fail_run_variants_first_match):
-                for m in range(1, len(input_data)):
+                for m in range(1, min(len(input_data), Ms[i])):
                     for v in range(num_variants[i]):
                         if ((m >= len(success_run_variants[i]) or v not in success_run_variants[i][m])
                                 and input_data[m][v] > max_variant_fail_count):
@@ -623,4 +623,4 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         return molecule_assumption_check_result
 
     raise TimeoutError("Precog check could not be completed due to time constraints; certain non-succeeding molecule"
-                       " variants not encountered enough times to be confident they always fail.")
+                       f" variants not encountered enough times in {num_runs} runs to be confident they always fail.")
