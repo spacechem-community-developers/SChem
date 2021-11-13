@@ -128,12 +128,20 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     # Track the min cycles a passing run takes so we can exit early if we know we can't prove anything before timeout
     min_passing_run_cycles = math.inf
 
-    # For each input zone, let M be the minimum molecules the solution must use from that input
+    # For each input zone, let M be the minimum molecules the solution must use from that input to succeed
     # Before we do any checks that require resetting the input objects, initialize Ms to the data from the last run if
     # just_run_cycle_count was provided
-    # TODO: re-jigger this with the below check so we pick up the ignore-pipe refinement but preferably
-    #       without having the same code in two places
-    Ms = [random_input.num_inputs if just_run_cycle_count else math.inf for random_input in random_inputs]
+    # Ignore molecules that only made it into the pipe since they can't affect the solution
+    # TODO: Find a way to share this code with the same in-loop calculation
+    Ms = [random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
+          if just_run_cycle_count else math.inf
+          for random_input in random_inputs]
+
+    # If the solution didn't use any of the random inputs, it never will
+    if all(M == 0 for M in Ms):
+        if verbose:
+            print("Solution is not precognitive; does not use random inputs.")
+        return False
 
     # Collect a bunch of information about each random input which we'll use for calculating how many runs are needed
     num_variants = [len(random_input.molecules) for random_input in random_inputs]
@@ -488,6 +496,12 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                     this_M = random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
                     Ms[i] = min(Ms[i], this_M)
 
+                # If the solution didn't use any of the random inputs, it never will (and if it did it always will)
+                if num_runs == 0 and all(M == 0 for M in Ms):
+                    if verbose:
+                        print("Solution is not precognitive; does not use random inputs.")
+                    return False
+
             target_variants_data = success_run_variants
             target_variants_data_first_match = success_run_variants_first_match
             num_variants_to_store = Ms  # Direct reference is safe since we only read from this
@@ -509,7 +523,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         except Exception as e:
             if num_runs == 0:
                 # Not allowed to crash on the original seed, otherwise do nothing
-                raise Exception(f"Error in base seed: {type(e)}: {e}")
+                raise Exception(f"Error in base seed: {type(e).__name__}: {e}")
 
             cycles = solution.cycle
             target_variants_data = fail_run_variants  # The data set that this run's variants should be added to
