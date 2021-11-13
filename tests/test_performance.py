@@ -66,8 +66,7 @@ class TestPerformace(unittest.TestCase):
                 mem_usage = asizeof.asizeof(solution)
 
                 # Check the time performance of the solver
-                timer = Timer(('l=schem.Level(level_code)'
-                               ';s=schem.Solution(solution_code, level=l)'
+                timer = Timer(('s=schem.Solution(solution_code, level=level_code)'
                                ';s.run()'),
                               globals={'level_code': level_code,
                                        'solution_code': solution_code,

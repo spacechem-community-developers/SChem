@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 from collections import namedtuple
 import copy
 from dataclasses import dataclass
@@ -20,7 +22,7 @@ except ImportError:
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .waldo import InstructionType
-from .exceptions import SolutionImportError, ScoreError
+from .exceptions import SolutionImportError, ScoreError, PrecogError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
 from .levels import levels as built_in_levels, defense_names, resnet_ids
@@ -99,10 +101,6 @@ class Solution:
     @property
     def symbols(self):
         return sum(sum(len(waldo) for waldo in reactor.waldos) for reactor in self.reactors)
-
-    @property
-    def description(self):
-        return self.describe(self.level.name, self.author, self.expected_score, self.name)
 
     @classmethod
     def split_solutions(cls, solns_str):
@@ -188,6 +186,10 @@ class Solution:
         soln_descr += f" by {author}"
 
         return soln_descr
+
+    @property
+    def description(self):
+        return self.describe(self.level.name, self.author, self.expected_score, self.name)
 
     def __init__(self, solution_str: Optional[str], level: Optional[Union[Level, str]] = None):
         """Load a solution string as exported by SC, instantiating both level-defined and solution-defined components.
@@ -604,8 +606,16 @@ class Solution:
                             if other_component.dimensions[1] > 1 and len(other_component.in_pipes) >= i + 1:
                                 other_component.in_pipes[i] = pipe
                             break
+            self.validate_components()
         except Exception as e:
             raise SolutionImportError(str(e)) from e
+
+    def validate_components(self):
+        """Validate that this solution is legal (whether or not it can run to completion)."""
+        # Make sure the reactor limit has been respected
+        if self.level['type'].startswith('production'):
+            assert sum(1 if isinstance(component, Reactor) else 0
+                       for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
     def export_str(self):
         # Solution metadata
@@ -696,15 +706,6 @@ class Solution:
         else:
             print(cursor_reset, end='')
 
-    def validate_components(self):
-        """Validate that this solution is legal (whether or not it can run to completion).
-        Called at the start of each run to ensure that no trickery was done on this object post-construction.
-        """
-        # Make sure the reactor limit has been respected
-        if self.level['type'].startswith('production'):
-            assert sum(1 if isinstance(component, Reactor) else 0
-                       for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
-
     def cycle_movement(self):
         """Move contents of all components one cycle's-worth forward."""
         for component in self.components:
@@ -719,22 +720,15 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
-    def _run(self, max_cycles=None, debug: Optional[DebugOptions] = False):
-        """Helper to run() which does a single run of the solution - this will be called multiple times by run()
-        if a precog check was requested.
+    def run(self, max_cycles: Optional[float] = None,  # Sucky way to make sure math.inf doesn't get yelled at
+            debug: Optional[DebugOptions] = False) -> Score:
+        """Run this solution, returning a Score or raising an exception if it crashes or exceeds max_cycles.
 
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                         or 1,000,000 cycles if not provided (use math.inf if you don't fear infinite loop solutions).
             debug: Print an updating view of the solution while running. See DebugOptions.
         """
-        # TODO: Running the solution should not meaningfully modify it. Namely, need to reset reactor.molecules
-        #       and waldo.position/waldo.direction before each run, or otherwise prevent these from persisting.
-        #       Otherwise a solution will only be safely runnable once.
-
-        # TODO: Should re-check for component/pipe collisions every time we run it; run() should be a source of truth,
-        #       and shouldn't be confoundable by modifying the solution after the ctor validations
-
         # Set the maximum runtime if unspecified to ensure a broken solution can't infinite loop forever
         if max_cycles is None:
             if self.expected_score is not None:
@@ -746,7 +740,6 @@ class Solution:
         if debug and self.level['type'].startswith('research'):
             debug.reactor = 0
 
-        self.validate_components()
         reactors = list(self.reactors)
         outputs = list(self.outputs)
 
@@ -813,125 +806,141 @@ class Solution:
                 # Restore the cursor
                 cursor.show()
 
-    def run(self, max_cycles=None,
-            return_json=False,
-            check_precog=False, max_precog_check_cycles=None, stderr_on_precog=False,
-            verbose=False, debug: Optional[DebugOptions] = False,
-            _validate_expected_score=False) -> Union[Score, dict]:
-        """Run this solution, returning a Score or raising an exception if it crashes or exceeds max_cycles.
+    # Helper so evaluate() can behave like validate() while still accessing the true score if it was obtained
+    def _validate_setup(self, max_cycles):
+        # Sanity check arguments
+        if self.expected_score is None:
+            raise ValueError(f"{self.description}: validate() requires a valid expected score (currently 0-0-0);"
+                             " update the solution metadata line or use run() instead.")
+
+        if max_cycles is not None:
+            if self.expected_score.cycles > max_cycles:
+                raise ValueError(f"{self.description}: Cannot validate; expected cycles"
+                                 f" ({self.expected_score.cycles}) > max cycles ({max_cycles})")
+
+            # If validating, limit the max cycles based on the expected score, to save time
+            max_cycles = min(max_cycles, int(self.expected_score.cycles * 1.1))
+
+        # Skip running if the reactor or symbol counts don't match
+        reactors, symbols = len(list(self.reactors)), self.symbols
+        if reactors != self.expected_score.reactors:
+            raise ScoreError(f"{self.description}: Expected {self.expected_score.reactors} reactors but got {reactors}.")
+        elif symbols != self.expected_score.symbols:
+            raise ScoreError(f"{self.description}: Expected {self.expected_score.symbols} symbols but got {symbols}.")
+
+        return max_cycles
+
+    def validate(self, max_cycles: Optional[float] = None,
+                 debug: Optional[DebugOptions] = False) -> Solution:
+        """Same behaviour as Solution.run, but additionally raises an exception if the score does not match
+        the expected score in solution metadata (expected_score). The run is skipped entirely if reactor/symbol counts
+        don't match.
+
+        See Solution.run for details and available arguments.
+        """
+        max_cycles = self._validate_setup(max_cycles)
+
+        # Run the solution to completion
+        cycles, _, _ = self.run(max_cycles=max_cycles, debug=debug)
+
+        # Validate the cycle count
+        if cycles != self.expected_score.cycles:
+            raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {cycles}.")
+
+        return self
+
+    def is_precognitive(self, *args, **kwargs):
+        """Run this solution enough times to check if fits the community definition of a precognitive solution."""
+        return is_precognitive(self, *args, **kwargs)
+
+    def evaluate(self, max_cycles: Optional[float] = None,
+                 strict: bool = False,
+                 check_precog: bool = False,
+                 max_precog_check_cycles: Optional[float] = None,
+                 verbosity: int = 0,
+                 debug: Optional[DebugOptions] = False) -> dict:
+        """Run this solution, validating the expected score if it isn't None. Return a dict of summary data.
+
+        Dict fields: level_name, resnet_id (a tuple of the ResearchNet volume + issue + puzzle, included only for
+                     ReseachNet levels), cycles, reactors, symbols, author, and solution_name.
+
+        If the solution cannot run to completion or the score check fails, an 'error' field containing any raised
+        exception will be included, and the 'cycles' field may be omitted. Note that in the case of the solution passing
+        but the cycle count not matching that expected, the 'cycles' field will be included, with the true cycle count.
+
+        Optionally can include precognition analysis, adding a boolean 'precog' field. If precognitive, the 'error'
+        field will also contain a PrecogError explaining why the solution was precognitive (or a TimeoutError if the
+        precog check timed out and the 'precog' field had to be omitted).
 
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                 or 1,000,000 cycles if no expected_score (use math.inf if you don't fear infinite loop solutions).
-            return_json: If True, instead of a Score, return a dict including: level_name, resnet_id (a tuple of the
-                ResearchNet volume/issue/puzzle, or None if not a ResearchNet level), cycles, reactors, symbols, author,
-                and solution_name.
-                Additionally, raise an exception only if the solution cannot be imported into any level; if the solution
-                encounters a reaction error or exceeds max_cycles, print the exception to STDERR and return None in the
-                dict's 'cycles' field, but still return the remaining metadata.
-                Default False.
+            strict: Require that expected_score isn't None, always validating it.
             check_precog: If True, do additional runs on the solution to check if it fits the current community
-                definition of a precognitive solution.
-                Should only be used with `verbose` or `return_json`, else the result will not be available. In the case
-                of return_json, a 'precog' field will be included in the returned dict, with a boolean value unless the
-                precog check times out, in which case it will be None.
+                definition of a precognitive solution. Default False.
+                Adds a 'precog' field to the returned dict, with a boolean value, or None if the precog check timed out.
                 See `Solution.is_precognitive` for more info and a direct API.
             max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if
                 this value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised,
                 or in the case of return_json, the 'precog' field is set to None.
                 Default 2,000,000 cycles (this is sufficient for basically any sub-10k solution).
-            stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
-                              Can be enabled independently of `verbose`. Default False.
-            verbose: If True, print a report of the successfully validated score and the precog check result to STDOUT.
-                     Default False.
+            verbosity: 0 (default): No prints.
+                       1: Print a message on the validated score, and a precog check report if the solution was precog.
+                       2+: Print a message on the validated score, and a precog check report regardless of result.
             debug: Print an updating view of the solution while running; see DebugOptions. Default False.
         """
-        # To reduce duplicate code, validate() calls this with _validate_expected_score. It cannot just validate
-        # before/after this call since the precog check shouldn't be performed if score validation fails
-        if _validate_expected_score:
-            # Sanity check arguments
-            if self.expected_score is None:
-                raise ValueError(f"{self.description}: validate() requires a valid expected score (currently 0-0-0);"
-                                 " update the solution metadata line or use run() instead.")
+        result = {'level_name': self.level.name,
+                  'resnet_id': self.level.resnet_id,
+                  'author': self.author,
+                  'cycles': None,  # May be deleted, but this keeps it in order
+                  'reactors': len(list(self.reactors)),
+                  'symbols': self.symbols,
+                  'solution_name': self.name}
 
-            if max_cycles is not None:
-                if self.expected_score.cycles > max_cycles:
-                    raise ValueError(f"{self.description}: Cannot validate; expected cycles"
-                                     f" ({self.expected_score.cycles}) > max cycles ({max_cycles})")
+        # We'll drop fields rather than setting them to None
+        if result['resnet_id'] is None:
+            del result['resnet_id']
 
-                # If validating, limit the max cycles based on the expected score, to save time
-                max_cycles = min(max_cycles, int(self.expected_score.cycles * 1.1))
-
-        # When returning JSON, catch runtime and score errors so we can still report which level the solution was for
-        reactors, symbols = len(list(self.reactors)), self.symbols
+        # Catch runtime and score errors so we can still report which level the solution was for
         try:
-            # Validate the reactor/symbol counts
-            if _validate_expected_score:
-                if reactors != self.expected_score.reactors:
-                    raise ScoreError(f"{self.description}: Expected {self.expected_score.reactors} reactors but got {reactors}.")
+            if strict or self.expected_score is not None:
+                # _validate_setup returns an adjusted max_cycles and validates reactor/symbol counts
+                score = self.run(max_cycles=self._validate_setup(max_cycles), debug=debug)
+                result['cycles'] = score.cycles
 
-                if symbols != self.expected_score.symbols:
-                    raise ScoreError(f"{self.description}: Expected {self.expected_score.symbols} symbols but got {symbols}.")
+                # Validate the cycle count
+                if score.cycles != self.expected_score.cycles:
+                    raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {score.cycles}.")
+            else:
+                score = self.run(max_cycles=max_cycles, debug=debug)
+                result['cycles'] = score.cycles
 
-            # Run the solution to completion
-            score = cycles, _, _ = self._run(max_cycles=max_cycles, debug=debug)
-
-            # Validate the cycle count
-            if _validate_expected_score and cycles != self.expected_score.cycles:
-                raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {cycles}.")
+            if verbosity >= 1:
+                print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
         except Exception as e:
-            if not return_json:
-                raise
+            del result['cycles']
+            result['error'] = e
 
-            # If the solution crashed at runtime or failed the score check, set the cycles to None and print the error
-            # to STDERR, but still return the JSON
-            cycles = None
-            print(f"{type(e).__name__}: {e}", file=sys.stderr)
-
-        run_data = {'level_name': self.level.name,
-                    'resnet_id': self.level.resnet_id,
-                    'cycles': cycles,
-                    'reactors': reactors,
-                    'symbols': symbols,
-                    'author': self.author,
-                    'solution_name': self.name}
-
-        if check_precog:
+        if 'error' not in result and check_precog:
             try:
-                # Do the precog check (unless the base run/score check failed)
-                run_data['precog'] = (self.is_precognitive(max_cycles=max_cycles,
-                                                           max_total_cycles=max_precog_check_cycles,
-                                                           just_run_cycle_count=cycles,
-                                                           verbose=verbose,
-                                                           stderr_on_precog=stderr_on_precog)
-                                      if cycles is not None else None)
+                result['precog'] = self.is_precognitive(max_cycles=max_cycles,
+                                                        max_total_cycles=max_precog_check_cycles,
+                                                        just_run_cycle_count=result['cycles'],
+                                                        error_on_precog=True,
+                                                        verbose=verbosity >= 2)
+            except PrecogError as e:
+                result['precog'] = True
+                result['error'] = e
             except TimeoutError as e:
-                # If returning JSON, store None and print to STDERR instead of raising
-                if return_json:
-                    run_data['precog'] = None
-                    print(f"{type(e).__name__}: {e}", file=sys.stderr)
-                else:
-                    raise
+                result['error'] = e
 
-        if verbose and cycles is not None:
-            print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
+        if 'error' in result and verbosity >= 1:
+            if isinstance(result['error'], PrecogError):
+                print(result['error'], file=sys.stderr)  # Omit unnecessary "PrecogError:" prefix
+            else:
+                print(f"{type(result['error']).__name__}: {result['error']}", file=sys.stderr)
 
-        return run_data if return_json else score
-
-    def validate(self, *args, **kwargs) -> Union[Score, dict]:
-        """Same behaviour as Solution.run, but additionally raises an exception if the score does not match
-        the expected score in solution metadata (expected_score).
-
-        See Solution.run for details and available arguments.
-        Also note that when return_json is used, score check errors will also be suppressed, instead returning a None
-        value for cycles and the true reactor/symbol counts.
-        """
-        return self.run(*args, **kwargs, _validate_expected_score=True)
-
-    def is_precognitive(self, *args, **kwargs):
-        """Run this solution enough times to check if fits the current community definition of a precognitive solution.
-        """
-        return is_precognitive(self, *args, **kwargs)
+        return result
 
     def reset(self):
         """Reset this solution as if it had not yet been run."""

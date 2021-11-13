@@ -4,20 +4,60 @@ https://pypi.org/project/schem/
 
 Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.com/spacechem).
 
-## Usage
+## Usage (CLI)
 
-Command line:
 ```
 python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX_CYCLES]
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
-                [--json | --quiet] [--verbose] [--debug [DEBUG]]
+                [--json | --verbose] [--debug [DEBUG]]
                 [solution_file]
 ```
 
 E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export in the user's clipboard.
 
-This is roughly equivalent to:
-```
-import schem
-schem.Solution(soln_str).validate(verbose=True)
+## Usage (API)
+
+Some sample API calls, supposing `level_export`, `solution_export` are strings as exported by SpaceChem CE:
+```python
+from schem import Level, Solution
+
+# Load a solution, using a specified custom level
+solution = Solution(solution_export, level=level_code)
+# or
+solution = Solution(solution_export, level=Level(level_code))
+
+# Load a solution, automatically using the appropriate official level.
+solution = Solution(solution_export)
+
+# Run a solution
+solution.run()
+# => Score(cycles=45, reactors=1, symbols=14)
+
+# Check the expected score that was in the export's metadata
+solution.expected_score
+# => Score(cycles=44, reactors=1, symbols-14)
+
+# Reset the run state of a solution
+solution.reset()
+
+# Validate that a solution matched its expected score
+solution.validate()
+# =/> ScoreError("[Of Pancakes and Spaceships] 44-1-14 "Cycles" by Zig: Expected 44 cycles but got 45.")
+
+# Check if a solution uses precognition
+solution.is_precognitive()  # slow
+# => False
+
+# Bundle method for calling validate() if expected score is present, else run(), optionally checking precog, and
+# returning a dict of all this info and any errors.
+solution.evaluate(check_precog=True)
+# => {"level_name": "Challenge: Going Green",
+#     "author": "Zig",
+#     "cycles: 3578,
+#     "reactors": 1,
+#     "symbols": 103,
+#     "solution_name": "assumes 2nd input",
+#     "precog": true,
+#     "error": PrecogError("Solution is precognitive; failed whenever molecule 2 was Hydrogen Sulfide, for 9 such appearances (whereas solution success rate was otherwise 100%).")
+#}
 ```

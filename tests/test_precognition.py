@@ -33,7 +33,7 @@ def iter_test_data(solution_codes):
 
 class TestPrecognition(unittest.TestCase):
     def test_is_precognitive_positive(self):
-        """Test that run() does not require an expected score."""
+        """Test solutions that are precognitive."""
         for test_id, level_code, solution_code in iter_test_data(test_data.precog_solutions):
             with self.subTest(msg=test_id):
                 solution = Solution(solution_code, level=level_code)
@@ -42,7 +42,7 @@ class TestPrecognition(unittest.TestCase):
                 print(f"✅ {time.time() - start:.3f}s - {test_id}")
 
     def test_is_precognitive_negative(self):
-        """Test that run() does not require an expected score."""
+        """Test solutions that are non-precognitive."""
         for test_id, level_code, solution_code in iter_test_data(test_data.non_precog_solutions):
             with self.subTest(msg=test_id):
                 solution = Solution(solution_code, level=level_code)

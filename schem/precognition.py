@@ -5,19 +5,19 @@ from collections import Counter
 import math
 import random
 import sys
-# Convenience
-STDOUT, STDERR = sys.stdout, sys.stderr
 
 from scipy.stats import binom
 # Stupid black magic to suppress rare `divide by zero encountered in _binom_cdf` warning when calling binom for first
 # time with very particular values; scipy version 1.7.1. Python suppresses warnings past the first so we purposely
 # trigger it here. Messing with warnings management didn't help since reverting them to normal resets the count.
 import os
+STDERR = sys.stderr
 sys.stderr = open(os.devnull, 'w')
 binom.cdf(39, 43097, 0.5)  # No, it doesn't occur for 38 or 40, or for any n lower than 43097
 sys.stderr = STDERR
 
 from .components import RandomInput
+from .exceptions import PrecogError
 from .schem_random import SChemRandom
 
 NON_PRECOG_MIN_PASS_RATE = 0.2
@@ -61,7 +61,7 @@ DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't
 #       import or needing to merge the modules:
 #       https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
 def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
-                    verbose=False, stderr_on_precog=False):
+                    error_on_precog=False, verbose=False) -> bool:
     """Given a Solution, run/validate it then check if fits the current community definition of a precognitive solution.
 
     If time constraints do not allow enough runs for even 90% certainty either way, raise a TimeoutError.
@@ -89,6 +89,8 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
        * The success rate is measured to be < 20%, with 99.9% confidence (precog).
        * The success rate is measured to be > 20% with 99.9% confidence, and the dataset of succeeding runs covers
          every possible variant of every possible mth molecule (2 <= m <= M), for all random inputs (non-precog).
+       * A variant of the mth molecule fails sufficiently many runs without ever succeeding (precog).
+         This threshold is calculated dynamically based on the observed success rate.
        * The maximum allowed runs based on max_total_cycles is reached (TimeoutError).
          With default settings this should only occur for very long (100k+ cycles) solutions or solutions with a
          failure rate extremely close to 20%.
@@ -105,9 +107,11 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         just_run_cycle_count: In order to save on excess runs, if the solution has just been successfully run on the
             loaded level (and not been modified or reset() since), pass its cycle count here to skip the first run (but
             still pull the first run's data from the Solution object).
-        verbose: If True, print more detailed info on the number of runs performed and how many passed before returning.
-        stderr_on_precog: If True, when a solution is precognitive, print an explanation of why to STDERR.
-                          Can be enabled independently of `verbose`. Default False.
+        error_on_precog: If True, raise a PrecogError if a solution is precognitive, with more detailed info on the
+                         cause in its message. Suppresses verbose's prints if the solution is precog.
+                         Be aware that the algorithm can also raise TimeoutError; be sure to distinguish the two.
+                         Default False.
+        verbose: If True, print more detailed info on the result and its reason to STDOUT. Default False.
     """
     # Hang onto references to each random input in the solution
     random_inputs = [input_component for input_component in solution.inputs
@@ -226,22 +230,25 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
         # Since assuming the first input is allowed, the rate is only considered too low if it's too low both including
         # and not including seeds that match the base seed's first molecule(s)
         if global_success_check_failed and first_match_success_rate_too_low(false_pos_rate):
-            if verbose or stderr_on_precog:
+            if verbose or error_on_precog:
                 # Since it's a pretty common case, we'll simplify the message if everything failed
                 if num_passing_runs_unbiased == num_passing_runs_first_match_unbiased == 0:
-                    print(f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
-                          f" random seed (with {100 * (1 - false_pos_rate)}% confidence); all {num_runs - 1}"
-                          f" alternate-seed runs failed.",
-                          file=STDERR if stderr_on_precog else STDOUT)
+                    msg = (f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
+                           f" random seed (with {100 * (1 - false_pos_rate)}% confidence); all {num_runs - 1}"
+                           f" alternate-seed runs failed.")
                 else:
                     success_rate = num_passing_runs_unbiased / num_runs_unbiased
                     success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
-                    print(f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
-                          f" random seed (with {100 * (1 - false_pos_rate)}% confidence);"
-                          f" {round(100 * success_rate)}% of {num_runs_unbiased} alternate-seed runs passed"
-                          f" (or {round(100 * success_rate_first_match)}% of {num_runs_first_match_unbiased} runs"
-                          " when targeting seeds with same first molecule as the base seed).",
-                          file=STDERR if stderr_on_precog else STDOUT)
+                    msg = (f"Solution is precognitive; <= {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate for a"
+                           f" random seed (with {100 * (1 - false_pos_rate)}% confidence);"
+                           f" {round(100 * success_rate)}% of {num_runs_unbiased} alternate-seed runs passed"
+                           f" (or {round(100 * success_rate_first_match)}% of {num_runs_first_match_unbiased} runs"
+                           " when targeting seeds with same first molecule as the base seed).")
+
+                if error_on_precog:
+                    raise PrecogError(msg)
+                elif verbose:
+                    print(msg)
 
             return True
 
@@ -367,7 +374,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                     if ((m > len(success_run_variants[i])
                          or v not in success_run_variants[i][m])
                             and fail_run_variants_first_match[i][m][v] >= max_variant_failures):
-                        if verbose or stderr_on_precog:
+                        if verbose or error_on_precog:
                             # Use the human-readable name for the variant if it's present and unique
                             # (for some levels, all input molecules have the same name which isn't very helpful)
                             mol_name = None
@@ -377,10 +384,14 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
                             if not mol_name:
                                 mol_name = f"variant {v + 1}"  # 1-indexed for human-readability
 
-                            print(f"Solution is precognitive; failed whenever molecule {m + 1} was {mol_name}, for"
-                                  f" {max_variant_failures} such appearances (whereas solution success rate was"
-                                  f" otherwise {round(100 * success_rate_first_match)}%).",
-                                  file=STDERR if stderr_on_precog else STDOUT)
+                            msg = (f"Solution is precognitive; failed whenever molecule {m + 1} was {mol_name}, for"
+                                   f" {max_variant_failures} such appearances (whereas solution success rate was"
+                                   f" otherwise {round(100 * success_rate_first_match)}%).")
+
+                            if error_on_precog:
+                                raise PrecogError(msg)
+                            elif verbose:
+                                print(msg)
 
                         return True
 
@@ -483,7 +494,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             # Run the solution
             # if just_run_cycle_count was given, skip the first run to save time
             cycles = just_run_cycle_count if num_runs == 0 and just_run_cycle_count \
-                     else solution._run(max_cycles=max_cycles).cycles
+                     else solution.run(max_cycles=max_cycles).cycles
 
             min_passing_run_cycles = min(min_passing_run_cycles, cycles)
 
@@ -619,7 +630,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     # sufficiently confident in our answer, raise an error
     if verbose:
         print("Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.",
-              file=STDERR)
+              file=sys.stderr)
 
     if not success_check_passed:
         if success_rate_too_low(false_pos_rate=MAX_FALSE_POS_RATE):

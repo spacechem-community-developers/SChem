@@ -41,7 +41,7 @@ class SChemRandom:
     inextp: int
     SeedArray: List[np.int32]
 
-    MAX_SEED = 161803398  # If seeds higher than this are given the PRNG is liable to produce overflow errors
+    MAX_SEED = 161_803_398  # If seeds higher than this are given the PRNG is liable to produce overflow errors
 
     INT32_MIN = np.iinfo(np.int32).min  # -2147483648
     INT32_MAX = np.iinfo(np.int32).max  # 2147483647

@@ -72,19 +72,19 @@ class TestSolution(unittest.TestCase):
             with self.subTest(msg=in_str):
                 self.assertEqual(tuple(Solution.parse_metadata(in_str)), expected_outs)
 
+    def test_init_duplicate_level_name(self):
+        """Test init on valid solutions to official levels with duplicate names."""
+        for test_id, _, soln_str in iter_test_data(test_data.duplicate_level_name_solutions):
+            with self.subTest(msg=test_id):
+                schem.Solution(soln_str)
+                print(f"✅  {test_id}")
+
     def test_init_errors(self):
         """Tests for solutions that shouldn't import successfully."""
         for test_id, level_code, solution_code in iter_test_data(test_data.import_errors):
             with self.subTest(msg=test_id):
                 with self.assertRaises(schem.SolutionImportError):
                     schem.Solution(solution_code, level=level_code)
-                print(f"✅  {test_id}")
-
-    def test_init_duplicate_level_name(self):
-        """Test init on valid solutions to official levels with duplicate names."""
-        for test_id, _, soln_str in iter_test_data(test_data.duplicate_level_name_solutions):
-            with self.subTest(msg=test_id):
-                schem.Solution(soln_str)
                 print(f"✅  {test_id}")
 
     def test_init_duplicate_levels_import_error(self):
@@ -163,36 +163,6 @@ COMPONENT:'custom-research-reactor',2,0,''"""
 
                 print(f"✅  {test_id}")
 
-    def test_run_json_duplicate_levels_success(self):
-        """Test run() with return_json=True and a solution which runs successfully in one of two same-name levels."""
-        expected_json = {'level_name': "Sulfuric Acid",
-                         'resnet_id': (3, 7, 1),
-                         'cycles': 7208,
-                         'reactors': 1,
-                         'symbols': 36,
-                         'author': "Zig",
-                         'solution_name': "ResNet 3-7-1"}
-
-        json = schem.Solution(test_data.duplicate_level_name_solutions[1]).run(return_json=True)
-
-        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
-
-    def test_run_json_duplicate_levels_timeout_error(self):
-        """Test run() with return_json=True and a solution which imports successfully into one of two same-name
-        levels, but times out.
-        """
-        expected_json = {'level_name': "Sulfuric Acid",
-                         'resnet_id': (3, 7, 1),
-                         'cycles': None,
-                         'reactors': 1,
-                         'symbols': 36,
-                         'author': "Zig",
-                         'solution_name': "ResNet 3-7-1"}
-
-        json = schem.Solution(test_data.duplicate_level_name_solutions[1]).run(return_json=True, max_cycles=10)
-
-        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
-
     def test_validate_missing_score(self):
         """Test that validate() requires an expected score."""
         for test_id, level_code, solution_code in iter_test_data(test_data.missing_score):
@@ -220,13 +190,44 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                 schem.Solution(solution_code, level=level_code).validate()
                 print(f"✅  {test_id}")
 
-    def test_validate_json_duplicate_levels_cycles_score_error(self):
-        """Test validate() with return_json=True and a solution which runs successfully in one of two same-name
-        levels but has a different cycle count than expected.
+    def test_evaluate_duplicate_levels_success(self):
+        """Test evaluate() with a solution which runs successfully in one of two same-name levels."""
+        expected_json = {'level_name': "Sulfuric Acid",
+                         'resnet_id': (3, 7, 1),
+                         'cycles': 7208,
+                         'reactors': 1,
+                         'symbols': 36,
+                         'author': "Zig",
+                         'solution_name': "ResNet 3-7-1"}
+
+        json = schem.Solution(test_data.duplicate_level_name_solutions[1]).evaluate()
+
+        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+
+    def test_evaluate_duplicate_levels_timeout_error(self):
+        """Test evaluate() with a solution which imports successfully into one of two same-name
+        levels, but times out.
         """
         expected_json = {'level_name': "Sulfuric Acid",
                          'resnet_id': (3, 7, 1),
-                         'cycles': None,
+                         'reactors': 1,
+                         'symbols': 36,
+                         'author': "Zig",
+                         'solution_name': "ResNet 3-7-1"}
+
+        json = schem.Solution(test_data.duplicate_level_name_solutions[1]).evaluate(max_cycles=10)
+
+        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after timeout"
+        assert 'error' in json, "evaluate() failed to set error field"
+        # Check all non-error fields have the expected values
+        assert json.items() >= expected_json.items(), f"Expected:\n{expected_json}\nbut got\n{json}"
+
+    def test_evaluate_duplicate_levels_cycles_score_error(self):
+        """Test evaluate() with a solution which runs successfully in one of two same-name levels, but has a different
+        cycle count than expected.
+        """
+        expected_json = {'level_name': "Sulfuric Acid",
+                         'resnet_id': (3, 7, 1),
                          'reactors': 1,
                          'symbols': 36,
                          'author': "Zig",
@@ -234,27 +235,32 @@ COMPONENT:'custom-research-reactor',2,0,''"""
 
         solution = schem.Solution(test_data.duplicate_level_name_solutions[1])
         solution.expected_score = schem.Score(7209, 1, 36)  # Overstate cycle count by 1
-        json = solution.validate(return_json=True)
+        json = solution.evaluate()
 
-        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after timeout"
+        assert 'error' in json, "evaluate() failed to set error field"
+        # Check all non-error fields have the expected values
+        assert json.items() >= expected_json.items(), f"Expected:\n{expected_json}\nbut got\n{json}"
 
-    def test_validate_json_duplicate_levels_symbols_score_error(self):
-        """Test validate() with return_json=True and a solution which runs successfully in one of two same-name
-        levels but has a different symbol count than expected
+    def test_evaluate_duplicate_levels_symbols_score_error(self):
+        """Test evaluate() with a solution which runs successfully in one of two same-name levels, but has a different
+        symbol count than expected.
         """
         expected_json = {'level_name': "Sulfuric Acid",
                          'resnet_id': (3, 7, 1),
-                         'cycles': None,
                          'reactors': 1,
-                         'symbols': 36,
+                         'symbols': 36,  # Expect the actual symbol count to be returned
                          'author': "Zig",
                          'solution_name': "ResNet 3-7-1"}
 
         solution = schem.Solution(test_data.duplicate_level_name_solutions[1])
         solution.expected_score = schem.Score(7208, 1, 35)  # Understate symbol count by 1
-        json = solution.validate(return_json=True)
+        json = solution.evaluate()
 
-        assert json == expected_json, f"Expected:\n{expected_json}\nbut got\n{json}"
+        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after timeout"
+        assert 'error' in json, "evaluate() failed to set error field"
+        # Check all non-error fields have the expected values
+        assert json.items() >= expected_json.items(), f"Expected:\n{expected_json}\nbut got\n{json}"
 
     def test_sandbox(self):
         """Test sandbox solutions load correctly and run to timeout (since they have no output components)."""

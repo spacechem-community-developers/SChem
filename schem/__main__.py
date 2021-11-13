@@ -47,7 +47,7 @@ def main(args: argparse.Namespace):
     # If multiple custom levels were provided, store them by name so we can grab the right one for each solution
     levels = {}
     if args.level_files:
-        if args.verbose and not args.quiet and any(level_file.suffix != '.puzzle' for level_file in args.level_files):
+        if args.verbose and any(level_file.suffix != '.puzzle' for level_file in args.level_files):
             print("Warning: Parsing file(s) without extension .puzzle as SpaceChem level(s)")
 
         for level_file in args.level_files:
@@ -67,7 +67,7 @@ def main(args: argparse.Namespace):
 
     jsons = []
     for solution_str in solutions:
-        if args.verbose and not args.quiet:
+        if args.verbose:
             start = time.time()
 
         try:
@@ -82,7 +82,7 @@ def main(args: argparse.Namespace):
                 elif len(levels) == 1:
                     # If only one level was given, we'll accept a solution with mismatched name (but warn the user)
                     level = next(iter(levels.values()))
-                    if not args.quiet:
+                    if not args.json:
                         print(f"Warning: Validating solution against level `{level.name}` that was originally"
                               f" constructed for level `{level_name}`.")
                 else:
@@ -105,34 +105,38 @@ def main(args: argparse.Namespace):
                         random_input.seed = (args.seed + increment) % (SChemRandom.MAX_SEED + 1)
                         random_input.reset()  # Reset to pick up the seed change
 
+                    solution.expected_score = None  # Ignore expected score if we messed with the seed
+
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity in case of --json, since we'll be printing the json
-            if solution.expected_score is not None:
-                ret_val = solution.validate(max_cycles=args.max_cycles, return_json=args.json,
-                                            check_precog=args.check_precog,
-                                            max_precog_check_cycles=args.max_precog_check_cycles,
-                                            verbose=(not args.quiet), stderr_on_precog=args.verbose,
-                                            debug=debug)
-            else:
-                ret_val = solution.run(max_cycles=args.max_cycles, return_json=args.json,
+            result = solution.evaluate(max_cycles=args.max_cycles,
+                                       strict=args.strict,
                                        check_precog=args.check_precog,
                                        max_precog_check_cycles=args.max_precog_check_cycles,
-                                       verbose=(not args.quiet), stderr_on_precog=args.verbose,
+                                       verbosity=0 if args.json else 1 if not args.verbose else 2,
                                        debug=debug)
 
             if args.json:
-                jsons.append(ret_val)
+                if 'error' in result:  # Make exceptions serializable
+                    result['error'] = f"{type(result['error']).__name__}: {result['error']}"
+
+                jsons.append(result)
+            # Separate precog-related messages from the below validation to make it clear which solution they refer to.
+            # Avoids needing the full solution description in already-long precog messages. Not needed in verbose mode
+            # since the elapsed time printouts serve as sufficient separators.
+            elif not args.verbose and 'cycles' in result and ('precog' not in result or result['precog']):
+                print("")
         except Exception as e:
-            # If not in --json mode, print errors to STDERR instead of exiting early in the case of multiple solutions
-            # In --json mode, users are relying on our STDOUT output so we have to make sure we exit properly with an
-            # error code if we manage to produce the JSON
-            if len(solutions) == 1 or args.json:
-                raise e
-            else:
+            if args.json:
+                jsons.append({'error': f"{type(e).__name__}: {e}"})
+            # Send all errors to STDERR in the case of more than 1 solution; in the single case fully raise it
+            elif len(solutions) > 1:
                 print(f"{type(e).__name__}: {e}", file=sys.stderr)
+            else:
+                raise e
         finally:
-            if args.verbose and not args.quiet:  # Sorry
-                print(f"{elapsed_readable(time.time() - start, decimals=3)} elapsed")
+            if args.verbose:
+                print(f"{elapsed_readable(time.time() - start, decimals=3)} elapsed\n")
 
     if args.json:
         # If a single solution is provided, output only its json, if multiple are provided, include them all in an array
@@ -140,7 +144,7 @@ def main(args: argparse.Namespace):
                          indent=4))
 
     # If there were multiple solutions provided, report the total time elapsed
-    if len(solutions) >= 2 and args.verbose and not args.quiet:
+    if len(solutions) >= 2 and args.verbose:
         print(f"Total elapsed time: {elapsed_readable(time.time() - total_start, decimals=1)}")
 
 
@@ -163,10 +167,12 @@ if __name__ == '__main__':
                              "least one of the levels.")
     parser.add_argument('--seed', type=int, default=None,
                         help="Override the seed of the level's random input.\n"
-                             "Expected cycle count is ignored when this flag is used.\n"
+                             "Expected score is ignored when this flag is used.\n"
                              "If multiple random inputs are present, sets the first input to the given seed, and\n"
                              "keeps the relative difference between it and other inputs' seeds the same.\n"
                              "E.g. if a level had two same-seed inputs, both will use the given seed.")
+    parser.add_argument('--strict', action='store_true',
+                        help="Require that the solution(s) have an expected score to validate (not 0-0-0).")
     parser.add_argument('--max-cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
                              "1,000,000 if incomplete score metadata.\n"
@@ -181,25 +187,24 @@ if __name__ == '__main__':
                              "the runtime will increase accordingly (for typical sub-10k cycle solutions, this will\n"
                              "be anywhere from sub-second up to ~15 seconds).\n"
                              "\nIf called with the --json field, adds a 'precog' field to the output JSON.\n"
-                             "Otherwise, prints check result human readably.")
+                             "Otherwise, if a solution is precog, prints a report of why.\n"
+                             "If the --verbose flag was also provided, will generate a similar report for non-precog\n"
+                             "solutions as well (default no extra printouts for a non-precog solution).")
     parser.add_argument('--max-precog-check-cycles', type=int, default=None,
                         help="The maximum total cycle count that may be used by all precognition-check runs;\n"
                              "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
                              "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
-                             "Default 2,000,000 cycles (this is sufficient for basically any sub-100k solution).")
+                             "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
     stdout_args = parser.add_mutually_exclusive_group()
     stdout_args.add_argument('--json', action='store_true',
                              help="Print JSON containing the run data, including level and solution metadata.\n"
                                   "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                                  "--json also suppresses default validation STDOUT messages.")
-    stdout_args.add_argument('--quiet', action='store_true',
-                             help="Suppress default STDOUT messages/warnings.")
-    parser.add_argument('--verbose', action='store_true',
-                        help="In addition to standard STDOUT messages/warnings, report the time schem takes to run,\n"
-                             "and if running with --check_precog, also report to STDERR explanations for why a\n"
-                             "solution is precognitive. Note that --json/--quiet only suppress STDOUT and will keep\n"
-                             "the latter STDERR messages.")
+                                  "Also suppresses default validation STDOUT messages.")
+    stdout_args.add_argument('--verbose', action='store_true',
+                        help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
+                             "and if running with --check-precog, report extra info when a solution is non-precog,\n"
+                             "not just when it's precog.")
     parser.add_argument('--debug', nargs='?', const='', type=str,
                         help="Print an updating view of the solution while it runs.\n"
                              "Can accept a comma-separated string with any of the following options:\n"
@@ -215,15 +220,14 @@ if __name__ == '__main__':
         print(__version__)
         sys.exit()
 
+    if args.seed and not (0 <= args.seed <= SChemRandom.MAX_SEED):
+        raise ValueError(f"Seed must be from 0 to {SChemRandom.MAX_SEED}.")
+
     if args.max_cycles == -1:
         args.max_cycles = math.inf
 
     if args.max_precog_check_cycles == -1:
         args.max_precog_check_cycles = math.inf
-
-    # Suppress STDOUT if we're outputting JSON
-    if args.json:
-        args.quiet = True
 
     debug = False
     if args.debug is not None:

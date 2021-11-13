@@ -34,3 +34,8 @@ class InvalidOutputError(SolutionRunError):
 class ScoreError(Exception):
     """Raised during validations if a solution's expected score does not match its actual score."""
     __module__ = Exception.__module__
+
+
+class PrecogError(Exception):
+    """Raised during a precog check if a solution was precognitive, if error_on_precog was set."""
+    __module__ = Exception.__module__
