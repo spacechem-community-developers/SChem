@@ -228,16 +228,16 @@ COMPONENT:'custom-research-reactor',2,0,''"""
         """
         expected_json = {'level_name': "Sulfuric Acid",
                          'resnet_id': (3, 7, 1),
+                         'cycles': 7208,  # Expect the actual cycle count to be returned
                          'reactors': 1,
                          'symbols': 36,
                          'author': "Zig",
                          'solution_name': "ResNet 3-7-1"}
 
         solution = schem.Solution(test_data.duplicate_level_name_solutions[1])
-        solution.expected_score = schem.Score(7209, 1, 36)  # Overstate cycle count by 1
+        solution.expected_score = schem.Score(7207, 1, 36)  # Understate cycle count by 1
         json = solution.evaluate()
 
-        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after timeout"
         assert 'error' in json, "evaluate() failed to set error field"
         # Check all non-error fields have the expected values
         assert json.items() >= expected_json.items(), f"Expected:\n{expected_json}\nbut got\n{json}"
@@ -257,7 +257,7 @@ COMPONENT:'custom-research-reactor',2,0,''"""
         solution.expected_score = schem.Score(7208, 1, 35)  # Understate symbol count by 1
         json = solution.evaluate()
 
-        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after timeout"
+        assert 'cycles' not in json, "evaluate() unexpectedly set the cycles field after symbols score failure"
         assert 'error' in json, "evaluate() failed to set error field"
         # Check all non-error fields have the expected values
         assert json.items() >= expected_json.items(), f"Expected:\n{expected_json}\nbut got\n{json}"

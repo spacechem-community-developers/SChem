@@ -22,11 +22,11 @@ Some sample API calls, supposing `level_export`, `solution_export` are strings a
 from schem import Level, Solution
 
 # Load a solution, using a specified custom level
-solution = Solution(solution_export, level=level_code)
+solution = Solution(solution_export, level=level_export)
 # or
-solution = Solution(solution_export, level=Level(level_code))
+solution = Solution(solution_export, level=Level(level_export))
 
-# Load a solution, automatically using the appropriate official level.
+# Load a solution, automatically using the appropriate official level
 solution = Solution(solution_export)
 
 # Run a solution
@@ -48,8 +48,19 @@ solution.validate()
 solution.is_precognitive()  # slow
 # => False
 
-# Bundle method for calling validate() if expected score is present, else run(), optionally checking precog, and
-# returning a dict of all this info and any errors.
+# Bundle method for calling validate() if expected score is present, else run(), optionally checking precog,
+# and returning a dict of all this info and any error
+solution.evaluate()
+# => {"level_name": "Tunnels III",
+#     "resnet_id": (1, 1, 3),  # Volume, Issue, Puzzle
+#     "author": "Zig",
+#     "cycles": 244,
+#     "reactors": 1,
+#     "symbols": 14,
+#     "solution_name": "symbols",
+#     "error": ScoreError("[Tunnels III] 243-1-14 \"symbols\" by Zig: Expected 243 cycles but got 244.")
+#}
+
 solution.evaluate(check_precog=True)
 # => {"level_name": "Challenge: Going Green",
 #     "author": "Zig",
@@ -58,6 +69,7 @@ solution.evaluate(check_precog=True)
 #     "symbols": 103,
 #     "solution_name": "assumes 2nd input",
 #     "precog": true,
-#     "error": PrecogError("Solution is precognitive; failed whenever molecule 2 was Hydrogen Sulfide, for 9 such appearances (whereas solution success rate was otherwise 100%).")
+#     "precog_explanation": "Solution is precognitive; failed whenever molecule 2 was Hydrogen Sulfide, for 9 such
+#                            appearances (whereas solution success rate was otherwise 100%)."
 #}
 ```

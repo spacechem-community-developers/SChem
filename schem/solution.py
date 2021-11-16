@@ -22,7 +22,7 @@ except ImportError:
 
 from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
 from .waldo import InstructionType
-from .exceptions import SolutionImportError, ScoreError, PrecogError
+from .exceptions import SolutionImportError, ScoreError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
 from .levels import levels as built_in_levels, defense_names, resnet_ids
@@ -194,7 +194,7 @@ class Solution:
     def __init__(self, solution_str: Optional[str], level: Optional[Union[Level, str]] = None):
         """Load a solution string as exported by SC, instantiating both level-defined and solution-defined components.
 
-        To load an empty solution for the given level, set solution_str to None.
+        To create an empty solution for the given level, set solution_str to None.
 
         Args:
             solution_str: Solution string as exported by SpaceChem Community Edition (steam beta).
@@ -850,7 +850,6 @@ class Solution:
         return self
 
     def is_precognitive(self, *args, **kwargs):
-        """Run this solution enough times to check if fits the community definition of a precognitive solution."""
         return is_precognitive(self, *args, **kwargs)
 
     def evaluate(self, max_cycles: Optional[float] = None,
@@ -868,17 +867,14 @@ class Solution:
         exception will be included, and the 'cycles' field may be omitted. Note that in the case of the solution passing
         but the cycle count not matching that expected, the 'cycles' field will be included, with the true cycle count.
 
-        Optionally can include precognition analysis, adding a boolean 'precog' field. If precognitive, the 'error'
-        field will also contain a PrecogError explaining why the solution was precognitive (or a TimeoutError if the
-        precog check timed out and the 'precog' field had to be omitted).
-
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                 or 1,000,000 cycles if no expected_score (use math.inf if you don't fear infinite loop solutions).
             strict: Require that expected_score isn't None, always validating it.
             check_precog: If True, do additional runs on the solution to check if it fits the current community
                 definition of a precognitive solution. Default False.
-                Adds a 'precog' field to the returned dict, with a boolean value, or None if the precog check timed out.
+                Adds boolean 'precog' and string 'precog_explanation' fields to the returned dict, unless the precog
+                check times out, in which case the TimeoutError is returned in the 'error' field.
                 See `Solution.is_precognitive` for more info and a direct API.
             max_precog_check_cycles: The maximum total cycle count that may be used by all precognition-check runs; if
                 this value is exceeded before sufficient confidence in an answer is obtained, a TimeoutError is raised,
@@ -897,10 +893,6 @@ class Solution:
                   'symbols': self.symbols,
                   'solution_name': self.name}
 
-        # We'll drop fields rather than setting them to None
-        if result['resnet_id'] is None:
-            del result['resnet_id']
-
         # Catch runtime and score errors so we can still report which level the solution was for
         try:
             if strict or self.expected_score is not None:
@@ -918,27 +910,29 @@ class Solution:
             if verbosity >= 1:
                 print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
         except Exception as e:
-            del result['cycles']
             result['error'] = e
 
         if 'error' not in result and check_precog:
             try:
-                result['precog'] = self.is_precognitive(max_cycles=max_cycles,
-                                                        max_total_cycles=max_precog_check_cycles,
-                                                        just_run_cycle_count=result['cycles'],
-                                                        error_on_precog=True,
-                                                        verbose=verbosity >= 2)
-            except PrecogError as e:
-                result['precog'] = True
-                result['error'] = e
+                result['precog'], result['precog_explanation'] = \
+                    self.is_precognitive(max_cycles=max_cycles,
+                                         max_total_cycles=max_precog_check_cycles,
+                                         just_run_cycle_count=result['cycles'],
+                                         include_explanation=True)
+
+                # At the middle verbosity level, print the explanation only if the solution was precognitive
+                if verbosity == 2 or (result['precog'] and verbosity == 1):
+                    print(result['precog_explanation'])
             except TimeoutError as e:
                 result['error'] = e
 
         if 'error' in result and verbosity >= 1:
-            if isinstance(result['error'], PrecogError):
-                print(result['error'], file=sys.stderr)  # Omit unnecessary "PrecogError:" prefix
-            else:
-                print(f"{type(result['error']).__name__}: {result['error']}", file=sys.stderr)
+            print(f"{type(result['error']).__name__}: {result['error']}", file=sys.stderr)
+
+        # Drop fields rather than setting them to None
+        for k, v in list(result.items()):
+            if v is None:
+                del result[k]
 
         return result
 
@@ -950,3 +944,7 @@ class Solution:
         self.cycle = 0
 
         return self
+
+
+# Ugly but this basically keeps precognition analysis in its own module
+Solution.is_precognitive.__doc__ = is_precognitive.__doc__

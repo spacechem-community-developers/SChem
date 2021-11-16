@@ -178,7 +178,7 @@ if __name__ == '__main__':
                              "1,000,000 if incomplete score metadata.\n"
                              "Pass -1 to run infinitely.")
     parser.add_argument('--check-precog', action='store_true',
-                        help="Check if the given solution(s) are precognitive, per the current community definition.\n"
+                        help="Check if the given solution(s) are precognitive, per the community definition.\n"
                              "\nA solution is considered precognitive if either it fails for > 80%% of random seeds,\n"
                              "or it assumes knowledge of a *particular* input molecule other than the first.\n"
                              "In other words, if, for some n >= 2, there is a choice of the nth input\n"
@@ -186,10 +186,10 @@ if __name__ == '__main__':
                              "\nNote that this is calculated by running the solution a dozen to hundreds of times, so\n"
                              "the runtime will increase accordingly (for typical sub-10k cycle solutions, this will\n"
                              "be anywhere from sub-second up to ~15 seconds).\n"
-                             "\nIf called with the --json field, adds a 'precog' field to the output JSON.\n"
-                             "Otherwise, if a solution is precog, prints a report of why.\n"
-                             "If the --verbose flag was also provided, will generate a similar report for non-precog\n"
-                             "solutions as well (default no extra printouts for a non-precog solution).")
+                             "\nIf a solution is precog, prints a report of why, with similar reports for non-precog\n"
+                             "solutions being omitted unless --verbose is used.\n"
+                             "If --json is used, instead adds 'precog' (boolean) and 'precog_explanation' fields to\n"
+                             "the JSON output, with the latter populated regardless of result.\n")
     parser.add_argument('--max-precog-check-cycles', type=int, default=None,
                         help="The maximum total cycle count that may be used by all precognition-check runs;\n"
                              "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
@@ -200,7 +200,11 @@ if __name__ == '__main__':
     stdout_args.add_argument('--json', action='store_true',
                              help="Print JSON containing the run data, including level and solution metadata.\n"
                                   "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                                  "Also suppresses default validation STDOUT messages.")
+                                  "Also suppresses default validation STDOUT messages.\n"
+                                  "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
+                                  "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
+                                  "        (ditto), and error (if the solution couldn't be imported, crashed, didn't\n"
+                                  "        match expected score, or the precog check timed out).")
     stdout_args.add_argument('--verbose', action='store_true',
                         help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
                              "and if running with --check-precog, report extra info when a solution is non-precog,\n"
