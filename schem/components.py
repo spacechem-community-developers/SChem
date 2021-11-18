@@ -14,35 +14,19 @@ from .schem_random import SChemRandom
 from .waldo import Waldo, Instruction, InstructionType
 
 
-# Dimensions of component types
-# TODO: Refactor so default dimensions and allowable variations on type/shape are built-in to each subclass of Component
-#       E.g. Component.DEFAULT_DIMENSIONS = (2, 3), Recycler.DEFAULT_DIMENSIONS = (5, 5)
-#       Then we should be able to avoid type string manipulations ('output' in type) and only need to specify the types
-#        that change their shape from the class' default
+# Dimensions of components that differ from the standard dimensions for their type
 COMPONENT_SHAPES = {
-    # SpaceChem stores co-ordinates as col, row
+    # SC stores co-ordinates as col, row
     'research-input': (1, 1),
     'research-output': (1, 1),
     'disabled-output': (1, 1),
-    'reactor': (4, 4),
-    'output': (2, 3),  # All production level outputs appear to be 2x3
-    'drag-recycler': (5, 5),
-    'drag-storage-tank': (3, 3),
-    'drag-storage-tank-infinite': (3, 3),
-    'freeform-counter': (2, 3),
-    'drag-arbitrary-input': (2, 3),
     'drag-silo-input': (5, 5),
     'drag-atmospheric-input': (2, 2),
     'drag-oceanic-input': (2, 2),
     'drag-powerplant-input': (14, 15),
     'drag-mining-input': (3, 2),
     'drag-ancient-input': (2, 2),
-    'drag-spaceship-input': (2, 2),  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
-    'drag-programmed-input': (2, 3),
-    'drag-qpipe-in': (3, 1),
-    'drag-qpipe-out': (3, 1),
-    'drag-printer-output': (2, 3),
-    'drag-printer-passthrough': (2, 3)}
+    'drag-spaceship-input': (2, 2)}  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
 
 # Production level codes don't specify available reactor properties like research levels; encode them here
 REACTOR_TYPES = {
@@ -161,21 +145,11 @@ class Component:
     def __init__(self, component_dict=None, _type=None, posn=None, num_in_pipes=0, num_out_pipes=0):
         self.type = _type if _type is not None else component_dict['type']
         self.posn = Position(*posn) if posn is not None else Position(col=component_dict['x'], row=component_dict['y'])
+        self.dimensions = COMPONENT_SHAPES[self.type] if self.type in COMPONENT_SHAPES else self.DEFAULT_SHAPE
+
         self.in_pipes = [None for _ in range(num_in_pipes)]
-
-        # Initialize output pipes, accounting for any level-preset pipes
+        # Initialize output pipes in middle, rounded down, accounting for any level-preset pipes
         self.out_pipes = []
-
-        type_parts = self.type.split('-')
-        if self.type in COMPONENT_SHAPES:
-            self.dimensions = COMPONENT_SHAPES[self.type]
-        elif 'output' in type_parts or 'production-target' in self.type:
-            self.dimensions = COMPONENT_SHAPES['output']
-        elif 'reactor' in type_parts:
-            self.dimensions = COMPONENT_SHAPES['reactor']
-        else:
-            raise ValueError(f"Dimensions of component {self.type} are unknown")
-
         pipe_start_posn = Position(col=self.dimensions[0], row=(self.dimensions[1] - 1) // 2)
         if component_dict is not None and 'output-pipes' in component_dict:
             assert len(component_dict['output-pipes']) == num_out_pipes, f"Unexpected number of output pipes for {self.type}"
@@ -271,6 +245,7 @@ class Component:
 
 
 class Input(Component):
+    DEFAULT_SHAPE = (2, 3)
     __slots__ = 'molecules', 'input_rate', 'num_inputs'
 
     # Convenience property for when we know we're dealing with an Input
@@ -422,6 +397,7 @@ class ProgrammedInput(Input):
 
 
 class Output(Component):
+    DEFAULT_SHAPE = (2, 3)
     __slots__ = 'output_molecule', 'target_count', 'current_count'
 
     # Convenience property for when we know we're dealing with an Output
@@ -527,6 +503,7 @@ class PassThroughCounter(Output):
 # It's less confusing for output counting and user-facing purposes if this is not an Output subclass
 class DisabledOutput(Component):
     '''Used by research levels, which actually crash if a wrong output is used unlike assembly reactors.'''
+    DEFAULT_SHAPE = (1, 1)
     __slots__ = ()
 
     @property
@@ -545,6 +522,7 @@ class DisabledOutput(Component):
 
 class OutputPrinter(Component):
     """Displays the last 3 molecules passed to it. For now this is effectively going to be a recycler..."""
+    DEFAULT_SHAPE = (2, 3)
     __slots__ = ()
 
     def __init__(self, component_dict=None, _type=None, posn=None):
@@ -606,6 +584,7 @@ class PassThroughPrinter(OutputPrinter):
 
 
 class Recycler(Component):
+    DEFAULT_SHAPE = (5, 5)
     __slots__ = ()
 
     def __init__(self, component_dict=None, _type=None, posn=None):
@@ -620,6 +599,7 @@ class Recycler(Component):
 # TODO: Ideally this would subclass both deque and Component but doing so gives me
 #       "multiple bases have instance lay-out conflict". Need to investigate.
 class StorageTank(Component):
+    DEFAULT_SHAPE = (3, 3)
     MAX_CAPACITY = 25
     __slots__ = 'contents',
 
@@ -687,6 +667,7 @@ class InfiniteStorageTank(StorageTank):
 
 
 class TeleporterInput(Component):
+    DEFAULT_SHAPE = (3, 1)
     __slots__ = 'destination',
 
     def __init__(self, component_dict):
@@ -719,6 +700,7 @@ class TeleporterInput(Component):
 
 
 class TeleporterOutput(Component):
+    DEFAULT_SHAPE = (3, 1)
     # TODO: Needing an internal molecule slot is awkward but I couldn't find a cleaner way to avoid the molecule
     #       being both teleported and moved in the same cycle if the teleporters have the wrong relative component
     #       priorities
@@ -750,6 +732,7 @@ class TeleporterOutput(Component):
 
 
 class Reactor(Component):
+    DEFAULT_SHAPE = (4, 4)  # Size in overworld
     # For convenience during float-precision rotation co-ordinates, we consider the center of the
     # top-left cell to be at (0,0), and hence the top-left reactor corner is (-0.5, -0.5).
     # Further, treat the walls as being one atom radius closer, so that we can efficiently check if an atom will collide
@@ -762,10 +745,9 @@ class Reactor(Component):
              LEFT: -0.5 + ATOM_RADIUS, RIGHT: 9.5 - ATOM_RADIUS}
     # Names of features as stored in attributes
     FEATURE_NAMES = ('bonders', 'sensors', 'fusers', 'splitters', 'swappers')
-
     __slots__ = ('in_pipes', 'out_pipes',
                  'waldos', 'molecules',
-                 'large_output', 'bonders', 'sensors', 'fusers', 'splitters', 'swappers',
+                 'large_output', *FEATURE_NAMES,
                  'bond_plus_pairs', 'bond_minus_pairs',
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'debug')
