@@ -118,7 +118,7 @@ class Solution:
 
     @classmethod
     def parse_metadata(cls, s):
-        '''Given a solution export string or its SOLUTION line, return the level name, author, expected score,
+        """Given a solution export string or its SOLUTION line, return the level name, author, expected score,
         and solution name (or None if either of the latter are not set).
         Due to the use of comma-separated values in export lines, commas in the level or author name may cause
         errors in the parsing. To combat this, it is assumed that author names contain no commas, and that the first
@@ -127,7 +127,7 @@ class Solution:
         As a consequence, if either the author name contains a comma or the author/level names look like scores,
         it is possible for some fields to get mis-parsed. This is still a little better than SC which gets
         completely messed up by any commas in the level name.
-        '''
+        """
         s = s.replace('\r\n', '\n').strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
 
         assert s.startswith('SOLUTION:'), "Given string is not a SpaceChem solution"
@@ -489,7 +489,6 @@ class Solution:
                     # TODO: Ensure the updated component pipes are within the overworld bounds
 
             # Now that we're done updating components, check that all components/pipes are validly placed
-            # TODO: Should probably just be a method validating self.components, and also called at start of run()
             blocked_posns = set()
             # Tracks which directions pipes may cross through each other, and implicitly also which cells contain pipes
             pipe_posns_to_dirns = {}

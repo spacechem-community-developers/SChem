@@ -5,8 +5,8 @@ from itertools import product
 
 MAX_TERRAIN_INT = 7
 
-# Terrain obstacles and default component positions. The positions of obstacles within the level is uniquely identified by the terrain type for
-# all ResearchNet and custom levels, but each main game level has a unique terrain layout.
+# Terrain obstacles and default component positions. The positions of obstacles within a level is uniquely identified by
+# the terrain type for ResNet and custom levels, but each main game level has a unique terrain layout.
 # This dict will store, for each type indexed by either its level name (main game) or its
 # integer terrain type (ResearchNet/custom), the following:
 # * Set containing all co-ordinates obstructed by terrain obstacles (rocks, etc.)
@@ -277,7 +277,7 @@ terrains = {
         'fixed-input-zones': (('drag-atmospheric-input', (5, 4)),
                               ('drag-oceanic-input', (1, 16))),
         'output-zones': (('output', (23, 12)),
-                          ('output', (23, 18),))},
+                         ('output', (23, 18),))},
     "No Ordinary Headache": {
         'obstructed': {
             # Middle trees

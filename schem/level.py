@@ -15,9 +15,9 @@ OVERWORLD_COLS = 32
 
 # TODO: TO reduce the complexity of Solution.__init__, provide something like a Level.default_components() method
 class Level:
-    '''Parent class for Research and Production levels. Level(code) will return an instance of whichever subclass
+    """Parent class for Research and Production levels. Level(code) will return an instance of whichever subclass
     is appropriate.
-    '''
+    """
     export_line_len = 74
     __slots__ = 'dict', 'resnet_id'
 
@@ -29,7 +29,7 @@ class Level:
             raise ValueError("String is not a valid-format SpaceChem level code") from e
 
     def __new__(cls, code):
-        '''Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code.'''
+        """Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code."""
         # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
         if cls != Level:
             return object.__new__(cls)
@@ -77,7 +77,7 @@ class Level:
 
     @property
     def code(self):
-        '''Export to mission code string; gzip then b64 the level json.'''
+        """Export to mission code string; gzip then b64 the level json."""
         out = io.BytesIO()
         with gzip.GzipFile(fileobj=out, mode="w") as f:
             f.write(json.dumps(self.dict).encode('utf-8'))
@@ -127,7 +127,7 @@ class ResearchLevel(Level):
         assert self['type'].startswith('research')
 
     def output_molecules(self):
-        '''Return a list of Molecule objects demanded by this level.'''
+        """Return a list of Molecule objects demanded by this level."""
         return [Molecule.from_json_string(output_dict['molecule'])
                 for _, output_dict in sorted(self['output-zones'].items())]
 

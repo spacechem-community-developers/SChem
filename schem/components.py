@@ -59,12 +59,12 @@ class Pipe(list):
     __slots__ = 'posns',
 
     def __init__(self, posns):
-        '''Construct a pipe. posns should be defined relative to the pipe's parent component posn.'''
+        """Construct a pipe. posns should be defined relative to the pipe's parent component posn."""
         super().__init__([None for _ in posns])
         self.posns = posns
 
     def move_contents(self):
-        '''Shift all molecules in this pipe forward one if possible.'''
+        """Shift all molecules in this pipe forward one if possible."""
         # Iterate from the back to make clog-handling simple
         for i in range(len(self) - 2, -1, -1):  # Note that we don't need to shift the last element
             if self[i + 1] is None:
@@ -72,9 +72,9 @@ class Pipe(list):
 
     @classmethod
     def from_preset_string(cls, start_posn, dirns_str):
-        '''Construct a pipe from the given CE pipe string, e.g. 'RRDRUULR', moving in the indicated directions
+        """Construct a pipe from the given CE pipe string, e.g. 'RRDRUULR', moving in the indicated directions
         (U = Up, R = Right, D = Down, L = Left) from the start_posn (should be relative to the parent component's posn).
-        '''
+        """
         posns = [start_posn]
         char_to_dirn = {'U': UP, 'R': RIGHT, 'D': DOWN, 'L': LEFT}
         for dirn_char in dirns_str:
@@ -86,9 +86,9 @@ class Pipe(list):
 
     @classmethod
     def from_export_str(cls, export_str):
-        '''Note that a pipe's solution lines might not be contiguous. It is expected that the caller filters
+        """Note that a pipe's solution lines might not be contiguous. It is expected that the caller filters
         out the lines for a single pipe and passes them as a single string to this method.
-        '''
+        """
         lines = [s for s in export_str.split('\n') if s]  # Split into non-empty lines
         # Ensure all non-empty lines are valid and for the same-indexed pipe
         assert all(s.startswith('PIPE:0,') for s in lines) or all(s.startswith('PIPE:1,') for s in lines), \
@@ -111,16 +111,16 @@ class Pipe(list):
         return Pipe(posns)
 
     def export_str(self, pipe_idx=0):
-        '''Represent this pipe in solution export string format.'''
+        """Represent this pipe in solution export string format."""
         return '\n'.join(f'PIPE:{pipe_idx},{posn.col},{posn.row}' for posn in self.posns)
 
 
 class Component:
-    '''Informal Interface class defining methods overworld objects will implement one or more of.'''
+    """Informal Interface class defining methods overworld objects will implement one or more of."""
     __slots__ = 'type', 'posn', 'dimensions', 'in_pipes', 'out_pipes'
 
     def __new__(cls, component_dict=None, _type=None, **kwargs):
-        '''Return a new object of the appropriate subclass based on the component type.'''
+        """Return a new object of the appropriate subclass based on the component type."""
         # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
         if cls != Component:
             return object.__new__(cls)
@@ -175,7 +175,7 @@ class Component:
 
     @classmethod
     def parse_metadata(cls, s):
-        '''Given a component export string or its COMPONENT line, return its component type and posn.'''
+        """Given a component export string or its COMPONENT line, return its component type and posn."""
         component_line = s.strip('\n').split('\n', maxsplit=1)[0]  # Get first non-empty line
 
         # Parse COMPONENT line
@@ -190,9 +190,9 @@ class Component:
         return component_type, component_posn
 
     def update_from_export_str(self, export_str, update_pipes=True):
-        '''Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
+        """Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
         for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
-        '''
+        """
         component_line, *pipe_lines = (s for s in export_str.split('\n') if s)  # Remove empty lines and get first line
 
         _, component_posn = self.parse_metadata(component_line)
@@ -232,11 +232,11 @@ class Component:
         return f'{self.type},{self.posn}'
 
     def do_instant_actions(self, _):
-        ''''Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules).'''
+        """'Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules)."""
         return
 
     def move_contents(self, _):
-        '''Move the contents of this object (e.g. waldos/molecules), including its pipes.'''
+        """Move the contents of this object (e.g. waldos/molecules), including its pipes."""
         for pipe in self.out_pipes:
             pipe.move_contents()
 
@@ -249,7 +249,7 @@ class Component:
         return self
 
     def export_str(self):
-        '''Represent this component in solution export string format.'''
+        """Represent this component in solution export string format."""
         # TODO: I'm still not sure what the 4th component field is used for. Custom reactor names maybe?
 
         return f"COMPONENT:'{self.type}',{self.posn[0]},{self.posn[1]},''\n" \
@@ -270,7 +270,7 @@ class Input(Component):
         self.out_pipes[0] = p
 
     def __new__(cls, input_dict, *args, **kwargs):
-        '''Convert to a random or programmed input if relevant.'''
+        """Convert to a random or programmed input if relevant."""
         if 'repeating-molecules' in input_dict:
             return object.__new__(ProgrammedInput)
 
@@ -332,7 +332,7 @@ class RandomInput(Input):
         self.input_counts = [input_mol_dict['count'] for input_mol_dict in input_dict[molecules_key]]
 
     def get_next_molecule_idx(self):
-        '''Get the next input molecule's index. Exposed to allow for tracking branches in random level states.'''
+        """Get the next input molecule's index. Exposed to allow for tracking branches in random level states."""
         # Create the next balance bucket if we've run out.
         # The bucket stores an index identifying one of the 2-3 molecules
         if not self.random_bucket:
@@ -433,9 +433,9 @@ class Output(Component):
         self.current_count = 0
 
     def do_instant_actions(self, _):
-        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        """Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
-        '''
+        """
         if self.in_pipe is None:
             return False
 
@@ -482,9 +482,9 @@ class PassThroughCounter(Output):
         self.out_pipes[0] = p
 
     def do_instant_actions(self, cycle):
-        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        """Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
-        '''
+        """
         if self.in_pipe is None:
             return False
 
@@ -514,7 +514,7 @@ class PassThroughCounter(Output):
 
 # It's less confusing for output counting and user-facing purposes if this is not an Output subclass
 class DisabledOutput(Component):
-    '''Used by research levels, which actually crash if a wrong output is used unlike assembly reactors.'''
+    """Used by research levels, which actually crash if a wrong output is used unlike assembly reactors."""
     DEFAULT_SHAPE = (1, 1)
     __slots__ = ()
 
@@ -573,9 +573,9 @@ class PassThroughPrinter(OutputPrinter):
         self.out_pipes[0] = p
 
     def do_instant_actions(self, cycle):
-        '''Check for and process any incoming molecule, and return True if this output just completed (in which case
+        """Check for and process any incoming molecule, and return True if this output just completed (in which case
         the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
-        '''
+        """
         if self.in_pipe is None:
             return
 
@@ -696,11 +696,11 @@ class TeleporterInput(Component):
         self.in_pipes[0] = p
 
     def do_instant_actions(self, _):
-        '''Note that the teleporter pair behaves differently from a pass-through counter insofar as the pass-through
+        """Note that the teleporter pair behaves differently from a pass-through counter insofar as the pass-through
         counter stores any molecule it receives internally when its output pipe is clogged, whereas the teleporter
         refuses to accept the next molecule until the output pipe is clear (i.e. behaves like a single discontinuous
         pipe that also happens to only allow single atoms through).
-        '''
+        """
         if self.in_pipe is None:
             return
 
@@ -765,9 +765,9 @@ class Reactor(Component):
                  'annotations', 'debug')
 
     def __init__(self, component_dict=None, _type=None, posn=None):
-        '''Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
+        """Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
         levels with preset reactors.
-        '''
+        """
         if component_dict is None:
             component_dict = {}
 
@@ -854,9 +854,9 @@ class Reactor(Component):
         self.molecules = {}
 
     def bond_pairs(self):
-        '''For each of + and - bond commands, return a tuple of (bonder_A_posn, bonder_B_posn, dirn) triplets,
+        """For each of + and - bond commands, return a tuple of (bonder_A_posn, bonder_B_posn, dirn) triplets,
         sorted in priority order.
-        '''
+        """
         pair_lists = []
         for bond_type in ('+', '-'):
             # Store the relevant types of bonders in a dict paired up with their indices for fast lookup/sorting (below)
@@ -1043,7 +1043,7 @@ class Reactor(Component):
         self.annotations = sorted(annotation_lines)
 
     def export_str(self):
-        '''Represent this reactor in solution export string format.'''
+        """Represent this reactor in solution export string format."""
         export_str = f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''"
 
         # TODO: Make reactors more agnostic of feature types
@@ -1076,12 +1076,12 @@ class Reactor(Component):
         return export_str
 
     def __hash__(self):
-        '''Hash of the current reactor state.'''
+        """Hash of the current reactor state."""
         return hash((tuple(molecule.hashable_repr() for molecule in self.molecules),
                      tuple(self.waldos)))
 
     def __str__(self, flash_features=True, show_instructions=False):
-        '''Return a rich-format pretty-print string representing this reactor.'''
+        """Return a rich-format pretty-print string representing this reactor."""
         # Each cell gets two characters, + 1 space between cells (we'll use that space to show waldos reticles)
         cells = [[[' ', ' '] for _ in range(self.NUM_COLS)] for _ in range(self.NUM_ROWS)]
         borders = [[' ' for _ in range(self.NUM_COLS + 1)] for _ in range(self.NUM_ROWS)]  # Waldos and zone edges
@@ -1248,7 +1248,7 @@ class Reactor(Component):
             self.exec_instrs(waldo)
 
     def move_contents(self, cycle):
-        '''Move all waldos in this reactor and any molecules they are holding.'''
+        """Move all waldos in this reactor and any molecules they are holding."""
         super().move_contents(cycle)
 
         # If the waldo is facing a wall, mark it as stalled (may also be stalled due to sync, input, etc.)
@@ -1357,14 +1357,14 @@ class Reactor(Component):
             waldo.is_stalled = False
 
     def check_molecule_collisions_lazy(self, molecule):
-        '''Raise an exception if the given molecule collides with any other molecules.
+        """Raise an exception if the given molecule collides with any other molecules.
         Assumes integer co-ordinates in all molecules.
-        '''
+        """
         for other_molecule in self.molecules:
             molecule.check_collisions_lazy(other_molecule)  # Implicitly ignores self
 
     def check_wall_collisions(self, molecule):
-        '''Raise an exception if the given molecule collides with any walls.'''
+        """Raise an exception if the given molecule collides with any walls."""
         if not all(self.walls[UP] < p.row < self.walls[DOWN]
                    and self.walls[LEFT] < p.col < self.walls[RIGHT]
                    for p in molecule.atom_map):
@@ -1392,17 +1392,17 @@ class Reactor(Component):
                     raise ReactionError("A molecule has collided with a quantum wall")
 
     def check_collisions_lazy(self, molecule):
-        '''Raise an exception if the given molecule collides with any other molecules or walls.
+        """Raise an exception if the given molecule collides with any other molecules or walls.
         Assumes integer co-ordinates in all molecules.
-        '''
+        """
         self.check_molecule_collisions_lazy(molecule)
         self.check_wall_collisions(molecule)
         # Quantum wall collision checks may be skipped since they should only lie on grid edges
 
     def check_collisions(self, molecule):
-        '''Check that the given molecule isn't colliding with any walls or other molecules.
+        """Check that the given molecule isn't colliding with any walls or other molecules.
         Raise an exception if it is.
-        '''
+        """
         for other_molecule in self.molecules:
             molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
@@ -1532,9 +1532,9 @@ class Reactor(Component):
         waldo.is_stalled = molecule is not None
 
     def get_molecule(self, position):
-        '''Select the molecule at the given grid position, or None if no such molecule.
+        """Select the molecule at the given grid position, or None if no such molecule.
         Used by Grab, Bond+/-, Fuse, etc.
-        '''
+        """
         return next((molecule for molecule in self.molecules if position in molecule), None)
 
     def grab(self, waldo):
@@ -1626,11 +1626,11 @@ class Reactor(Component):
                         waldo.molecule = split_off_molecule
 
     def defrag_molecule(self, molecule, posn):
-        '''Given a molecule that has had some of its bonds broken from the given position, update reactor.molecules
+        """Given a molecule that has had some of its bonds broken from the given position, update reactor.molecules
         based on any molecules that broke off. Note that this always at least moves the molecule to the back of the
         priority queue, even if it did not break apart (this should be safe since defrag should only be called when the
         molecule is modified).
-        '''
+        """
         # Update the reactor molecules based on how the molecule broke apart
         del self.molecules[molecule]
         for new_molecule in molecule.defrag(posn):
@@ -1642,9 +1642,9 @@ class Reactor(Component):
                     waldo.molecule = new_molecule
 
     def delete_atom_bonds(self, posn):
-        '''Helper used by fuse and swap to remove all bonds from an atom and break up its molecule if needed.
+        """Helper used by fuse and swap to remove all bonds from an atom and break up its molecule if needed.
         If no atom at the given position, does nothing.
-        '''
+        """
         molecule = self.get_molecule(posn)
         if molecule is None:
             return
@@ -1659,9 +1659,9 @@ class Reactor(Component):
         self.defrag_molecule(molecule, posn)
 
     def reduce_excess_bonds(self, posn):
-        '''Helper used by fuse and split to reduce bonds on a mutated atom down to its new max count, and break up its
+        """Helper used by fuse and split to reduce bonds on a mutated atom down to its new max count, and break up its
         molecule if needed.
-        '''
+        """
         molecule = self.get_molecule(posn)
         atom = molecule.atom_map[posn]
 
@@ -1754,9 +1754,9 @@ class Reactor(Component):
             self.molecules[new_molecule] = None  # Dummy value
 
     def swap(self):
-        '''Swap atoms between swappers. Note that the order of operations here was carefully chosen to modify the
+        """Swap atoms between swappers. Note that the order of operations here was carefully chosen to modify the
         internal priority order of reactor molecules the same way that SpaceChem does.
-        '''
+        """
         # Debond all atoms on swappers from their neighbors
         for posn in self.swappers:
             self.delete_atom_bonds(posn)  # Does nothing if no atom on the swapper

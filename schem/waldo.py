@@ -8,7 +8,7 @@ from .grid import *
 
 
 class InstructionType(Enum):
-    '''Represents the various types of SpaceChem non-arrow instruction.'''
+    """Represents the various types of SpaceChem non-arrow instruction."""
     START = 'S'
     INPUT = 'i'
     OUTPUT = 'o'
@@ -36,10 +36,10 @@ class InstructionType(Enum):
 class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
                              # Default direction and target_idx if unneeded
                              defaults=(None, None))):
-    '''Represents a non-arrow SpaceChem instruction and any associated properties.
+    """Represents a non-arrow SpaceChem instruction and any associated properties.
     Direction is used by rotates, flip-flops and sensor cmds. Target index represents either the zone idx for an input
     or output instruction, or an element's atomic # in the case of a sensor cmd.
-    '''
+    """
     __slots__ = ()
 
     STR_MAP = {InstructionType.START: 'S',
@@ -142,9 +142,9 @@ class Waldo:
         self.is_rotating = False  # Used to distinguish the first vs second cycle on a rotate command
 
     def __hash__(self):
-        '''A waldo's run state is uniquely identified by its position, direction,
+        """A waldo's run state is uniquely identified by its position, direction,
         whether it's holding a molecule, whether it's rotating, and its flip-flop states.
-        '''
+        """
         return hash((self.position, self.direction, self.molecule is None, self.is_rotating,
                      tuple(self.flipflop_states.values())))
 
@@ -159,11 +159,11 @@ class Waldo:
                        and not (isinstance(instr, Instruction) and instr.type == InstructionType.START)))
 
     def cur_cmd(self):
-        '''Return a waldo's current 'command', i.e. non-arrow instruction, or None.'''
+        """Return a waldo's current 'command', i.e. non-arrow instruction, or None."""
         return None if self.position not in self.instr_map else self.instr_map[self.position][1]
 
     def export_str(self):
-        '''Represent this waldo's instructions in solution export string format.'''
+        """Represent this waldo's instructions in solution export string format."""
         start_line = None
         lines = []
         for posn, (arrow, instr) in self.instr_map.items():
@@ -188,7 +188,7 @@ class Waldo:
         def is_valid_posn(posn):
             return 0 <= posn.col < num_cols and 0 <= posn.row < num_rows
 
-        branching_instr_types = set((InstructionType.SENSE, InstructionType.FLIP_FLOP))
+        branching_instr_types = {InstructionType.SENSE, InstructionType.FLIP_FLOP}
 
         # Override the start direction with any arrow since unlike other directional commands it can't branch
         start_posn, start_dirn = next((posn, arrow_dirn if arrow_dirn is not None else cmd.direction)

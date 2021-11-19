@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''Implementation of the .NET PRNG used by Spacechem. Copied with slight adaptation from:
+"""Implementation of the .NET PRNG used by Spacechem. Copied with slight adaptation from:
 https://github.com/csaboka/spacechempatch/blob/master/SpacechemPatch/Patches/AbstractForcedRandom.cs
 whose license is included here as required:
 
@@ -26,7 +26,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."
-'''
+"""
 
 from typing import List
 
@@ -34,7 +34,7 @@ import numpy as np
 
 
 class SChemRandom:
-    '''Class for providing random values, which mimics the windows PRNG used by Spacechem.'''
+    """Class for providing random values, which mimics the windows PRNG used by Spacechem."""
     __slots__ = 'inext', 'inextp', 'SeedArray'
 
     inext: int
@@ -77,7 +77,7 @@ class SChemRandom:
         self.inextp = 20  # Mac used to use a different value here (note: was 21 before I cleaned the array indices)
 
     def next(self, max_value) -> int:
-        '''Given an int N, return a random value from 0 to N-1 inclusive.'''
+        """Given an int N, return a random value from 0 to N-1 inclusive."""
         # This is also coming from the .NET Reference Source, merging the logic of Next() and InternalSample().
 
         # Increment the SeedArray indices while wrapping to keep them in [0,54]

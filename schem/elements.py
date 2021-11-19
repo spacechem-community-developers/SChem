@@ -5,7 +5,7 @@ from collections import namedtuple
 
 
 class Element(namedtuple("Element", ('atomic_num', 'symbol', 'max_bonds'))):
-    '''Immutable class representing a SpaceChemical element.'''
+    """Immutable class representing a SpaceChemical element."""
     __slots__ = ()
 
     def __str__(self):
@@ -135,7 +135,7 @@ elements = [Element(0, '?', 12),
 
 
 class ElementDict(dict):
-    '''Class for looking up elements by atomic number, augmented internally to allow lookup by atomic symbol too.'''
+    """Class for looking up elements by atomic number, augmented internally to allow lookup by atomic symbol too."""
     __slots__ = 'symbol_dict',
 
     def __init__(self, elements):

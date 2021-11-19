@@ -34,13 +34,13 @@ class Atom:
         return f'Atom({self.element}, {self.bonds})'
 
     def get_json_str(self):
-        '''Return a string representing this atom in the level json's format.'''
+        """Return a string representing this atom in the level json's format."""
         return (f'{self.element.atomic_num if self.element.symbol != "Av" else 204}'  # Necessary hack I think
                 f'{0 if RIGHT not in self.bonds else self.bonds[RIGHT]}'
                 f'{0 if DOWN not in self.bonds else self.bonds[DOWN]}')
 
     def hashable_repr(self):
-        '''Return a hashable object representing this molecule, for use in comparing run states.'''
+        """Return a hashable object representing this molecule, for use in comparing run states."""
         return self.element.atomic_num, frozenset(self.bonds.items())
 
     def rotate(self, rotate_dirn):
@@ -78,9 +78,9 @@ class Atom:
 # * dict +: ordered, O(1) add/delete, O(N) lookup by pos (assuming O(1) pos lookup on Molecule)
 # * list -: ordered, saves memory, O(1) add, O(N) delete, O(N) lookup by pos
 class Molecule:
-    '''Class used for representing a molecule in a level's input/output zones and for evaluating
+    """Class used for representing a molecule in a level's input/output zones and for evaluating
     solutions during runtime.
-    '''
+    """
     __slots__ = 'name', 'atom_map'
 
     def __init__(self, name='', atom_map=None):
@@ -160,34 +160,34 @@ class Molecule:
         return s.rstrip()
 
     def __len__(self):
-        '''Return the # of atoms in this molecule.'''
+        """Return the # of atoms in this molecule."""
         return len(self.atom_map)
 
     def __contains__(self, posn):
         return posn in self.atom_map
 
     def __getitem__(self, posn):
-        '''Return the atom at the specified position or None.'''
+        """Return the atom at the specified position or None."""
         return self.atom_map[posn]
 
     def __setitem__(self, posn, atom):
-        '''Set the atom at the specified position.'''
+        """Set the atom at the specified position."""
         self.atom_map[posn] = atom
 
     def items(self):
         return self.atom_map.items()
 
     def __iadd__(self, other):
-        '''Since we'll never need to preserve the old molecule when bonding, only implement
+        """Since we'll never need to preserve the old molecule when bonding, only implement
         mutating add for performance reasons.
         It is expected that each half of the bond between the molecules has already been
         created on them before calling this method.
-        '''
+        """
         self.atom_map.update(other.atom_map)
         return self
 
     def get_json_str(self):
-        '''Return a string representing this molecule in the level json's format.'''
+        """Return a string representing this molecule in the level json's format."""
         # TODO: formula stuff. Actually the game seems to use slashes in formulas of unknown molecules
         result = f'{self.name};{self.formula.get_json_str()}'
         for pos, atom in self.atom_map.items():
@@ -199,41 +199,41 @@ class Molecule:
         return self
 
     def rotate_fine(self, pivot_pos, direction, radians):
-        '''Rotate the positions in the molecule a certain number of radians, but don't change bonds yet.
+        """Rotate the positions in the molecule a certain number of radians, but don't change bonds yet.
         Used for step-wise rotation collision checks.
-        '''
+        """
         self.atom_map = {posn.rotate_fine(pivot_pos, direction, radians=radians): atom
                          for posn, atom in self.atom_map.items()}
         return self
 
     def rotate_bonds(self, direction):
-        '''Used for completing the rotation of a molecule after all the position collision checks are done.
+        """Used for completing the rotation of a molecule after all the position collision checks are done.
         Rotate the bonds on each atom in this molecule but leave co-ordinates untouched
-        '''
+        """
         for atom in self.atom_map.values():
             atom.rotate(direction)
         return self
 
     def round_posns(self):
-        '''Used after performing float-precision movement collision checks. Round all posns in this molecule back to
+        """Used after performing float-precision movement collision checks. Round all posns in this molecule back to
         integers.
-        '''
+        """
         self.atom_map = {posn.round(): atom for posn, atom in self.atom_map.items()}
         return self
 
     def check_collisions_lazy(self, other):
-        '''Check for collisions with another molecule, assuming integer co-ordinates in both molecules.
+        """Check for collisions with another molecule, assuming integer co-ordinates in both molecules.
         Do nothing if checked against itself.
-        '''
+        """
         if other is not self:
             for posn in self.atom_map:
                 if posn in other:
                     raise ReactionError("Collision between molecules.")
 
     def check_collisions(self, other):
-        '''Check for collisions with another molecule while accounting for potential decimal positions.
+        """Check for collisions with another molecule while accounting for potential decimal positions.
         Do nothing if checked against itself.
-        '''
+        """
         if other is not self:
             for posn in self.atom_map:
                 for other_posn in other.atom_map:
@@ -242,9 +242,9 @@ class Molecule:
                         raise ReactionError("Collision between molecules.")
 
     def debond(self, position, direction):
-        '''Decrement the specified bond. If doing so disconnects this molecule, mutate this molecule to its new size and
+        """Decrement the specified bond. If doing so disconnects this molecule, mutate this molecule to its new size and
         return the extra molecule that was split off (else return None).
-        '''
+        """
         posn_A = position
         atom_A = self.atom_map[posn_A]
         if direction not in atom_A.bonds:
@@ -290,13 +290,13 @@ class Molecule:
         return Molecule(atom_map=new_atom_map)
 
     def defrag(self, modified_posn):
-        '''Given an atom position at which existing bonds have been broken by nuclear operations or a swap,
+        """Given an atom position at which existing bonds have been broken by nuclear operations or a swap,
         check if they broke this molecule into two or more pieces. Return a list of the new molecules, with an ordering
         matching that empirically observed in SpaceChem. If the molecule has not broken apart the list will contain only
         a copy of itself.
         Args:
             modified_posn: The position at which an atom had its bonds reduced
-        '''
+        """
         # Force the return order based on empirical data of how SpaceChem changes molecule priorities
         # Big hack since SpaceChem no doubt produces its order as a side effect of its graph algorithms,
         # which I'm not sure how to exactly mimic since it seems somewhat asymmetrical (East in particular)
@@ -384,25 +384,25 @@ class Molecule:
         return 0 if is_psi else 1
 
     def neighbor_bonds(self, posn):
-        '''Helper to return tuples of (bond_count, neighbor_posn) for a given atom position.
+        """Helper to return tuples of (bond_count, neighbor_posn) for a given atom position.
         An atom must exist at the given position. Used by isomorphism algorithm.
-        '''
+        """
         return ((bond_count, posn + direction)
                 for direction, bond_count in self.atom_map[posn].bonds.items())
 
     # Note that we must be careful not to implement __eq__ so that we don't interfere with e.g.
     # removing a molecule from the reactor list.
     def isomorphic(self, other):
-        '''Check if this molecule is topologically equivalent to the given molecule.'''
+        """Check if this molecule is topologically equivalent to the given molecule."""
         # Fail early if inequal length
         if len(self) != len(other):
             return False
 
         def get_atom_struct_dicts(molecule):
-            '''Helper to return dicts mapping an atom structure (element + bonds, unordered)
+            """Helper to return dicts mapping an atom structure (element + bonds, unordered)
             to the frequency of atoms of that structure in the molecule, or mapping a position
             in the given molecule to its atom structure.
-            '''
+            """
             atom_struct_to_freq = {}
             posn_to_atom_struct = {}
             for posn, atom in molecule.atom_map.items():
@@ -439,12 +439,12 @@ class Molecule:
 
         def molecules_match_recursive(our_visited_posns: dict, our_posn: Position,
                                       their_visited_posns: dict, their_posn: Position):
-            '''Attempt to recursively map any unvisited atoms of the molecules onto each other
+            """Attempt to recursively map any unvisited atoms of the molecules onto each other
             starting from the given position in each.
 
             If unsuccessful, revert any changes made to the given visit dicts, and return 0.
             If successful, return the number of items added to each dict.
-            '''
+            """
             # Make sure the two atoms have the same element / bond counts
             if this_posn_to_atom_struct[our_posn] != other_posn_to_atom_struct[their_posn]:
                 return 0
@@ -503,5 +503,5 @@ class Molecule:
     # delete). Otherwise if we move a molecule its hash will change and it will no longer be
     # accessible in the dict.
     def hashable_repr(self):
-        '''Return a hashable object representing this molecule, for use in comparing run states.'''
+        """Return a hashable object representing this molecule, for use in comparing run states."""
         return frozenset((posn, atom.hashable_repr()) for posn, atom in self.atom_map.items())

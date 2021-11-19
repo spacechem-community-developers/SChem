@@ -21,11 +21,11 @@ class Direction(IntEnum):
         return {0: '^', 1: '>', 2: 'v', 3: '<', 5: '<', 7: '>'}[self.value]
 
     def __add__(self, other):
-        '''E.g. UP + CLOCKWISE == RIGHT.'''
+        """E.g. UP + CLOCKWISE == RIGHT."""
         return Direction((self.value + other.value) % 4)
 
     def __sub__(self, other):
-        '''E.g. UP - CLOCKWISE == LEFT.'''
+        """E.g. UP - CLOCKWISE == LEFT."""
         return Direction((self.value - other.value) % 4)
 
     def opposite(self):
@@ -41,7 +41,7 @@ CARDINAL_DIRECTIONS = UP, RIGHT, DOWN, LEFT = (Direction.UP, Direction.RIGHT, Di
 
 
 class Position(namedtuple("Position", ('col', 'row'))):
-    '''Grid position, with (col, row) 0-indexed from the top left of the reactor or overworld.'''
+    """Grid position, with (col, row) 0-indexed from the top left of the reactor or overworld."""
 
     dirn_to_delta = {UP: (0, -1),
                      RIGHT: (1, 0),
@@ -72,7 +72,7 @@ class Position(namedtuple("Position", ('col', 'row'))):
         return Position(self.col + distance * c_delta, self.row + distance * r_delta)
 
     def rotate_fine(self, pivot_pos, direction, radians):
-        '''Rotate in sub-quarter-turn increments.'''
+        """Rotate in sub-quarter-turn increments."""
         # In normal cartesian math clockwise would be negative, but our vertical axis is reversed
         if direction == Direction.COUNTER_CLOCKWISE:
             radians *= -1
@@ -82,5 +82,5 @@ class Position(namedtuple("Position", ('col', 'row'))):
                         pivot_pos.row + sin_theta * (self.col - pivot_pos.col) + cos_theta * (self.row - pivot_pos.row))
 
     def round(self):
-        '''Return from float-precision co-ordinates to the integer grid.'''
+        """Return from float-precision co-ordinates to the integer grid."""
         return Position(round(self.col), round(self.row))
