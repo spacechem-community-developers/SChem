@@ -617,7 +617,8 @@ class Solution:
             assert sum(1 if isinstance(component, Reactor) else 0
                        for component in self.components) <= self.level['max-reactors'], "Reactor limit exceeded"
 
-    def export_str(self):
+    def export_str(self) -> str:
+        """Re-export this solution. Sorted to ensure uniqueness, so may differ from the initially given export."""
         # Solution metadata
         fields = [self.level.name, self.author, str(self.expected_score)]
         if self.name is not None:

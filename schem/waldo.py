@@ -164,6 +164,7 @@ class Waldo:
 
     def export_str(self):
         '''Represent this waldo's instructions in solution export string format.'''
+        start_line = None
         lines = []
         for posn, (arrow, instr) in self.instr_map.items():
             if arrow is not None:
@@ -172,9 +173,13 @@ class Waldo:
                 lines.append(f"MEMBER:'instr-arrow',{dirn_degrees},0,{waldo_int},{posn.col},{posn.row},0,0")
 
             if instr is not None:
-                lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
+                if instr.type == InstructionType.START:
+                    start_line = instr.export_str(waldo_idx=self.idx, posn=posn)
+                else:
+                    lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
 
-        return '\n'.join(lines)
+        # Put the start instr line at the front and sort the remaining lines
+        return start_line + '\n' + '\n'.join(sorted(lines))
 
     def trace_path(self, num_cols=10, num_rows=8):
         """Return a dict of position: directions representing paths this waldo visually traces.

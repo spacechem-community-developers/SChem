@@ -72,4 +72,8 @@ solution.evaluate(check_precog=True)
 #     "precog_explanation": "Solution is precognitive; failed whenever molecule 2 was Hydrogen Sulfide, for 9 such
 #                            appearances (whereas solution success rate was otherwise 100%)."
 #}
+
+# Re-export the solution. Sorts export lines to ensure uniqueness
+solution.export_str()
+# "SOLUTION:..."
 ```
