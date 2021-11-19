@@ -20,7 +20,7 @@ except ImportError:
     pass
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
-from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput
+from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
 from .exceptions import SolutionImportError, ScoreError
 from .grid import *
@@ -376,8 +376,8 @@ class Solution:
         # Preset reactors
         if self.level['type'].startswith('research'):
             # Preset one reactor, treating the level dict as its component dict
-            # TODO: _type='reactor' is hacky but ensures Component.__init__ knows what it's dealing with
-            new_component = Reactor(self.level.dict, _type='reactor', posn=Position(col=2, row=0))
+            reactor_type = self.level['reactor-type'] if 'reactor-type' in self.level else DEFAULT_RESEARCH_REACTOR_TYPE
+            new_component = Reactor(self.level.dict, _type=reactor_type, posn=Position(col=2, row=0))
             posn_to_component[new_component.posn] = new_component
         else:
             # Recycler

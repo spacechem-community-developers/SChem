@@ -28,8 +28,11 @@ COMPONENT_SHAPES = {
     'drag-ancient-input': (2, 2),
     'drag-spaceship-input': (2, 2)}  # TODO: Actually (2,3) but its pipe isn't in the middle which fucks our assumptions
 
-# Production level codes don't specify available reactor properties like research levels; encode them here
+# Custom and ResNet research levels use the custom research reactor type and specify all features directly in the
+# level JSON. Specify the features of all other reactor types.
+DEFAULT_RESEARCH_REACTOR_TYPE = 'custom-research-reactor'
 REACTOR_TYPES = {
+    # Standard production/research reactor types
     'drag-starter-reactor': {'bonder-count': 4},
     'drag-disassembly-reactor': {'bonder-minus-count': 4, 'has-bottom-input': False},
     'drag-assembly-reactor': {'bonder-plus-count': 4, 'has-bottom-output': False},
@@ -38,8 +41,17 @@ REACTOR_TYPES = {
     'drag-superbonder-reactor': {'bonder-count': 8},
     'drag-nuclear-reactor': {'bonder-count': 4, 'has-fuser': True, 'has-splitter': True},
     'drag-quantum-reactor': {'bonder-count': 4, 'has-sensor': True, 'has-teleporter': True,
-                             'quantum-walls-y': {5: [0, 1, 2, 3, 4, 5, 6, 7]}},
-    'drag-sandbox-reactor': {'bonder-count': 8, 'has-sensor': True, 'has-fuser': True, 'has-splitter': True}}
+                             'quantum-walls-y': {'5': [0, 1, 2, 3, 4, 5, 6, 7]}},
+    'drag-sandbox-reactor': {'bonder-count': 8, 'has-sensor': True, 'has-fuser': True, 'has-splitter': True},
+    # Reactor types that only appear in official non-ResNet research levels.
+    'empty-research-reactor': {},  # 1-1 - 1-3
+    'tutorial-research-reactor-2': {'bonder-count': 4},  # 1-4
+    'drag-reduced-reactor': {'bonder-count': 2},  # 6-1, 7-2
+    'drag-largeoutput-reactor': {'bonder-count': 4, 'has-sensor': True, 'has-large-output': True},  # 6-3, 7-4, 8-2
+    'drag-advancedfusion-reactor': {'bonder-count': 2, 'has-sensor': True, 'has-fuser': True},  # 7-3
+    'drag-quantum-reactor-x': {'has-teleporter': True, 'quantum-walls-y': {'5': [0, 1, 2, 3, 4, 5, 6, 7]}},  # QT-1
+    'drag-quantum-reactor-s': {'bonder-count': 2, 'has-sensor': True, 'has-teleporter': True,  # QT-2 - QT-4
+                               'quantum-walls-y': {'5': [0, 1, 2, 3, 4, 5, 6, 7]}}}
 
 
 class Pipe(list):
