@@ -72,7 +72,7 @@ PF4ONf5iWUsyIS6thN+Qqn5yKfJ4xliQ9G4sw68VSmwpcZc9ubYTD5T3jJe21XNIfUb40BAAA=''',
 }
 
 valid_solutions = [
-    '''
+    r'''
 
 SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,empty lines
 
@@ -93,7 +93,7 @@ PIPE:0,4,1
 
 PIPE:1,4,2
 ''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,No pipes
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,No pipes
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -104,7 +104,7 @@ MEMBER:'instr-input',-1,0,128,1,1,0,0
 MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-output',-1,0,128,5,1,0,0
 MEMBER:'instr-rotate',-1,0,128,4,1,0,0''',
-    """SOLUTION:Of Pancakes and Spaceships,Zig,115-1-6,Symbols
+    r"""SOLUTION:Of Pancakes and Spaceships,Zig,115-1-6,Symbols
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -114,7 +114,7 @@ MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-grab',-1,2,128,7,1,0,0
 MEMBER:'instr-input',-1,0,128,1,1,0,0
 MEMBER:'instr-output',-1,0,32,0,1,0,0""",
-    """SOLUTION:Of Pancakes and Spaceships,Zig,115-1-7,Start vs arrow
+    r"""SOLUTION:Of Pancakes and Spaceships,Zig,115-1-7,Start vs arrow
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -125,7 +125,7 @@ MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-grab',-1,2,128,7,1,0,0
 MEMBER:'instr-input',-1,0,128,1,1,0,0
 MEMBER:'instr-output',-1,0,32,0,1,0,0""",
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Cycles
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,2,5,0,0
 MEMBER:'instr-start',-90,0,32,2,2,0,0
@@ -145,7 +145,7 @@ MEMBER:'instr-rotate',-1,0,128,4,1,0,0
 MEMBER:'instr-output',-1,0,128,5,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,69-1-18,rotate_out_of_way
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,69-1-18,rotate_out_of_way
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,6,2,0,0
@@ -169,7 +169,7 @@ MEMBER:'instr-arrow',-90,0,16,1,2,0,0
 MEMBER:'instr-output',-1,0,32,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Ignorable pipe modifications
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,45-1-14,Ignorable pipe modifications
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,2,5,0,0
 MEMBER:'instr-start',-90,0,32,2,2,0,0
@@ -190,7 +190,7 @@ MEMBER:'instr-output',-1,0,128,5,1,0,0
 PIPE:0,4,1
 PIPE:0,4,0
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Bonding,Zig,154-1-10,Symbols
+    r'''SOLUTION:An Introduction to Bonding,Zig,154-1-10,Symbols
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',180,0,128,3,5,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -210,7 +210,7 @@ MEMBER:'instr-output',-1,0,32,0,6,0,0
 MEMBER:'instr-grab',-1,2,128,6,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Bonding,Zig,74-1-40,Cycles
+    r'''SOLUTION:An Introduction to Bonding,Zig,74-1-40,Cycles
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',-90,0,128,1,7,0,0
 MEMBER:'instr-start',0,0,32,0,0,0,0
@@ -260,7 +260,7 @@ MEMBER:'instr-input',-1,0,128,4,2,0,0
 MEMBER:'instr-output',-1,0,32,2,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
+    r'''SOLUTION:An Introduction to Bonding,Zig,138-1-45,Input Island
 COMPONENT:'tutorial-research-reactor-2',2,0,''
 MEMBER:'instr-start',90,0,128,2,3,0,0
 MEMBER:'instr-start',0,0,32,0,5,0,0
@@ -315,7 +315,7 @@ MEMBER:'instr-rotate',-1,1,32,2,2,0,0
 MEMBER:'instr-rotate',-1,0,32,3,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Double Bonds,Zig,60-1-20,Cycles
+    r'''SOLUTION:Double Bonds,Zig,60-1-20,Cycles
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,6,0,0
 MEMBER:'instr-start',0,0,32,0,1,0,0
@@ -345,7 +345,7 @@ MEMBER:'instr-bond',-1,0,128,1,3,0,0
 MEMBER:'instr-bond',-1,0,128,3,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Pipelines,Zig,867-0-0,Max cycles
+    r'''SOLUTION:An Introduction to Pipelines,Zig,867-0-0,Max cycles
 COMPONENT:'drag-silo-input',8,12,''
 PIPE:0,5,2
 PIPE:0,5,3
@@ -842,7 +842,7 @@ PIPE:0,11,9
 PIPE:0,12,9
 PIPE:0,13,9
 ''',
-    '''SOLUTION:There's Something in the Fishcake,Zig,647-1-10,Symbols
+    r'''SOLUTION:There's Something in the Fishcake,Zig,647-1-10,Symbols
 COMPONENT:'drag-starter-reactor',13,6,''
 MEMBER:'instr-start',180,0,128,3,5,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -887,7 +887,7 @@ PIPE:0,5,2
 PIPE:0,5,1
 PIPE:0,5,0
 PIPE:0,6,0''',
-    '''SOLUTION:Split Before Bonding,Zig,73-1-24,Cycles
+    r'''SOLUTION:Split Before Bonding,Zig,73-1-24,Cycles
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,6,4,0,0
 MEMBER:'instr-start',180,0,32,3,5,0,0
@@ -921,7 +921,7 @@ MEMBER:'instr-rotate',-1,0,32,4,2,0,0
 MEMBER:'instr-rotate',-1,0,128,4,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Settling into the Routine,Zig,1628-3-33,Symbols + wrong assembly output
+    r'''SOLUTION:Settling into the Routine,Zig,1628-3-33,Symbols + wrong assembly output
 COMPONENT:'drag-disassembly-reactor',12,2,''
 MEMBER:'instr-start',-90,0,128,2,3,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -1012,7 +1012,7 @@ PIPE:0,4,1
 COMPONENT:'drag-oceanic-input',8,3,''
 PIPE:0,2,0
 PIPE:0,3,0''',
-    """SOLUTION:Challenge: In-Place Swap,12345ieee,437-3-67
+    r"""SOLUTION:Challenge: In-Place Swap,12345ieee,437-3-67
 COMPONENT:'drag-oceanic-input',1,16,''
 PIPE:0,2,0
 PIPE:0,2,-1
@@ -1135,7 +1135,7 @@ PIPE:1,4,4
 PIPE:1,4,5
 PIPE:1,4,6
 PIPE:1,4,7""",
-    '''SOLUTION:An Introduction to Sensing,Zig,136-1-32,Cycles
+    r'''SOLUTION:An Introduction to Sensing,Zig,136-1-32,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,3,0,0
 MEMBER:'instr-start',0,0,32,0,1,0,0
@@ -1178,7 +1178,7 @@ MEMBER:'instr-output',-1,0,128,6,2,0,0
 MEMBER:'instr-input',-1,0,32,1,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Sensing,Zig,295-1-11,Symbols
+    r'''SOLUTION:An Introduction to Sensing,Zig,295-1-11,Symbols
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,2,0,0
 MEMBER:'instr-start',180,0,32,1,4,0,0
@@ -1200,7 +1200,7 @@ MEMBER:'instr-input',-1,0,128,0,1,0,0
 MEMBER:'instr-output',-1,0,32,0,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Prelude to a Migraine,Zig,153-1-7,Symbols
+    r'''SOLUTION:Prelude to a Migraine,Zig,153-1-7,Symbols
 COMPONENT:'drag-advanced-reactor',2,0,''
 MEMBER:'instr-start',180,0,32,2,1,0,0
 MEMBER:'instr-start',180,0,128,1,2,0,0
@@ -1218,7 +1218,7 @@ MEMBER:'instr-grab',-1,2,32,6,1,0,0
 MEMBER:'instr-output',-1,0,32,5,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:No Ordinary Headache,Zig,3609-1-18,Symbols (1R)
+    r'''SOLUTION:No Ordinary Headache,Zig,3609-1-18,Symbols (1R)
 COMPONENT:'drag-advanced-reactor',14,16,''
 MEMBER:'instr-start',-90,0,32,7,1,0,0
 MEMBER:'instr-start',90,0,128,1,3,0,0
@@ -1279,7 +1279,7 @@ PIPE:0,2,0
 PIPE:0,3,0
 PIPE:0,4,0
 PIPE:0,5,0''',
-    '''SOLUTION:No Thanks Necessary,Zig,2726-4-51,Symbols
+    r'''SOLUTION:No Thanks Necessary,Zig,2726-4-51,Symbols
 COMPONENT:'drag-oceanic-input',7,18,''
 PIPE:0,2,0
 COMPONENT:'drag-atmospheric-input',4,5,''
@@ -1446,7 +1446,7 @@ PIPE:0,15,-12
 ANNOTATION:0,1,0,0,'\n\r\n\r\n\r'
 ANNOTATION:1,1,-11,23,'0,0:0,1;\n\r0,0:0,11;\n\r\n\r'
 ''',
-    '''SOLUTION:Challenge: Going Green,Zig,3578-1-103,1R Cycles (precog)
+    r'''SOLUTION:Challenge: Going Green,Zig,3578-1-103,1R Cycles (precog)
 COMPONENT:'drag-powerplant-input',-7,4,''
 PIPE:0,14,7
 PIPE:0,14,6
@@ -1603,7 +1603,7 @@ PIPE:1,12,-4
 PIPE:1,13,-4
 PIPE:1,14,-4
 ''',
-    '''SOLUTION:Ice to Meet You,Zig,176-1-10,Symbols
+    r'''SOLUTION:Ice to Meet You,Zig,176-1-10,Symbols
 COMPONENT:'drag-fusion-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,1,7,0,0
@@ -1624,7 +1624,7 @@ MEMBER:'instr-arrow',0,0,64,0,5,0,0
 MEMBER:'instr-fuse',-1,0,128,5,3,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    """SOLUTION:Challenge: Applied Fusion,12345ieee,2055-5-125
+    r"""SOLUTION:Challenge: Applied Fusion,12345ieee,2055-5-125
 COMPONENT:'drag-oceanic-input',4,11,''
 PIPE:0,2,0
 COMPONENT:'drag-fusion-reactor',17,14,''
@@ -1839,7 +1839,7 @@ PIPE:0,4,1
 PIPE:1,4,2
 ANNOTATION:0,1,33,47,'1,1:0,8;2,1:0,1;1,0:0,11;\n1,0,0:1;1,1,1:1;\r\n\r\n\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'""",
-    '''SOLUTION:The Plot Thickens,Zig,1327-1-14,Symbols
+    r'''SOLUTION:The Plot Thickens,Zig,1327-1-14,Symbols
 COMPONENT:'drag-largeoutput-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,1,7,0,0
@@ -1864,7 +1864,7 @@ MEMBER:'instr-grab',-1,2,128,7,1,0,0
 MEMBER:'instr-rotate',-1,1,128,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:The Plot Thickens,Zig,447-1-37,Cycles
+    r'''SOLUTION:The Plot Thickens,Zig,447-1-37,Cycles
 COMPONENT:'drag-largeoutput-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,3,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -1912,7 +1912,7 @@ MEMBER:'instr-rotate',-1,1,128,3,4,0,0
 MEMBER:'instr-grab',-1,2,128,6,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:The Plot Thickens,Zig,3350-1-70,Input Island
+    r'''SOLUTION:The Plot Thickens,Zig,3350-1-70,Input Island
 COMPONENT:'drag-largeoutput-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,2,5,0,0
 MEMBER:'instr-start',180,0,32,2,1,0,0
@@ -1993,7 +1993,7 @@ MEMBER:'instr-arrow',-90,0,64,1,4,0,0
 MEMBER:'instr-output',-1,0,128,2,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Gas Works Park,Zig,822-5-148,Cycles
+    r'''SOLUTION:Gas Works Park,Zig,822-5-148,Cycles
 COMPONENT:'drag-advanced-reactor',5,6,''
 MEMBER:'instr-start',180,0,128,6,7,0,0
 MEMBER:'instr-start',-90,0,32,2,4,0,0
@@ -2388,7 +2388,7 @@ PIPE:0,4,1
 PIPE:1,4,2
 COMPONENT:'drag-mining-input',1,7,''
 PIPE:0,3,0''',
-    """SOLUTION:Challenge: KOHCTPYKTOP,12345ieee,4559-5-201
+    r"""SOLUTION:Challenge: KOHCTPYKTOP,12345ieee,4559-5-201
 COMPONENT:'drag-advanced-reactor',8,14,''
 MEMBER:'instr-start',180,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,4,5,0,0
@@ -2772,7 +2772,7 @@ PIPE:0,4,-5
 PIPE:1,15,12
 ANNOTATION:0,1,-126,-203,'2,3:0,14;\n\r\n\r\n\r'
 ANNOTATION:1,0,225,118,'1,0:0,8;1,1:0,8;\n\r\n\r\n\r'""",
-    '''SOLUTION:No Employment Record Found,Zig,344-1-77,Cycles
+    r'''SOLUTION:No Employment Record Found,Zig,344-1-77,Cycles
 COMPONENT:'drag-advancedfusion-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,2,0,0,0
 MEMBER:'instr-start',180,0,32,8,2,0,0
@@ -2859,7 +2859,7 @@ MEMBER:'instr-arrow',90,0,64,4,0,0,0
 MEMBER:'instr-toggle',0,0,128,3,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Right All Along,Zig,708-1-57,Cycles
+    r'''SOLUTION:Right All Along,Zig,708-1-57,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,6,3,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -2927,7 +2927,7 @@ MEMBER:'instr-sync',-1,0,32,2,7,0,0
 MEMBER:'instr-sync',-1,0,32,0,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Accidents Happen,Zig,275-1-88,Cycles
+    r'''SOLUTION:Accidents Happen,Zig,275-1-88,Cycles
 COMPONENT:'drag-advanced-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,4,1,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -3026,7 +3026,7 @@ MEMBER:'instr-output',-1,1,32,2,2,0,0
 MEMBER:'instr-output',-1,1,128,2,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Ω-Pseudoethyne,Zig,1258-2-144,Ignorable pipe modifications
+    r'''SOLUTION:Ω-Pseudoethyne,Zig,1258-2-144,Ignorable pipe modifications
 COMPONENT:'drag-advanced-reactor',11,7,''
 MEMBER:'instr-start',-90,0,128,0,4,0,0
 MEMBER:'instr-start',-90,0,32,0,6,0,0
@@ -3219,7 +3219,7 @@ PIPE:1,4,5
 PIPE:1,4,6
 PIPE:1,4,7
 PIPE:1,4,8''',
-    '''SOLUTION:Σ-Ethylene,Zig,2028-2-102,Cycles
+    r'''SOLUTION:Σ-Ethylene,Zig,2028-2-102,Cycles
 COMPONENT:'drag-fusion-reactor',12,10,''
 MEMBER:'instr-start',180,0,128,9,4,0,0
 MEMBER:'instr-start',-90,0,32,0,6,0,0
@@ -3390,7 +3390,7 @@ PIPE:1,9,0
 ANNOTATION:0,1,-336,-149,'2,1:0,202;3,1:0,202;\n2,1,1:1;\r\n\r\n\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
-    '''SOLUTION:Moustachium 608,Zig,511-1-45,Input Island
+    r'''SOLUTION:Moustachium 608,Zig,511-1-45,Input Island
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,1,4,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -3445,7 +3445,7 @@ MEMBER:'instr-bond',-1,0,128,0,4,0,0
 MEMBER:'instr-input',-1,0,128,1,7,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:QT-1,Zig,15-1-14,Cycles
+    r'''SOLUTION:QT-1,Zig,15-1-14,Cycles
 COMPONENT:'drag-quantum-reactor-x',2,0,''
 MEMBER:'instr-start',90,0,128,0,0,0,0
 MEMBER:'instr-start',90,0,32,0,2,0,0
@@ -3467,7 +3467,7 @@ MEMBER:'instr-arrow',0,0,64,0,3,0,0
 MEMBER:'instr-input',-1,0,128,0,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Teleporters,Zig,1140-3-88,Cycles
+    r'''SOLUTION:Teleporters,Zig,1140-3-88,Cycles
 COMPONENT:'drag-quantum-reactor',7,16,''
 MEMBER:'instr-start',0,0,128,1,6,0,0
 MEMBER:'instr-start',90,0,32,6,1,0,0
@@ -3641,7 +3641,7 @@ PIPE:1,12,6
 ANNOTATION:0,1,160,-143,'0,3:0,74;\n\r\n\r\n\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
-    '''SOLUTION:Precursor Compounds,Zig,8570-3-92,basic
+    r'''SOLUTION:Precursor Compounds,Zig,8570-3-92,basic
 COMPONENT:'drag-spaceship-input',1,9,''
 PIPE:0,2,0
 PIPE:0,2,1
@@ -3821,7 +3821,7 @@ MEMBER:'instr-arrow',-90,0,64,3,7,0,0
 MEMBER:'instr-output',-1,1,128,3,7,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Tunnels I,Zig,15-1-20,Cycles
+    r'''SOLUTION:Tunnels I,Zig,15-1-20,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,3,0,0,0
 MEMBER:'instr-start',-90,0,32,1,3,0,0
@@ -3850,7 +3850,7 @@ MEMBER:'instr-swap',-1,0,128,2,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     # Thetane
-    '''SOLUTION:Θne,Zig,100-1-68,Cycles
+    r'''SOLUTION:Θne,Zig,100-1-68,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,2,1,0,0
 MEMBER:'instr-start',0,0,32,0,1,0,0
@@ -3931,7 +3931,7 @@ MEMBER:'instr-arrow',0,0,64,0,4,0,0
 MEMBER:'instr-arrow',90,0,64,0,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    """SOLUTION:The Gold Standard,12345ieee,800-1-48
+    r"""SOLUTION:The Gold Standard,12345ieee,800-1-48
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,0,0,0,0
 MEMBER:'instr-start',-90,0,32,1,6,0,0
@@ -3992,7 +3992,7 @@ MEMBER:'instr-arrow',180,0,16,9,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
     # Quotes in level name due to the comma
-    """SOLUTION:'1,3-Dimetoxibencene',andy,922-1-27,s
+    r"""SOLUTION:'1,3-Dimetoxibencene',andy,922-1-27,s
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,8,4,0,0
 MEMBER:'instr-start',0,0,32,8,7,0,0
@@ -4031,10 +4031,10 @@ MEMBER:'instr-arrow',0,0,64,1,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
     # Valid solution that consists of only a solution line, also a fun performance test
-    '''SOLUTION:Fastest Puzzle,Zig,1-0-0,Fastest solution''',
+    r'''SOLUTION:Fastest Puzzle,Zig,1-0-0,Fastest solution''',
     # 2020 Tournament level with a comma in the name and that uses pass-through counters.
     # Solution also includes moving a molecule that is held by both waldos
-    '''SOLUTION:Suddenly, Welding?,anningmay,3199-3-162,anningmay: 3R - 4 cycle save
+    r'''SOLUTION:Suddenly, Welding?,anningmay,3199-3-162,anningmay: 3R - 4 cycle save
 COMPONENT:'drag-arbitrary-input',2,9,''
 PIPE:0,2,1
 COMPONENT:'drag-arbitrary-input',2,17,''
@@ -4310,7 +4310,7 @@ ANNOTATION:0,0,0,0,'3,0:0,8;\n\r3,0:0,20;\n\r\n\r'
 ANNOTATION:1,0,0,0,'3,0:0,8;\n\r3,0:0,20;\n\r\n\r'
 ''',
     # Useful test for fusing into noble elements and breaking bonds correctly
-    '''SOLUTION:Suddenly, Welding?,Astronelson,2587-3-100,Astronelson: Schedu-Weld
+    r'''SOLUTION:Suddenly, Welding?,Astronelson,2587-3-100,Astronelson: Schedu-Weld
 COMPONENT:'drag-arbitrary-input',5,5,''
 PIPE:0,2,1
 PIPE:0,2,0
@@ -4528,7 +4528,7 @@ PIPE:0,4,-3
 PIPE:1,4,3
 PIPE:1,4,4
 PIPE:1,4,5''',
-    '''SOLUTION:TestWallCollisionsPositive,Zig,57-1-28,no_wall_collisions
+    r'''SOLUTION:TestWallCollisionsPositive,Zig,57-1-28,no_wall_collisions
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,2,0,0,0
 MEMBER:'instr-start',90,0,32,3,2,0,0
@@ -4570,7 +4570,7 @@ MEMBER:'instr-input',-1,1,32,3,3,0,0
 MEMBER:'instr-arrow',180,0,16,3,7,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestMoleculeCollisions,Zig,76-1-33,2x2 past (1,2)
+    r'''SOLUTION:TestMoleculeCollisions,Zig,76-1-33,2x2 past (1,2)
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,6,7,0,0
@@ -4617,7 +4617,7 @@ MEMBER:'instr-grab',-1,2,128,6,3,0,0
 MEMBER:'instr-output',-1,0,128,6,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestMoleculeCollisions,Zig,61-1-37,2x3 past (0,3)
+    r'''SOLUTION:TestMoleculeCollisions,Zig,61-1-37,2x3 past (0,3)
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,6,7,0,0
@@ -4668,7 +4668,7 @@ MEMBER:'instr-bond',-1,1,128,4,4,0,0
 MEMBER:'instr-output',-1,0,32,4,6,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestMoleculeCollisions,Zig,40-1-48,4x4 past (3,4)
+    r'''SOLUTION:TestMoleculeCollisions,Zig,40-1-48,4x4 past (3,4)
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,2,0,0
 MEMBER:'instr-start',180,0,32,2,1,0,0
@@ -4731,7 +4731,7 @@ MEMBER:'instr-grab',-1,2,128,6,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     # Recycler-containing ResNet level
-    '''SOLUTION:A New Beginning,whoever314,7056-3-275,Symbols
+    r'''SOLUTION:A New Beginning,whoever314,7056-3-275,Symbols
 COMPONENT:'drag-arbitrary-input',1,5,''
 PIPE:0,2,1
 PIPE:0,3,1
@@ -5107,7 +5107,7 @@ PIPE:0,5,-1
 ANNOTATION:0,1,-103,107,'2,2:0,201;2,3:0,33;2,1:0,17;\n2,1,0:1;2,2,0:1;\r0,2:0,1;1,1:0,1;1,3:0,1;\n\r1,2:0,6;1,3:0,1;1,1:0,1;2,2:0,17;\n1,1,0:1;1,2,0:1;1,2,1:1;\r'
 ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 ''',
-    '''SOLUTION:Overbond test,joe,9-1-5
+    r'''SOLUTION:Overbond test,joe,9-1-5
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,4,6,0,0
@@ -5121,7 +5121,7 @@ MEMBER:'instr-output',-1,0,128,9,1,0,0''',
 ]
 
 missing_score = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Valid but missing score
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Valid but missing score
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -5134,7 +5134,7 @@ MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
 ]
 
 wrong_score = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,114-1-6,Wrong cycle count
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,114-1-6,Wrong cycle count
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -5144,7 +5144,7 @@ MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-grab',-1,2,128,7,1,0,0
 MEMBER:'instr-arrow',180,0,64,7,1,0,0
 MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,115-0-6,Wrong reactor count
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,115-0-6,Wrong reactor count
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -5154,7 +5154,7 @@ MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-grab',-1,2,128,7,1,0,0
 MEMBER:'instr-arrow',180,0,64,7,1,0,0
 MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,115-1-5,Wrong symbol count
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,115-1-5,Wrong symbol count
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,1,1,0,0
@@ -5167,7 +5167,7 @@ MEMBER:'instr-arrow',0,0,64,1,1,0,0''',
 ]
 
 infinite_loops = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,simple_infinite_loop
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,107-1-7,simple_infinite_loop
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5182,7 +5182,7 @@ PIPE:1,4,2''',
 
 invalid_outputs = [
     # Solution which completes successfully unless the disabled output correctly causes a crash
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,disabled output crash
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,disabled output crash
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,0,3,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -5199,7 +5199,7 @@ MEMBER:'instr-input',-1,0,128,0,2,0,0
 MEMBER:'instr-output',-1,1,32,7,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Swapite,Zig,0-0-0,invalid_isomorphism
+    r'''SOLUTION:Swapite,Zig,0-0-0,invalid_isomorphism
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5228,7 +5228,7 @@ PIPE:1,4,2''',
 #     * rotate-collision between two rotating molecules (that wouldn't collide if rotates weren't at once)
 runtime_collisions = [
     # Solution where blue causes a crash after red does the 10th output. Intended to crash in v1013+
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,last_cycle_crash
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,last_cycle_crash
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,0,0,0,0
 MEMBER:'instr-start',0,0,32,0,0,0,0
@@ -5254,7 +5254,7 @@ MEMBER:'instr-arrow',90,0,16,9,0,0,0
 MEMBER:'instr-sync',-1,0,32,9,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:QT-1,Zig,0-0-0,Quantum wall collision
+    r'''SOLUTION:QT-1,Zig,0-0-0,Quantum wall collision
 COMPONENT:'drag-quantum-reactor-x',2,0,''
 MEMBER:'instr-start',-90,0,128,1,3,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5271,7 +5271,7 @@ MEMBER:'instr-output',-1,1,128,5,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     # Narrow molecule collision
-    '''SOLUTION:TestMoleculeCollisions,Zig,33-1-57,'7x3 past (5,5) (collision)'
+    r'''SOLUTION:TestMoleculeCollisions,Zig,33-1-57,'7x3 past (5,5) (collision)'
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,1,0,0
 MEMBER:'instr-start',180,0,32,2,1,0,0
@@ -5346,7 +5346,7 @@ PIPE:1,4,2''',
 
 # Solution which when run should raise PauseException on cycle 2 and complete successfully if run again
 pause_then_complete = [
-    '''SOLUTION:A Brief History of SpaceChem,Zig,154-1-11,Pause then complete
+    r'''SOLUTION:A Brief History of SpaceChem,Zig,154-1-11,Pause then complete
 COMPONENT:'drag-starter-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,2,6,0,0
@@ -5370,7 +5370,7 @@ PIPE:1,4,2''',
 ]
 
 slow_solutions = [
-    '''SOLUTION:Molecular Foundry,Andy,27878965-1-32,1R Symbols (bogosort)
+    r'''SOLUTION:Molecular Foundry,Andy,27878965-1-32,1R Symbols (bogosort)
 COMPONENT:'drag-mining-input',1,7,''
 PIPE:0,3,0
 PIPE:0,4,0
@@ -5447,40 +5447,40 @@ ANNOTATION:1,1,0,0,'\n\r\n\r\n\r'
 
 # Solutions that should raise an exception upon initialization of a Solution object
 import_errors = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,trailing spaces
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,trailing spaces
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,32,0,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2
     ''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,invalid pipe idx
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,invalid pipe idx
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,32,0,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2
 PIPE:2,4,3'''
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Doubly-defined component
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Doubly-defined component
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,32,0,2,0,0
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,32,0,2,0,0''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Missing Start cmd
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Missing Start cmd
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Duplicate Start cmd
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Duplicate Start cmd
 COMPONENT:'empty-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,1,0,0
 MEMBER:'instr-start',0,0,128,0,2,0,0
 MEMBER:'instr-start',0,0,32,0,3,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting arrows
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting arrows
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5488,21 +5488,21 @@ MEMBER:'instr-arrow',0,0,64,1,1,0,0
 MEMBER:'instr-arrow',0,0,64,1,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting non-arrow cmds
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Conflicting non-arrow cmds
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'instr-grab',-1,0,128,1,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,illegal flip-flop
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,illegal flip-flop
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',-90,0,128,1,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'instr-toggle',0,0,64,0,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,pipe out of bounds
+    r'''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,pipe out of bounds
 COMPONENT:'drag-silo-input',9,4,''
 PIPE:0,5,2
 PIPE:0,6,2
@@ -5554,7 +5554,7 @@ PIPE:0,12,-6
 PIPE:0,12,-5
 PIPE:0,13,-5
 PIPE:0,14,-5''',
-    '''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,terrain collision
+    r'''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,terrain collision
 COMPONENT:'drag-silo-input',9,4,''
 PIPE:0,5,2
 COMPONENT:'drag-silo-input',8,12,''
@@ -5564,7 +5564,7 @@ PIPE:0,6,3
 PIPE:0,6,4
 PIPE:0,6,5
 ''',
-    '''SOLUTION:There's Something in the Fishcake,Zig,0-0-0,Reactor out of bounds
+    r'''SOLUTION:There's Something in the Fishcake,Zig,0-0-0,Reactor out of bounds
 COMPONENT:'drag-starter-reactor',-1,8,''
 MEMBER:'instr-start',180,0,128,4,1,0,0
 MEMBER:'instr-start',180,0,32,4,6,0,0
@@ -5574,7 +5574,7 @@ MEMBER:'feature-bonder',-1,0,1,4,4,0,0
 MEMBER:'feature-bonder',-1,0,1,5,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Settling into the Routine,Zig,1613-3-26,illegal flip-flop
+    r'''SOLUTION:Settling into the Routine,Zig,1613-3-26,illegal flip-flop
 COMPONENT:'drag-disassembly-reactor',12,2,''
 MEMBER:'instr-start',-90,0,128,2,3,0,0
 MEMBER:'instr-start',180,0,32,1,6,0,0
@@ -5588,7 +5588,7 @@ PIPE:1,4,2'''
 ]
 
 wall_collisions = [
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,top_wall_move_collision
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,top_wall_move_collision
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,2,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5607,7 +5607,7 @@ MEMBER:'instr-output',-1,0,128,6,2,0,0
 MEMBER:'instr-arrow',-90,0,64,1,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,right_wall_move_collision
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,right_wall_move_collision
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,2,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5621,7 +5621,7 @@ MEMBER:'instr-arrow',-90,0,64,1,2,0,0
 MEMBER:'instr-output',-1,0,128,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,bottom_wall_move_collision
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,bottom_wall_move_collision
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5638,7 +5638,7 @@ MEMBER:'instr-grab',-1,2,128,6,2,0,0
 MEMBER:'instr-output',-1,0,128,6,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,left_wall_move_collision
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,left_wall_move_collision
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5652,7 +5652,7 @@ MEMBER:'instr-arrow',180,0,64,7,1,0,0
 MEMBER:'instr-output',-1,0,128,7,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_top_wall
+    r'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_top_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,1,3,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5665,7 +5665,7 @@ MEMBER:'instr-rotate',-1,0,128,4,3,0,0
 MEMBER:'instr-output',-1,0,128,5,3,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_right_wall
+    r'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_right_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5681,7 +5681,7 @@ MEMBER:'instr-arrow',-90,0,64,6,4,0,0
 MEMBER:'instr-arrow',90,0,64,3,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_bottom_wall
+    r'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_bottom_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,2,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5698,7 +5698,7 @@ MEMBER:'instr-arrow',90,0,64,3,2,0,0
 MEMBER:'instr-rotate',-1,0,128,5,4,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    '''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_left_wall
+    r'''SOLUTION:TestWallCollisionsNegative,Zig,0-0-0,rotate_collide_left_wall
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',90,0,128,3,1,0,0
 MEMBER:'instr-start',180,0,32,0,7,0,0
@@ -5719,7 +5719,7 @@ MEMBER:'instr-arrow',180,0,64,7,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     # An extreme molecule collision check that must collide with a wall after it successfully avoids a molecule collision
-    '''SOLUTION:TestMoleculeCollisions,Zig,0-0-0,'9x3 past (9,0) (wall collision)'
+    r'''SOLUTION:TestMoleculeCollisions,Zig,0-0-0,'9x3 past (9,0) (wall collision)'
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,5,1,0,0
 MEMBER:'instr-start',180,0,32,2,1,0,0
@@ -5769,7 +5769,7 @@ PIPE:1,4,2''']
 # Currently "Sulfuric Acid", "Pyridine", "Breakdown", and "Vitamin B3"
 duplicate_level_name_solutions = [
     # 1-8-2
-    '''SOLUTION:Sulfuric Acid,Andy,1273-1-21,Symbols
+    r'''SOLUTION:Sulfuric Acid,Andy,1273-1-21,Symbols
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,0,7,0,0
 MEMBER:'instr-start',180,0,32,1,7,0,0
@@ -5801,7 +5801,7 @@ MEMBER:'instr-grab',-1,1,128,2,4,0,0
 MEMBER:'instr-input',-1,1,128,3,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    """SOLUTION:Sulfuric Acid,Zig,7208-1-36,ResNet 3-7-1
+    r"""SOLUTION:Sulfuric Acid,Zig,7208-1-36,ResNet 3-7-1
 COMPONENT:'drag-starter-reactor',18,7,''
 MEMBER:'instr-start',180,0,128,3,0,0,0
 MEMBER:'instr-start',180,0,32,1,7,0,0
@@ -6184,7 +6184,7 @@ PIPE:0,14,-7
 PIPE:0,14,-8
 PIPE:0,14,-9""",
     # 2-1-1 Pyridine
-    """SOLUTION:Pyridine,Zig,157-1-32
+    r"""SOLUTION:Pyridine,Zig,157-1-32
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,4,3,0,0
 MEMBER:'instr-start',180,0,32,6,5,0,0
@@ -6231,7 +6231,7 @@ MEMBER:'instr-sync',-1,0,32,7,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
     # 2-1-2
-    '''SOLUTION:Breakdown,Zig,43-1-55,Cycles
+    r'''SOLUTION:Breakdown,Zig,43-1-55,Cycles
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,7,1,0,0
 MEMBER:'instr-start',0,0,32,0,3,0,0
@@ -6298,7 +6298,7 @@ MEMBER:'instr-arrow',-90,0,64,6,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
     # 2-1-3
-    '''SOLUTION:Vitamin B3,cactus/12345ieee,296-1-31,Symbols
+    r'''SOLUTION:Vitamin B3,cactus/12345ieee,296-1-31,Symbols
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,2,5,0,0
 MEMBER:'instr-start',0,0,32,3,4,0,0
@@ -6341,7 +6341,7 @@ PIPE:1,4,2''',
 ]
 
 sandbox_solutions = [
-    """SOLUTION:as54,12345ieee,0-0-0,all sandbox components
+    r"""SOLUTION:as54,12345ieee,0-0-0,all sandbox components
 COMPONENT:'drag-printer-output',19,13,''
 COMPONENT:'drag-sandbox-reactor',5,12,''
 MEMBER:'instr-start',180,0,128,5,2,0,0
@@ -6379,7 +6379,7 @@ PIPE:0,2,1""",
 ]
 
 non_precog_solutions = [
-    """SOLUTION:Accidents Happen,Zig,275-1-88,non-precog research
+    r"""SOLUTION:Accidents Happen,Zig,275-1-88,non-precog research
 COMPONENT:'drag-advanced-reactor',2,0,''
 MEMBER:'instr-start',0,0,128,4,1,0,0
 MEMBER:'instr-start',90,0,32,1,0,0,0
@@ -6478,7 +6478,7 @@ MEMBER:'instr-output',-1,1,32,2,2,0,0
 MEMBER:'instr-output',-1,1,128,2,2,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
-    """SOLUTION:No Thanks Necessary,Archiver,2508-2-167,non-precog 2 random inputs
+    r"""SOLUTION:No Thanks Necessary,Archiver,2508-2-167,non-precog 2 random inputs
 COMPONENT:'drag-advanced-reactor',10,7,''
 MEMBER:'instr-start',0,0,128,0,0,0,0
 MEMBER:'instr-start',90,0,32,0,0,0,0
@@ -6713,7 +6713,7 @@ PIPE:1,4,9
 PIPE:1,4,10
 PIPE:1,4,11
 PIPE:0,5,1""",
-    """SOLUTION:Eth,Leylite,2836-3-103,doesn't use random input
+    r"""SOLUTION:Eth,Leylite,2836-3-103,doesn't use random input
 COMPONENT:'drag-superbonder-reactor',10,6,''
 MEMBER:'instr-start',0,0,128,8,7,0,0
 MEMBER:'instr-start',90,0,32,1,3,0,0
@@ -6907,7 +6907,7 @@ PIPE:1,5,11"""
 ]
 
 precog_solutions = [
-    """SOLUTION:Freon,Archiver,112-1-63,fully precog research
+    r"""SOLUTION:Freon,Archiver,112-1-63,fully precog research
 COMPONENT:'custom-research-reactor',2,0,''
 MEMBER:'instr-start',180,0,128,9,2,0,0
 MEMBER:'instr-start',0,0,32,0,1,0,0
@@ -6980,7 +6980,7 @@ MEMBER:'instr-output',-1,0,32,1,2,0,0
 MEMBER:'instr-arrow',180,0,64,5,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2""",
-    """SOLUTION:Smelting Iron,andy,25314-2-206,No Nth mol assumptions but 99% fail rate
+    r"""SOLUTION:Smelting Iron,andy,25314-2-206,No Nth mol assumptions but 99% fail rate
 COMPONENT:'drag-superbonder-reactor',6,7,''
 MEMBER:'instr-start',180,0,128,9,1,0,0
 MEMBER:'instr-start',-90,0,32,2,6,0,0
@@ -7279,7 +7279,7 @@ PIPE:0,14,-5
 PIPE:0,14,-6
 PIPE:0,14,-7
 PIPE:0,14,-8""",
-    '''SOLUTION:Challenge: Going Green,Zig,3578-1-103,assumes 2nd input
+    r'''SOLUTION:Challenge: Going Green,Zig,3578-1-103,assumes 2nd input
 COMPONENT:'drag-powerplant-input',-7,4,''
 PIPE:0,14,7
 PIPE:0,14,6

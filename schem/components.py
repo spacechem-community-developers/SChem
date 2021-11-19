@@ -762,7 +762,7 @@ class Reactor(Component):
                  'large_output', *FEATURE_NAMES,
                  'bond_plus_pairs', 'bond_minus_pairs',
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
-                 'debug')
+                 'annotations', 'debug')
 
     def __init__(self, component_dict=None, _type=None, posn=None):
         '''Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
@@ -847,6 +847,7 @@ class Reactor(Component):
                     out_list.append((a, (wall_min - 0.5, wall_max + 0.5)))
 
         self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
+        self.annotations = []
 
         # Store molecules as dict keys to be ordered (preserving Spacechem's hidden 'least recently modified' rule)
         # and to have O(1) add/delete. Dict values are ignored.
@@ -882,17 +883,20 @@ class Reactor(Component):
         # Break the component string up into its individual sections, while removing empty lines
         component_line, *lines = (s for s in export_str.split('\n') if s)
 
+        # Member lines
         pipes_idx = next((i for i, s in enumerate(lines) if s.startswith('PIPE:')), len(lines))
         member_lines, lines = lines[:pipes_idx], lines[pipes_idx:]
         if not member_lines:
             raise ValueError("Missing MEMBER lines in reactor component")
 
+        # Pipe and annotation lines
         annotations_idx = next((i for i, s in enumerate(lines) if s.startswith('ANNOTATION:')), len(lines))
-        pipes_str = '\n'.join(lines[:annotations_idx])
+        pipe_lines, annotation_lines = lines[:annotations_idx], lines[annotations_idx:]
 
         # Validates COMPONENT line and updates pipes
-        super().update_from_export_str(component_line + '\n' + pipes_str, update_pipes=update_pipes)
+        super().update_from_export_str(component_line + '\n' + '\n'.join(pipe_lines), update_pipes=update_pipes)
 
+        # Add members (features and instructions)
         for line in member_lines:
             assert line.startswith('MEMBER:'), f"Unexpected line in reactor members: `{line}`"
             fields = line.split(',')
@@ -1033,7 +1037,10 @@ class Reactor(Component):
                 f"Expected {len(getattr(self, feature_name))} {feature_name} for {self.type} reactor but got {len(posns)}"
             setattr(self, feature_name, posns)
 
-        self.bond_plus_pairs, self.bond_minus_pairs = self.bond_pairs()  # Re-precompute bond pairings based on the changes
+        self.bond_plus_pairs, self.bond_minus_pairs = self.bond_pairs()  # Re-precompute bond pairings
+
+        # Store the annotations sorted by output idx (the first field)
+        self.annotations = sorted(annotation_lines)
 
     def export_str(self):
         '''Represent this reactor in solution export string format.'''
@@ -1062,6 +1069,9 @@ class Reactor(Component):
 
         export_str += '\n' + '\n'.join(waldo.export_str() for waldo in self.waldos)
         export_str += '\n' + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
+
+        for annotation in self.annotations:
+            export_str += '\n' + annotation
 
         return export_str
 
