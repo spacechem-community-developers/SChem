@@ -424,6 +424,9 @@ terrains = {
         'recycler': ('drag-recycler', (26, 17))},
     "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so terrain may be empty
     "Σ-Ethylene": {'obstructed': {}},
+    "Freedom of Choice": {
+        'obstructed': {},
+        'weapons': (('drag-weapon-chemicallaser', (13, 5)),)},
     "Teleporters": {
         'obstructed': {
             # Top wall

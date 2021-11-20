@@ -207,6 +207,7 @@ class Component:
             _type = component_dict['type']
 
         parts = _type.split('-')
+        # TODO: Initialize SuperLaserReactor through Reactor class to avoid this ugly check
         if 'reactor' in parts and parts[1] != 'superlaser':
             return super().__new__(Reactor)
         elif 'input' in parts:
@@ -815,6 +816,8 @@ class Reactor(Component):
             component_dict = {}
 
         # If the reactor type is known, look up its properties and merge them (with lower priority) into the given dict
+        # TODO: May want to be stricter about yelling at unknown reactor types (while still playing nice with CE custom
+        #       reactors)
         _type = _type if _type is not None else component_dict['type']
         if _type in REACTOR_TYPES:
             component_dict = {**REACTOR_TYPES[_type], **component_dict}  # TODO: Use py3.9's dict union operator
@@ -1875,6 +1878,8 @@ class Boss:
             return super().__new__(Gorgathar)
         elif _type == 'Yarugolek':
             return super().__new__(Yarugolek)
+        elif _type == 'Xothothor':
+            return super().__new__(Xothothor)
         else:
             raise ValueError(f"Invalid boss type `{_type}`")
 
@@ -1882,46 +1887,88 @@ class Boss:
         self.hp = self.MAX_HP
 
     def do_instant_actions(self, cycle):
-        """Raise a DeathError if loss_cycle has been reached."""
+        """Raise a DeathError if LOSS_CYCLE has been reached."""
         if cycle == self.LOSS_CYCLE:
             raise DeathError("The planet has been destroyed.")
 
-    def take_damage(self, dmg, cycle, weapon_posn=None):
+    def take_damage(self, dmg, cycle):
         """Take the specified damage, returning True if hp has hit 0."""
         self.hp = max(self.hp - dmg, 0)
 
         return self.hp <= 0
 
     def reset(self):
+        """Reset this boss to its starting state."""
         self.hp = self.MAX_HP
         return self
 
 
 class Gorgathar(Boss):
     """Sikutar. No special properties."""
+    __slots__ = ()
     LOSS_CYCLE = 6979
     DEATH_ANIMATION_CYCLES = 1452
 
 
 class Yarugolek(Boss):
     """Hephaestus IV. Moves back and forth; can only be hit at certain times."""
+    __slots__ = ()
     LOSS_CYCLE = 5446
     MAX_HP = 5
     DEATH_ANIMATION_CYCLES = 701  # TODO: This is sus, surely it should be 700
 
-    def take_damage(self, dmg, cycle, weapon_posn=None):
+    def take_damage(self, dmg, cycle):
         # Boss is only vulnerable for two windows while crossing back and forth
         if 184 <= (cycle % 1821) < 420 or 847 <= (cycle % 1821) <= 1377:  # Measured empirically
             return super().take_damage(dmg, cycle)
 
 
+class Xothothor(Boss):
+    """Flidais. Like Quororque, opens and closes eye periodically, but also can only be damaged by the correct
+    colour of laser, rotating colours once damaged.
+    Unlike Quororque, only fires a laser if it was not hit first.
+    """
+    __slots__ = 'eye_color', '_last_cycle_damaged', 'dmg_dealt'
+    LOSS_CYCLE = math.inf  # Not constant so we'll do real checks
+    MAX_HP = 5
+    DEATH_ANIMATION_CYCLES = 702  # I feel like this should be 701 like Yarugolek, but...
+    STUN_DURATION = 201  # How many cycles after being damaged the boss restarts its animation
+
+    def __init__(self, _type):
+        super().__init__(_type)
+        self.eye_color = 0  # Red -> Green -> Blue but we can just index
+        self._last_cycle_damaged = -self.STUN_DURATION  # This ensures the boss starts unstunned
+        self.dmg_dealt = 0  # How many times the boss attacked the control center
+
+    def do_instant_actions(self, cycle):
+        """Fire a laser if on correct cycle, and raise DeathError if this was the 5th hit."""
+        # Make sure animation cycle isn't negative while stunned so modular math works
+        animation_cycle = max(cycle - self._last_cycle_damaged - self.STUN_DURATION, 0)
+        if animation_cycle % 851 == 701:  # 150 cycles after the eye opens
+            self.dmg_dealt += 1
+            if self.dmg_dealt >= 5:
+                raise DeathError("The planet has been destroyed.")
+
+    def take_damage(self, dmg, cycle, color=None):
+        animation_cycle = max(cycle - self._last_cycle_damaged - self.STUN_DURATION, 0)
+        if 551 <= animation_cycle % 851 <= 800 and color == self.eye_color:
+            self.eye_color = (self.eye_color + 1) % 3
+            self._last_cycle_damaged = cycle
+            return super().take_damage(dmg, cycle)
+
+    def reset(self):
+        super().reset()
+        self.eye_color = 0
+        self._last_cycle_damaged = -self.STUN_DURATION
+        self.dmg_dealt = 0
+        return self
+
+
 # Not sub-classed from Output since not all weapons behave like an output
-# A necessary in-between class because python hates multiple inheritance with two classes having non-empty __slots__,
-# and More than Machine necessitates a Reactor/Weapon class
 class Weapon(Component):
     """Output-like component used in defense levels."""
     # Can't use __slots__ since python hates multiple inheritance from two classes having (non-empty) __slots__,
-    # and More than Machine necessitates a Reactor/Weapon class
+    # and More than Machine necessitates a Reactor/Weapon class. We also need boss so can't have empty slots.
     DEFAULT_SHAPE = (3, 3)
 
     def __new__(cls, component_dict, _type=None, **kwargs):
@@ -1931,6 +1978,8 @@ class Weapon(Component):
             return super().__new__(NuclearMissile)
         elif _type == 'drag-superlaser-reactor':
             return super().__new__(SuperLaserReactor)
+        elif _type == 'drag-weapon-chemicallaser':
+            return super().__new__(ChemicalLaser)
         elif _type == 'drag-weapon-consumer':
             return super().__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
@@ -1946,7 +1995,6 @@ class Weapon(Component):
 # TODO: Might be nice if the internal outputs were exposed to Solution.outputs somehow
 class NuclearMissile(Weapon):
     """Sikutar. This is effectively just a multi-output component."""
-    __slots__ = '_outputs',
 
     def __init__(self, component_dict, _type=None, posn=None):
         super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=3)
@@ -1972,8 +2020,8 @@ class NuclearMissile(Weapon):
 
 
 class SuperLaserReactor(Reactor, Weapon):
-    """Hephaestus IV. Special defense level reactor which has a large output zone in the bottom four rows, which outputs
-    when a specified molecule appears in a special third input pipe. Beta input is in top right instead.
+    """Hephaestus IV. Special defense level reactor which has a large output zone in the bottom four rows, and flushes
+    it when a specified molecule appears in a special third input pipe. Beta input is in top right instead.
     """
     __slots__ = 'discharge_molecule', 'gain_medium_molecule', 'cooling_until',
     COOLDOWN_CYCLES = 250
@@ -2050,8 +2098,46 @@ class SuperLaserReactor(Reactor, Weapon):
         self.check_molecule_collisions_lazy(new_molecule)
 
 
+class ChemicalLaser(Weapon):
+    """Accepts multiple molecules and fires a laser of corresponding color."""
+    COOLDOWN_CYCLES = 200
+
+    def __init__(self, component_dict, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+
+        self.molecules = [Molecule.from_json_string(mol_str) for mol_str in component_dict['molecules']]
+        self.cooling_until = 0  # The earliest cycle the laser can be fired again on
+
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
+
+    @in_pipe.setter
+    def in_pipe(self, p):
+        self.in_pipes[0] = p
+
+    def do_instant_actions(self, cycle):
+        if cycle >= self.cooling_until and self.in_pipe is not None:
+            molecule = self.in_pipe.pop(cycle)
+            if molecule is not None:
+                for color, target_molecule in enumerate(self.molecules):
+                    if molecule.isomorphic(target_molecule):
+                        self.cooling_until = cycle + self.COOLDOWN_CYCLES
+                        return self.boss.take_damage(1, cycle=cycle, color=color)
+
+                raise InvalidOutputError("An invalid molecule was passed to Chemical Laser\n"
+                                         + f"Produced:\n{molecule}\nbut expected:\n"
+                                         + "\nor\n".join(str(m) for m in self.molecules))
+
+    def reset(self):
+        super().reset()
+        self.cooling_until = 0
+        return self
+
+
 class InternalStorageTank(Weapon, Output):
     """Collapsar. While its component name indicates it's a weapon, it's effectively a 0-count output."""
+    __slots__ = ()
     DEFAULT_SHAPE = (2, 3)
 
 
@@ -2068,7 +2154,7 @@ class CrashCanister(Weapon, Output):
     # the animation completes
     # However in Collapsar, when the output is complete it stops accepting molecules, while the canister drops, but the
     # solution keeps running as normal and must not crash due to any clogs that result.
-    # To simulate this, instead of adding a fixed value to the end cycle count like we'll do for other defense levels,
+    # To simulate this, instead of adding a fixed value to the end cycle count like we do for other defense levels,
     # have the canister not mark itself as complete until 2000 cycles after the 40th output
     def do_instant_actions(self, cycle):
         # Behave like a normal output until complete
@@ -2090,3 +2176,5 @@ class CrashCanister(Weapon, Output):
         self.canister_drop_cycle = None
 
         return self
+
+# TODO: Implement ControlCenter/'drag-defense-plant' so its remaining HP can be shown in debug view

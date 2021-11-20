@@ -282,6 +282,7 @@ class Solution:
         posn_to_component = {}  # Note that components are referenced by their top-left corner posn
 
         # Inputs
+        # TODO: Why even bother differentiating? Just parse each type appropriately
         if self.level['type'].startswith('research'):
             input_zone_types = ('input-zones',)
             output_zone_type = 'output-zones'
@@ -292,8 +293,11 @@ class Solution:
             # CE Productions finally give up on the useless distinction between fixed and random zones
             input_zone_types = ('random-input-components', 'programmed-input-components')
             output_zone_type = 'output-components'
-        else:  # Sandbox, Defense (type already checked above so `else` is safe)
+        elif self.level.type == 'sandbox':
             input_zone_types = ('random-input-zones', 'fixed-input-zones')
+            output_zone_type = None
+        else:  # Defense (I did these custom so they use whatever input type is handy)
+            input_zone_types = ('random-input-zones', 'fixed-input-zones', 'random-input-components')
             output_zone_type = None
 
         for input_zone_type in input_zone_types:
@@ -752,7 +756,6 @@ class Solution:
                 if len(list(self.reactors)) != 1 and isinstance(component, Reactor):
                     for i, reactor in enumerate(self.reactors):
                         if component is reactor:
-                            # Mention the reactor index via a chained exception of the same type
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
@@ -797,12 +800,12 @@ class Solution:
             while self.cycle < max_cycles + 1:
                 self.cycle += 1
 
-                if self.boss is not None and self.cycle == self.boss.LOSS_CYCLE:
-                    raise DeathError("The planet has been destroyed.")
-
                 if debug and self.cycle >= debug.cycle:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
                                      show_instructions=debug.show_instructions)
+
+                if self.boss is not None:
+                    self.boss.do_instant_actions(self.cycle)
 
                 # Execute instant actions (component inputs/outputs, waldo instructions)
                 for component in self.components:
