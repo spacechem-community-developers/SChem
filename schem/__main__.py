@@ -91,6 +91,12 @@ def main(args: argparse.Namespace):
 
             solution = Solution(solution_str, level=level)
 
+            # If we're just re-exporting, print the export and skip running
+            # TODO: Make --export compatible with running - in particular, --export + --json might be useful
+            if args.export:
+                print(solution.export_str())
+                continue
+
             # Update the random input seed(s) if requested
             if args.seed is not None:
                 random_inputs = [input_component for input_component in solution.inputs
@@ -197,10 +203,13 @@ if __name__ == '__main__':
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
                              "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
     stdout_args = parser.add_mutually_exclusive_group()
+    stdout_args.add_argument('--export', action='store_true',
+                             help="Re-export the given solution export so its lines are in schem-standardized order,\n"
+                                  "and print it to STDOUT, then exit (without running the solution).")
     stdout_args.add_argument('--json', action='store_true',
                              help="Print JSON containing the run data, including level and solution metadata.\n"
                                   "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                                  "Also suppresses default validation STDOUT messages.\n"
+                                  "Suppresses default validation STDOUT messages.\n"
                                   "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
                                   "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
                                   "        (ditto), and error (if the solution couldn't be imported, crashed, didn't\n"
