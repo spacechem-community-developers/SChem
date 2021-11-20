@@ -51,6 +51,7 @@ REACTOR_TYPES = {
     'tutorial-research-reactor-2': {'bonder-count': 4},  # 1-4
     'drag-reduced-reactor': {'bonder-count': 2},  # 6-1, 7-2
     'drag-largeoutput-reactor': {'bonder-count': 4, 'has-sensor': True, 'has-large-output': True},  # 6-3, 7-4, 8-2
+    'drag-superlaser-reactor': {'bonder-count': 8, 'has-sensor': True},  # 6-D
     'drag-advancedfusion-reactor': {'bonder-count': 2, 'has-sensor': True, 'has-fuser': True},  # 7-3
     'drag-quantum-reactor-x': {'has-teleporter': True, 'quantum-walls-y': {'5': [0, 1, 2, 3, 4, 5, 6, 7]}},  # QT-1
     'drag-quantum-reactor-s': {'bonder-count': 2, 'has-sensor': True, 'has-teleporter': True,  # QT-2 - QT-4
@@ -206,7 +207,7 @@ class Component:
             _type = component_dict['type']
 
         parts = _type.split('-')
-        if 'reactor' in parts:
+        if 'reactor' in parts and parts[1] != 'superlaser':
             return super().__new__(Reactor)
         elif 'input' in parts:
             return super().__new__(Input)
@@ -228,7 +229,7 @@ class Component:
             return super().__new__(TeleporterInput)
         elif _type == 'drag-qpipe-out':
             return super().__new__(TeleporterOutput)
-        elif 'weapon' in parts:
+        elif 'weapon' in parts or _type == 'drag-superlaser-reactor':
             return super().__new__(Weapon)
         else:
             raise ValueError(f"Unrecognized component type {_type}")
@@ -450,7 +451,7 @@ class ProgrammedInput(Input):
     __slots__ = 'starting_molecules', 'starting_idx', 'repeating_molecules', 'repeating_idx'
 
     def __init__(self, input_dict, _type=None, posn=None, is_research=False):
-        super(Input, self).__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)
+        super(Input, self).__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)  # Skip Input init
 
         assert len(input_dict['repeating-molecules']) != 0, "No repeating molecules in input dict"
         self.starting_molecules = [Molecule.from_json_string(s) for s in input_dict['starting-molecules']]
@@ -488,8 +489,8 @@ class ProgrammedInput(Input):
 
 
 class Output(Component):
-    DEFAULT_SHAPE = (2, 3)
     __slots__ = 'output_molecule', 'target_count', 'current_count'
+    DEFAULT_SHAPE = (2, 3)
 
     # Convenience property for when we know we're dealing with an Output
     @property
@@ -500,8 +501,8 @@ class Output(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    def __init__(self, output_dict, _type=None, posn=None):
-        super().__init__(output_dict, _type=_type, posn=posn, num_in_pipes=1)
+    def __init__(self, output_dict, _type=None, posn=None, **kwargs):
+        super().__init__(output_dict, _type=_type, posn=posn, num_in_pipes=1, **kwargs)
 
         # CE output components are abstracted one level higher than vanilla output zones; unwrap if needed
         if 'output-target' in output_dict:
@@ -540,12 +541,8 @@ class PassThroughCounter(Output):
     __slots__ = 'stored_molecule',
 
     def __init__(self, output_dict):
-        super(Output, self).__init__(output_dict, num_in_pipes=1, num_out_pipes=1)
-
-        self.output_molecule = Molecule.from_json_string(output_dict['target']['molecule'])
-        self.target_count = output_dict['target']['count']
-        self.current_count = 0
-
+        # 'count' and 'molecule' are nested in 'target' for pass-through counters; unwrap before calling Output's init
+        super().__init__({**output_dict, **output_dict['target']}, num_out_pipes=1)
         self.stored_molecule = None
 
     @property
@@ -609,8 +606,8 @@ class OutputPrinter(Component):
     DEFAULT_SHAPE = (2, 3)
     __slots__ = ()
 
-    def __init__(self, component_dict=None, _type=None, posn=None):
-        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+    def __init__(self, component_dict=None, _type=None, posn=None, **kwargs):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1, **kwargs)
 
     @property
     def in_pipe(self):
@@ -637,7 +634,7 @@ class PassThroughPrinter(OutputPrinter):
     __slots__ = ()
 
     def __init__(self, component_dict=None, _type=None, posn=None):
-        super(OutputPrinter, self).__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
+        super().__init__(component_dict, _type=_type, posn=posn, num_out_pipes=1)
 
     @property
     def out_pipe(self):
@@ -809,7 +806,8 @@ class Reactor(Component):
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'annotations', 'debug')
 
-    def __init__(self, component_dict=None, _type=None, posn=None):
+    def __init__(self, component_dict=None, _type=None, posn=None,
+                 _num_in_pipes=2, _num_out_pipes=2):  # Hidden args so these can be overridden by SuperLaserReactor
         """Initialize a reactor from only its component dict, doing e.g. default placements of features. Used for
         levels with preset reactors.
         """
@@ -822,15 +820,15 @@ class Reactor(Component):
             component_dict = {**REACTOR_TYPES[_type], **component_dict}  # TODO: Use py3.9's dict union operator
 
         # If the has-bottom attributes are unspecified, they default to True, unlike most attribute flags
-        num_in_pipes = 1 if 'has-bottom-input' in component_dict and not component_dict['has-bottom-input'] else 2
-        num_out_pipes = 1 if 'has-bottom-output' in component_dict and not component_dict['has-bottom-output'] else 2
+        _num_in_pipes -= 1 if 'has-bottom-input' in component_dict and not component_dict['has-bottom-input'] else 0
+        _num_out_pipes -= 1 if 'has-bottom-output' in component_dict and not component_dict['has-bottom-output'] else 0
 
-        super().__init__(component_dict,
-                         _type=_type, posn=posn,
-                         num_in_pipes=num_in_pipes, num_out_pipes=num_out_pipes)
+        super().__init__(component_dict, _type=_type, posn=posn,
+                         num_in_pipes=_num_in_pipes, num_out_pipes=_num_out_pipes)
 
         # Set disallowed instructions
         self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
+
         # Toggles are assumed disallowed unless explicitly set otherwise
         # Note that if controls are specifically set in disallowed-instructions, we ignore has-controls even if present
         if not ('has-controls' in component_dict and component_dict['has-controls']):
@@ -1028,6 +1026,7 @@ class Reactor(Component):
 
             # Note: Some similar instructions have the same name but are sub-typed by the
             #       second integer field
+            # TODO: Validate sub-type range, e.g. no using third input in SuperLaserReactor
             instr_sub_type = int(fields[2])
             if member_name == 'instr-input':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT, target_idx=instr_sub_type)
@@ -1860,27 +1859,26 @@ class Reactor(Component):
         return self
 
 
-# We were almost able to get away with only specialized Ouput objects instead of Boss/Weapon's, but
-# A Most Unfortune Malfunction's weapons slow the boss down and affect when other weapons must complete, so we do
-# need a boss object with its own position and speed.
-class Boss(Component):
+# Not subclassed off component since bosses don't have in/out pipes nor do they necessarily need a posn.
+class Boss:
     """Boss of a defense level."""
     __slots__ = 'hp',
-    DEFAULT_SHAPE = (0, 0)  # Hack to make sure boss never collides with terrain/normal components
+    # The cycle upon which the boss destroys the player base (independent of dmg received)
+    # In other words if the last hit is done on LOSS_CYCLE, the player will lose first
     LOSS_CYCLE = math.inf
-    MAX_HP = 1  # Some bosses need only be hit once
-    DEATH_ANIMATION_CYCLES = 0
+    MAX_HP = 1
+    DEATH_ANIMATION_CYCLES = 0  # Extra cycles tacked on to the final score
 
     def __new__(cls, _type):
         """Convert to the specific boss subclass."""
-        _type = (component_dict['type'] if _type is None else _type).lower()  # Forgive capitalization variants
-        if _type == 'gorgathar':
+        if _type == 'Gorgathar':
             return super().__new__(Gorgathar)
+        elif _type == 'Yarugolek':
+            return super().__new__(Yarugolek)
         else:
-            raise ValueError(f"Invalid boss type `{component_dict['type']}`")
+            raise ValueError(f"Invalid boss type `{_type}`")
 
     def __init__(self, _type):
-        super().__init__(_type=_type, posn=(-1, -1))  # Dummy off-screen posn
         self.hp = self.MAX_HP
 
     def do_instant_actions(self, cycle):
@@ -1888,11 +1886,14 @@ class Boss(Component):
         if cycle == self.LOSS_CYCLE:
             raise DeathError("The planet has been destroyed.")
 
+    def take_damage(self, dmg, cycle, weapon_posn=None):
+        """Take the specified damage, returning True if hp has hit 0."""
+        self.hp = max(self.hp - dmg, 0)
+
+        return self.hp <= 0
+
     def reset(self):
-        super().reset()
-
         self.hp = self.MAX_HP
-
         return self
 
 
@@ -1902,12 +1903,25 @@ class Gorgathar(Boss):
     DEATH_ANIMATION_CYCLES = 1452
 
 
-# Component used in defense levels to damage a boss
-# To modify as little Solution logic as possible, we subclass Output, and mark these as complete when the boss
-# is dead
-class Weapon(Output):
-    """Output-like component used to damage defense level bosses."""
-    __slots__ = 'boss',
+class Yarugolek(Boss):
+    """Hephaestus IV. Moves back and forth; can only be hit at certain times."""
+    LOSS_CYCLE = 5446
+    MAX_HP = 5
+    DEATH_ANIMATION_CYCLES = 701  # TODO: This is sus, surely it should be 700
+
+    def take_damage(self, dmg, cycle, weapon_posn=None):
+        # Boss is only vulnerable for two windows while crossing back and forth
+        if 184 <= (cycle % 1821) < 420 or 847 <= (cycle % 1821) <= 1377:  # Measured empirically
+            return super().take_damage(dmg, cycle)
+
+
+# Not sub-classed from Output since not all weapons behave like an output
+# A necessary in-between class because python hates multiple inheritance with two classes having non-empty __slots__,
+# and More than Machine necessitates a Reactor/Weapon class
+class Weapon(Component):
+    """Output-like component used in defense levels."""
+    # Can't use __slots__ since python hates multiple inheritance from two classes having (non-empty) __slots__,
+    # and More than Machine necessitates a Reactor/Weapon class
     DEFAULT_SHAPE = (3, 3)
 
     def __new__(cls, component_dict, _type=None, **kwargs):
@@ -1915,6 +1929,8 @@ class Weapon(Output):
         _type = component_dict['type'] if _type is None else _type
         if _type == 'drag-weapon-nuclearmissile':
             return super().__new__(NuclearMissile)
+        elif _type == 'drag-superlaser-reactor':
+            return super().__new__(SuperLaserReactor)
         elif _type == 'drag-weapon-consumer':
             return super().__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
@@ -1922,38 +1938,29 @@ class Weapon(Output):
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
-    def __init__(self, component_dict, *args, **kwargs):
-        super().__init__(output_dict=component_dict, *args, **kwargs)
+    def __init__(self, component_dict, _type=None, posn=None, **kwargs):
+        super().__init__(component_dict, _type=_type, posn=posn, **kwargs)
+        self.boss = None
 
 
-# This class is three outputs in a trenchcoat
-# TODO: This class is pretty terrible not sure it was worth the trouble of not just mocking it with 3 outputs
+# TODO: Might be nice if the internal outputs were exposed to Solution.outputs somehow
 class NuclearMissile(Weapon):
     """Sikutar. This is effectively just a multi-output component."""
     __slots__ = '_outputs',
 
     def __init__(self, component_dict, _type=None, posn=None):
-        # Bypass the Output ctor to allow for 3 input pipes
-        super(Output, self).__init__(component_dict, _type=_type, posn=posn, num_in_pipes=3)
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=3)
 
         self._outputs = [Output(mol_dict, _type='research-output', posn=(0, 0))  # Dummy values as these aren't exposed
                          for mol_dict in component_dict['molecules']]
-        # TODO: This class is surprisingly ugly due to the need to connect the pipes to the internal outputs
-
-        self.target_count = 1  # Dummy value which will be artificially met when all internal outputs are complete
-        self.current_count = 0  # TODO: This boilerplate might be worse than having Solution know Weapons or Boss exist
 
     def do_instant_actions(self, cycle):
         for i, output in enumerate(self._outputs):
-            output.in_pipe = self.in_pipes[i]  # Fuck it
-
+            output.in_pipe = self.in_pipes[i]  # Fuck it, connect the internal pipes at runtime
             output.do_instant_actions(cycle)  # We'll skip the return value for simplicity
 
-        is_done = all(output.current_count >= output.target_count for output in self._outputs)
-        if is_done:
-            self.current_count = self.target_count  # Solution checks this so make sure we update it
-
-        return is_done
+        if all(output.current_count >= output.target_count for output in self._outputs):
+            return self.boss.take_damage(1, cycle)
 
     def reset(self):
         super().reset()
@@ -1964,12 +1971,91 @@ class NuclearMissile(Weapon):
         return self
 
 
-class InternalStorageTank(Weapon):
+class SuperLaserReactor(Reactor, Weapon):
+    """Hephaestus IV. Special defense level reactor which has a large output zone in the bottom four rows, which outputs
+    when a specified molecule appears in a special third input pipe. Beta input is in top right instead.
+    """
+    __slots__ = 'discharge_molecule', 'gain_medium_molecule', 'cooling_until',
+    COOLDOWN_CYCLES = 250
+
+    def __init__(self, component_dict, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, _num_in_pipes=3, _num_out_pipes=0)
+        self.disallowed_instrs.add('instr-output')
+
+        self.discharge_molecule = Molecule.from_json_string(component_dict['discharge-molecule'])
+        self.gain_medium_molecule = Molecule.from_json_string(component_dict['gain-molecule'])
+        self.cooling_until = 0  # The earliest cycle the next discharge can be performed on
+
+    def reset(self):
+        super().reset()
+        self.cooling_until = 0
+        return self
+
+    def do_instant_actions(self, cycle):
+        # TODO: Pause command suggests this goes after discharge, but sensor suggest it goes before
+        super().do_instant_actions(cycle)  # Reactor's actions
+
+        # If at least 250 cycles have passed since the last discharge cycle, check if the third input pipe has
+        # a molecule, and if it does, validate that it's the discharge molecule, then discharge the output zone
+        if cycle >= self.cooling_until and self.in_pipes[2] is not None:
+            molecule = self.in_pipes[2].pop(cycle)
+            if molecule is not None:
+                if not molecule.isomorphic(self.discharge_molecule):
+                    raise InvalidOutputError(f"Invalid discharge molecule; expected:\n{self.discharge_molecule}\n\nbut got:\n{molecule}")
+
+                self.cooling_until = cycle + self.COOLDOWN_CYCLES
+                return self.discharge(cycle)
+
+    def discharge(self, cycle):
+        """Clear all molecules from the output zone and fire the laser once for every ruby crystal therein."""
+        # Pre-evaluated to avoid iterating over self.molecules while deleting from it
+        molecules_in_zone = [molecule for molecule in self.molecules
+                             # Ignore grabbed molecules
+                             if not any(waldo.molecule is molecule for waldo in self.waldos)
+                             and all(posn.row >= 4 for posn in molecule.atom_map)]
+
+        # Clear all molecules from the zone and fire the laser once for each gain medium molecule (could be multiple)
+        for m in molecules_in_zone:
+            del self.molecules[m]
+            if m.isomorphic(self.gain_medium_molecule):
+                # Fire the laser
+                if self.boss.take_damage(1, cycle=cycle):  # Returns True if the boss died
+                    return True  # Check if we killed the boss
+
+    # Override Reactor's input method to account for the shifted beta input
+    def input(self, waldo, input_idx, cycle):
+        # If there is no such pipe or it has no molecule available, stall the waldo
+        if (input_idx > 1  # Quick hack to prevent the third input being abused by a sub-type 2 input instruction
+                or self.in_pipes[input_idx] is None
+                or self.in_pipes[input_idx].get(-1, cycle) is None):
+            waldo.is_stalled = True
+            return
+
+        # Grab the molecule from the appropriate pipe or stall if no such molecule (or no pipe)
+        new_molecule = self.in_pipes[input_idx].pop(cycle)
+
+        sample_posn = next(iter(new_molecule.atom_map))
+        # Normalize the molecule's column positions if necessary, depending on the input type and source columns
+        if input_idx == 0 and sample_posn.col >= 6:  # Ensure alpha input is on the left
+            new_molecule.move(LEFT, 6)
+        elif input_idx == 1 and sample_posn.col < 6:  # Ensure beta input is on the right
+            new_molecule.move(RIGHT, 6)
+
+        # Normalize the molecule's row positions if necessary, depending on the source rows
+        if sample_posn.row >= 4:  # Both inputs in this reactor want to be in the top half
+            new_molecule.move(UP, 4)
+
+        self.molecules[new_molecule] = None  # Dummy value
+
+        self.check_molecule_collisions_lazy(new_molecule)
+
+
+class InternalStorageTank(Weapon, Output):
     """Collapsar. While its component name indicates it's a weapon, it's effectively a 0-count output."""
     DEFAULT_SHAPE = (2, 3)
 
 
-class CrashCanister(Weapon):
+class CrashCanister(Weapon, Output):
     """Collapsar. While it's categorized as a weapon, it's effectively just an output with some end delay."""
     __slots__ = 'canister_drop_cycle',
     DEFAULT_SHAPE = (4, 4)
@@ -1997,8 +2083,6 @@ class CrashCanister(Weapon):
             # count back to its true value and indicating to the caller that the output just completed
             self.current_count += 1
             return True
-
-        return False
 
     def reset(self):
         super().reset()

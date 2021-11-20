@@ -393,6 +393,35 @@ terrains = {
                          ('output', (23, 7)),
                          ('output', (23, 12))),
         'recycler': ('drag-recycler', (26, 17))},
+    "More than Machine": {
+        'obstructed': {
+            # Boss zone
+            *product(range(13, 32), (0,)),
+            *product(range(14, 32), (1,)),
+            *product(range(15, 32), (2,)),
+            *product(range(16, 32), (3,)),
+            *product(range(17, 32), (4,)),
+            *product(range(18, 32), (5,)),
+            *product(range(19, 32), (6,)),
+            *product(range(20, 32), (7,)),
+            *product(range(21, 32), (8,)),
+            *product(range(22, 32), (9,)),
+            *product(range(23, 32), (10,)),
+            *product(range(24, 32), (11,)),
+            *product(range(25, 32), (12,)),
+            *product(range(26, 32), (13,)),
+            *product(range(27, 32), (14,)),
+            *product(range(28, 32), (15,)),
+            # Bottom-left lava
+            *product((0,), range(14, 20)),
+            *product((1,), range(15, 19)),
+            # Control Center
+            *product(range(2, 5), range(18, 21)),
+        },
+        'fixed-input-zones': (('drag-silo-input', (0, 1)),),
+        'random-input-zones': (('drag-mining-input', (2, 14)),),
+        'weapons': (('drag-superlaser-reactor', (10, 8)),),
+        'recycler': ('drag-recycler', (26, 17))},
     "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so terrain may be empty
     "Σ-Ethylene": {'obstructed': {}},
     "Teleporters": {

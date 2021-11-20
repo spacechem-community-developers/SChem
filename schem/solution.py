@@ -23,7 +23,7 @@ except ImportError:
 from .components import Component, Input, Output, Weapon, Reactor, Recycler, DisabledOutput, \
                         TeleporterOutput, Boss, NuclearMissile, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
-from .exceptions import SolutionImportError, ScoreError
+from .exceptions import SolutionImportError, DeathError, ScoreError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
 from .levels import levels as built_in_levels, unsupported_defense_names, resnet_ids
@@ -83,7 +83,7 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
 class Solution:
     """Class for constructing and running game entities from a given level object and solution code."""
     __slots__ = ('level', 'expected_score', 'author', 'name',
-                 'components', 'cycle')
+                 'components', 'boss', 'cycle')
 
     DEFAULT_MAX_CYCLES = 1_000_000  # Default timeout for solutions whose expected cycle count is unknown
 
@@ -103,10 +103,6 @@ class Solution:
     @property
     def symbols(self):
         return sum(sum(len(waldo) for waldo in reactor.waldos) for reactor in self.reactors)
-
-    @property
-    def boss(self):
-        return next((component for component in self.components if isinstance(component, Boss)), None)
 
     @classmethod
     def split_solutions(cls, solns_str):
@@ -379,12 +375,7 @@ class Solution:
                     posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
 
         # Boss
-        if 'boss' in self.level:
-            assert 'weapons' in self.level, "Level contains a boss but no weapons"  # Sanity check
-            boss = Boss(self.level['boss'])
-            # TODO: Bosses are tucked away at (-1, -1), but preset components are allowed to be there too, so this is a
-            #       little unsafe
-            posn_to_component[boss.posn] = boss
+        self.boss = Boss(self.level['boss']) if 'boss' in self.level else None
 
         # Weapons
         if 'weapons' in self.level:
@@ -392,10 +383,7 @@ class Solution:
                 component_type, component_posn = terrains[terrain_id]['weapons'][int(i)]
                 posn_to_component[component_posn] = Weapon(component_dict=weapon_dict,
                                                            _type=component_type, posn=component_posn)
-
-                # Note that Collapsar has weapons but not a boss hence this runaround
-                if 'boss' in self.level:
-                    posn_to_component[component_posn].boss = boss
+                posn_to_component[component_posn].boss = self.boss  # Might be None in e.g. Collapsar
 
         # Preset reactors
         if self.level['type'].startswith('research'):
@@ -665,16 +653,18 @@ class Solution:
                                             for s in fields)
 
         # Components
-        # Exclude inputs/teleporter outputs whose pipes are length 1 (unmodified), and out-pipeless components like
-        # outputs and recyclers. This is safe as these components are all always preset (whereas e.g. the player might
-        # place a storage tank with a length 1 pipe, which we can't exclude).
+        # Exclude out-pipeless components (other than Reactors, as in the SuperLaserReactor special case), and
+        # inputs/teleporter outputs whose pipes are length 1 (unmodified).
+        # This is safe as these components are all always preset (whereas e.g. the player might place a storage tank
+        # with a length 1 pipe, which we can't exclude).
         # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
         #       Really it's probably just every unmodified preset component.
         #       It's also improperly excluding output printers, which are player-placeable in sandbox levels.
         #       Probably need a 'preset' property on components(/pipes?) to cover everything without special-casing.
         for component in self.components:
-            if component.out_pipes and not (isinstance(component, (Input, TeleporterOutput))
-                                            and len(component.out_pipe) == 1):
+            if ((component.out_pipes or isinstance(component, Reactor))  # Handles SuperLaserReactor special case
+                and not (isinstance(component, (Input, TeleporterOutput))
+                         and len(component.out_pipe) == 1)):
                 export_str += '\n' + component.export_str()
 
         return export_str
@@ -807,19 +797,23 @@ class Solution:
             while self.cycle < max_cycles + 1:
                 self.cycle += 1
 
+                if self.boss is not None and self.cycle == self.boss.LOSS_CYCLE:
+                    raise DeathError("The planet has been destroyed.")
+
                 if debug and self.cycle >= debug.cycle:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
                                      show_instructions=debug.show_instructions)
 
-                # Execute instant actions (entity inputs/outputs, waldo instructions)
+                # Execute instant actions (component inputs/outputs, waldo instructions)
                 for component in self.components:
                     if component.do_instant_actions(self.cycle):
-                        # Outputs return true the first time they reach their target count; whenever one does, check
+                        # Outputs return True the first time they reach their target count; whenever one does, check
                         # all the others for completion (we can't just count completions since 0/0 outputs should
                         # win even if never triggered). Not checking until an output completes also matches the expected
                         # behaviour of puzzles where all outputs are 0/0
+                        # Weapons also return True if they just killed the boss
                         if all(output.current_count >= output.target_count for output in outputs):
-                            if 'boss' in self.level:
+                            if self.boss is not None:
                                 self.cycle += self.boss.DEATH_ANIMATION_CYCLES
 
                             # -1 looks weird but seems provably right based on output vs pause comparison
@@ -1000,6 +994,9 @@ class Solution:
         """Reset this solution as if it had not yet been run."""
         for component in self.components:
             component.reset()
+
+        if self.boss is not None:
+            self.boss.reset()
 
         self.cycle = 0
 

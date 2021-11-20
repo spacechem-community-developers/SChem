@@ -206,6 +206,14 @@ fyFO3B8qKW2gEbcEWiI1hXKJRfNEriqWMDdigwSSyBRxivHbQneH/g/j81ubq57rYy7cXin1hy
 mt7LO+LC2N2a+uH0gvD0EA47/XvoS9Kz7Cw+5Nd8k1rJhTM2fIMhSCVvU55/cC1kDpKzXh7U1j
 fSvhmdS9s3rBRbUZ2qbtvEaRprci+cMjqEa15HdVbyqpK6kONkvnicrZdP8/ViGW7kqgXLfMZ/
 tYVm8d2A9oKikDpTFLCpV7jMvStNCEXPXJRo/w3o9fQV5gIAAA==''',
+    "More than Machine": '''H4sIAEMoCGIC/21Sy27CMBD8lcjnRrUdQKg5IaTeEFJPtKiHxVkSq4mN/ChQxL93bZAKqIesrf
+F6dmacE9vqAzalNrsYyh9r0LOX4sQ4VbZCY029wlqI8Yhzdn4qmAPT2OHf/hPLaALWJzbYHlXs
+MRHN+jhoE4diedAN1rO+eC6WxCoqIWr6Ks5rwadc1FJMBe3llBCe9oxmKhtNIJ4JCbgnnnfODj
+pg/YpEOXcXXilHUhL9lFOtEpWUcsLvuOT588+NR2wIE+NzsrhH2Flz66vRXnXgWixvhz/GQ1db
+0Oau5y1ujqTr6AP0V99ZaBYpkjAyL2oucxSc50XyDFJDCobTInI+ImeS2qtUxSghsrrmxgXL8j
+fWJ+3sHVxsScpXEjbAoXQIKliXDkcEdeBLaL7BqGw+uIhX1Mcduo01DbqHA7oOLd6DDtVR9bet
+4bjL5hvcovGY5hsYMrSwDovQgSkWoDpt8iHFC31v9/k/9ESigr48wJploAy2bSnQ9GQQQ2fTMP
+ZBDOz8C0iWYJ3CAgAA''',
     # Atropos Station
     "The Blue Danube": '''H4sIAMTllmEC/5WOsQoCMQyGX6VkttA7xMHbxMEHcFIcYhs84UwlbQU9zme3V3VSB5dAvj//R3
 o48jlFffNMAeaqB1NmoSPY9nDyHdnUUd5gdXXiD8TNqqmqyhiYKLA+cczhbJioX9d3U4+FyjT1
