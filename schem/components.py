@@ -504,9 +504,7 @@ class Output(Component):
         self.current_count = 0
 
     def do_instant_actions(self, cycle):
-        """Check for and process any incoming molecule, and return True if this output just completed (in which case
-        the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
-        """
+        """Check for and process any incoming molecule, and return True if this output is completed, else False."""
         if self.in_pipe is None:
             return False
 
@@ -830,8 +828,11 @@ class Reactor(Component):
                          _type=_type, posn=posn,
                          num_in_pipes=num_in_pipes, num_out_pipes=num_out_pipes)
 
-        # Place all features
-        cur_col = 0  # For simplicity we will put each feature type in its own column(s)
+        # Set disallowed instructions
+        self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
+
+        # Place all features. For simplicity we will put each feature type in its own column(s) in a fresh reactor
+        cur_col = 0
 
         # Place bonders. Different bonder types go in the same struct so they can share a priority index
         self.bonders = []
@@ -840,18 +841,24 @@ class Reactor(Component):
                 self.bonders.extend([(Position(cur_col, i), abbrev)
                                      for i in range(component_dict[f'{feature_name}-count'])])
             cur_col += 1
+        # Disallow bond commands if there are no bonders
+        if not self.bonders:
+            self.disallowed_instrs.add('instr-bond')
 
-        # Place remaining features
-        for attr_name, feature_name, feature_width, default_count in (('sensors', 'sensor', 1, 1),
-                                                                      ('fusers', 'fuser', 2, 1),
-                                                                      ('splitters', 'splitter', 2, 1),
-                                                                      ('swappers', 'teleporter', 1, 2)):
+        # Place remaining features while further disallowing instructions related to non-present features
+        # TODO: The evidence that a Feature class is needed continues to grow...
+        for attr_name, feature_name, instr_type, feature_width, default_count in \
+                (('sensors', 'sensor', 'instr-sensor', 1, 1),
+                 ('fusers', 'fuser', 'instr-fuse', 2, 1),
+                 ('splitters', 'splitter', 'instr-split', 2, 1),
+                 ('swappers', 'teleporter', 'instr-swap', 1, 2)):
             if f'{feature_name}-count' in component_dict:
                 setattr(self, attr_name, [Position(cur_col, i) for i in range(component_dict[f'{feature_name}-count'])])
             elif f'has-{feature_name}' in component_dict and component_dict[f'has-{feature_name}']:
                 setattr(self, attr_name, [Position(cur_col, i) for i in range(default_count)])
             else:
                 setattr(self, attr_name, [])
+                self.disallowed_instrs.add(instr_type)
 
             cur_col += feature_width
 
@@ -892,7 +899,6 @@ class Reactor(Component):
                     # Store the remaining wall
                     out_list.append((a, (wall_min - 0.5, wall_max + 0.5)))
 
-        self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
         self.annotations = []
 
         # Store molecules as dict keys to be ordered (preserving Spacechem's hidden 'least recently modified' rule)
@@ -1062,6 +1068,8 @@ class Reactor(Component):
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP, direction=direction)
             elif member_name == 'instr-debug':
                 waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.PAUSE)
+            elif member_name == 'instr-control':
+                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.CONTROL, direction=direction)
             else:
                 raise Exception(f"Unrecognized member type {member_name}")
 
@@ -1515,6 +1523,8 @@ class Reactor(Component):
             self.swap()
         elif cmd.type == InstructionType.PAUSE:
             raise PauseException("Pause command encountered")
+        elif cmd.type == InstructionType.CONTROL:
+            raise ControlError("CTRL commands are unsupported.")
 
     def input(self, waldo, input_idx, cycle):
         # If there is no such pipe or it has no molecule available, stall the waldo
@@ -1845,26 +1855,113 @@ class Reactor(Component):
         return self
 
 
+# We were almost able to get away with only specialized Ouput objects instead of Boss/Weapon's, but
+# A Most Unfortune Malfunction's weapons slow the boss down and affect when other weapons must complete, so we do
+# need a boss object with its own position and speed.
+class Boss(Component):
+    """Boss of a defense level."""
+    __slots__ = 'hp',
+    DEFAULT_SHAPE = (0, 0)  # Hack to make sure boss never collides with terrain/normal components
+    LOSS_CYCLE = math.inf
+    MAX_HP = 1  # Some bosses need only be hit once
+    DEATH_ANIMATION_CYCLES = 0
+
+    def __new__(cls, _type):
+        """Convert to the specific boss subclass."""
+        _type = (component_dict['type'] if _type is None else _type).lower()  # Forgive capitalization variants
+        if _type == 'gorgathar':
+            return super().__new__(Gorgathar)
+        else:
+            raise ValueError(f"Invalid boss type `{component_dict['type']}`")
+
+    def __init__(self, _type):
+        super().__init__(_type=_type, posn=(-1, -1))  # Dummy off-screen posn
+        self.hp = self.MAX_HP
+
+    def do_instant_actions(self, cycle):
+        """Raise a DeathError if loss_cycle has been reached."""
+        if cycle == self.LOSS_CYCLE:
+            raise DeathError("The planet has been destroyed.")
+
+    def reset(self):
+        super().reset()
+
+        self.hp = self.MAX_HP
+
+        return self
+
+
+class Gorgathar(Boss):
+    """Sikutar. No special properties."""
+    LOSS_CYCLE = 6979
+    DEATH_ANIMATION_CYCLES = 1452
+
+
 # Component used in defense levels to damage a boss
-# In order to re-use as much existing logic as possible, we can treat these like outputs, which damage the boss when
-# completed if particular conditions are met.
-# 'drag-weapon-canister'
-# 'drag-weapon-consumer'... but it's just a typed recycler lol?
+# To modify as little Solution logic as possible, we subclass Output, and mark these as complete when the boss
+# is dead
 class Weapon(Output):
-    __slots__ = ()  # TODO: 'boss' and any other properties common to other defense level weapons once implemented
+    """Output-like component used to damage defense level bosses."""
+    __slots__ = 'boss',
+    DEFAULT_SHAPE = (3, 3)
 
     def __new__(cls, component_dict, _type=None, **kwargs):
         """Convert to the specific weapon subclass based on component name."""
         _type = component_dict['type'] if _type is None else _type
-        if _type == 'drag-weapon-canister':
-            return super().__new__(CrashCanister)
+        if _type == 'drag-weapon-nuclearmissile':
+            return super().__new__(NuclearMissile)
         elif _type == 'drag-weapon-consumer':
             return super().__new__(InternalStorageTank)
+        elif _type == 'drag-weapon-canister':
+            return super().__new__(CrashCanister)
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
     def __init__(self, component_dict, *args, **kwargs):
         super().__init__(output_dict=component_dict, *args, **kwargs)
+
+
+# This class is three outputs in a trenchcoat
+# TODO: This class is pretty terrible not sure it was worth the trouble of not just mocking it with 3 outputs
+class NuclearMissile(Weapon):
+    """Sikutar. This is effectively just a multi-output component."""
+    __slots__ = '_outputs',
+
+    def __init__(self, component_dict, _type=None, posn=None):
+        # Bypass the Output ctor to allow for 3 input pipes
+        super(Output, self).__init__(component_dict, _type=_type, posn=posn, num_in_pipes=3)
+
+        self._outputs = [Output(mol_dict, _type='research-output', posn=(0, 0))  # Dummy values as these aren't exposed
+                         for mol_dict in component_dict['molecules']]
+        # TODO: This class is surprisingly ugly due to the need to connect the pipes to the internal outputs
+
+        self.target_count = 1  # Dummy value which will be artificially met when all internal outputs are complete
+        self.current_count = 0  # TODO: This boilerplate might be worse than having Solution know Weapons or Boss exist
+
+    def do_instant_actions(self, cycle):
+        for i, output in enumerate(self._outputs):
+            output.in_pipe = self.in_pipes[i]  # Fuck it
+
+            output.do_instant_actions(cycle)  # We'll skip the return value for simplicity
+
+        is_done = all(output.current_count >= output.target_count for output in self._outputs)
+        if is_done:
+            self.current_count = self.target_count  # Solution checks this so make sure we update it
+
+        return is_done
+
+    def reset(self):
+        super().reset()
+
+        for output in self._outputs:
+            output.reset()
+
+        return self
+
+
+class InternalStorageTank(Weapon):
+    """Collapsar. While its component name indicates it's a weapon, it's effectively a 0-count output."""
+    DEFAULT_SHAPE = (2, 3)
 
 
 class CrashCanister(Weapon):
@@ -1878,10 +1975,10 @@ class CrashCanister(Weapon):
 
     # For most defense levels, the animation at the end halts all waldos, causing them to repeat the last cycle until
     # the animation completes
-    # However in collapsar, when the output is complete it stops accepting molecules, while the canister drops, but the
+    # However in Collapsar, when the output is complete it stops accepting molecules, while the canister drops, but the
     # solution keeps running as normal and must not crash due to any clogs that result.
-    # To simulate this, instead of using an end-animation-cycles var like we'll do for other defense levels, have the
-    # canister not mark itself as complete until 2000 cycles after the 40th output
+    # To simulate this, instead of adding a fixed value to the end cycle count like we'll do for other defense levels,
+    # have the canister not mark itself as complete until 2000 cycles after the 40th output
     def do_instant_actions(self, cycle):
         # Behave like a normal output until complete
         if self.canister_drop_cycle is None:
@@ -1900,9 +1997,7 @@ class CrashCanister(Weapon):
 
     def reset(self):
         super().reset()
+
         self.canister_drop_cycle = None
 
-
-class InternalStorageTank(Weapon):
-    """Collapsar. While its component name indicates it's a weapon, it's effectively a 0-count output."""
-    pass
+        return self

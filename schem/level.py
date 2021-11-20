@@ -182,10 +182,15 @@ class DefenseLevel(Level):
 
         if code is None:
             self['type'] = 'defense'
-            self['end-animation-cycles'] = 0
+
+            # Special defense level fields
+            self['end-animation-cycles'] = 0  # The number of cycles that are added to the final score
+            self['control-switches-allowed'] = True  # True for all defense levels except Collapsar
+            self['max-cycles'] = None  # Player loses if this is exceeded; simulates player health
+
             self['random-input-zones'] = {}
             self['fixed-input-zones'] = {}
-            self['output-zones'] = {}
+            self['weapons'] = {}
             self['terrain'] = 0
             self['max-reactors'] = 0
             self['has-starter'] = False

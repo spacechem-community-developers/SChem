@@ -335,6 +335,33 @@ terrains = {
         'fixed-input-zones': (('drag-oceanic-input', (4, 11)),),
         'output-zones': (('output', (23, 18)),),
         'recycler': ('drag-recycler', (26, 1))},
+    "Exploding Head Syndrome": {
+        'obstructed': {
+            # Top ice / Boss
+            *product(range(6, 32), (0,)),
+            *product(range(6, 12), (1,)), *product(range(16, 32), (1,)),
+            *product(range(19, 32), (2,)),
+            *product(range(20, 32), range(3, 9)),
+            *product((19,), range(5, 8)),
+            *product(range(22, 32), (9,)),
+            *product(range(23, 32), (10,)),
+            *product(range(24, 32), range(11, 13)),
+            *product(range(25, 32), (13,)),
+            # Control Center
+            *product(range(1, 4), range(5, 8)),
+            # Boss tentacle
+            *product(range(5, 8), (5,)),
+            *product(range(4, 9), range(6, 9)),
+            *product(range(5, 8), (9,)),
+            # Bottom-left ice
+            (0, 17),
+            *product(range(0, 3), range(18, 20)),
+            *product(range(0, 9), range(20, 22)),
+            # Bottom-middle ice
+            *product(range(13, 16), range(19, 22)),
+        },
+        'fixed-input-zones': (('drag-oceanic-input', (5, 18)),),
+        'weapons': (('drag-weapon-nuclearmissile', (17, 15)),)},
     "Molecular Foundry": {
         'obstructed': {
             # Middle rock
@@ -379,7 +406,7 @@ terrains = {
             # Right end of platform
             *product(range(28, 32), range(1, 8)),
             # TODO: Very hacky
-            # Due to our simplifying assumptions aboout component pipe positions, we made drag-spaceship-input one row
+            # Due to our simplifying assumptions about component pipe positions, we made drag-spaceship-input one row
             # shorter than it should be to handle its pipe being in its top row
             # Add terrain where the rest of it should be
             *product(range(4, 6), (20,)),

@@ -147,6 +147,7 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                 print(f"✅  {test_id}")
 
     def test_run_pause(self):
+        """Tests for solutions that should raise a PauseException and then succeed if the run is continued."""
         for test_id, level_code, solution_code in iter_test_data(test_data.pause_then_complete):
             with self.subTest(msg=test_id):
                 solution = schem.Solution(solution_code, level=level_code)
@@ -160,6 +161,18 @@ COMPONENT:'custom-research-reactor',2,0,''"""
 
                 # Make sure hitting run() again will complete the solution
                 self.assertEqual(solution.run(), (154, 1, 11), "Solution failed to continue run after pause")
+
+                print(f"✅  {test_id}")
+
+    def test_run_encounter_ctrl(self):
+        """Tests for solutions that should raise a ControlError for encountering a CTRL command when run."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.encounters_ctrl):
+            with self.subTest(msg=test_id):
+                solution = schem.Solution(solution_code, level=level_code)
+
+                # Run the solution and expect it to pause
+                with self.assertRaises(schem.ControlError):
+                    solution.run()
 
                 print(f"✅  {test_id}")
 
@@ -294,5 +307,5 @@ COMPONENT:'custom-research-reactor',2,0,''"""
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=0, exit=False)
+    unittest.main(verbosity=0, failfast=True, exit=False)
     print(f"Ran {num_subtests} subtests")

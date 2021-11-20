@@ -52,5 +52,5 @@ class TestPrecognition(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=0, exit=False)
+    unittest.main(verbosity=0, failfast=True, exit=False)
     print(f"Ran {num_subtests} subtests")

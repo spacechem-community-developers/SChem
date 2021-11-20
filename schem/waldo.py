@@ -25,6 +25,7 @@ class InstructionType(Enum):
     SPLIT = 'spl'  # ☢️
     SWAP = 'swp'  # ⇄
     PAUSE = 'P'  # ⏸
+    CONTROL = 'ctl'
 
     def __repr__(self):
         return self.name
@@ -57,7 +58,8 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
                InstructionType.FUSE: '⛯',  # ☢️ ?
                InstructionType.SPLIT: '☢',
                InstructionType.SWAP: '⇔',  # ⇄ ?
-               InstructionType.PAUSE: 'P'}
+               InstructionType.PAUSE: 'P',
+               InstructionType.CONTROL: 'C'}
 
     def __repr__(self):
         return (f'Instruction({repr(self.type)}'

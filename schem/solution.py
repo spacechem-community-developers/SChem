@@ -21,7 +21,7 @@ except ImportError:
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
 from .components import Component, Input, Output, Weapon, Reactor, Recycler, DisabledOutput, \
-                        TeleporterOutput, DEFAULT_RESEARCH_REACTOR_TYPE
+                        TeleporterOutput, Boss, NuclearMissile, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
 from .exceptions import SolutionImportError, ScoreError
 from .grid import *
@@ -103,6 +103,10 @@ class Solution:
     @property
     def symbols(self):
         return sum(sum(len(waldo) for waldo in reactor.waldos) for reactor in self.reactors)
+
+    @property
+    def boss(self):
+        return next((component for component in self.components if isinstance(component, Boss)), None)
 
     @classmethod
     def split_solutions(cls, solns_str):
@@ -374,12 +378,25 @@ class Solution:
                     _, component_posn = terrains[terrain_id][output_zone_type][i]
                     posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
 
-        # Defense level weapons
+        # Boss
+        if 'boss' in self.level:
+            boss = Boss(self.level['boss'])
+            # TODO: Bosses are tucked away at (-1, -1), but preset components are allowed to be there too, so this is a
+            #       little unsafe
+            posn_to_component[boss.posn] = boss
+
+            assert 'weapons' in self.level, "Level contains a boss but no weapons"  # Sanity check
+
+        # Weapons
         if 'weapons' in self.level:
             for i, weapon_dict in self.level['weapons'].items():
                 component_type, component_posn = terrains[terrain_id]['weapons'][int(i)]
                 posn_to_component[component_posn] = Weapon(component_dict=weapon_dict,
                                                            _type=component_type, posn=component_posn)
+
+                # Note that Collapsar has weapons but not a boss hence this runaround
+                if 'boss' in self.level:
+                    posn_to_component[component_posn].boss = boss
 
         # Preset reactors
         if self.level['type'].startswith('research'):
@@ -597,26 +614,24 @@ class Solution:
                             and len(pipe) >= 2 and pipe.posns[-2] != pipe.posns[-1] + LEFT):
                         continue
 
-                    # This is a bit of a hack, but by virtue of output/reactor/etc. shapes, the top-left corner of a
-                    # component is always 1 up and right of its input pipe, plus one more row for lower inputs (up to 3 for
-                    # recycler). Blindly check the 3 possible positions for components that could connect to this pipe
+                    # Check the column to the right of the pipe for a component to connect to
+                    # If we find one, calculate whether the pipe is actually touching one of its input pipe slots
+                    # We assume that all components have their input pipes centered, leaning upward in case of imbalance
+                    # This assumption holds true for all components except the laser in Don't Fear the
+                    # Reaper, which is not currently planned to be implemented due to it having random results
+                    for i in range(4):
+                        other_posn = pipe_end + (1, -i)  # Check the column to the right
+                        if other_posn in posn_to_component:
+                            other = posn_to_component[other_posn]
+                            # Calculate what index pipe this would be based on the component's shape / pipe count
+                            pipe_rows_start = ((other.dimensions[1] - len(other.in_pipes)) // 2) + other_posn.row
+                            pipe_idx = pipe_end.row - pipe_rows_start
 
-                    # Exception: Teleporter component from Corvi's "Teleporters"
-                    # TODO: Calculate components' actual in pipe locations same way we do for out pipes
-                    component_posn = pipe_end + (1, 0)
-                    if component_posn in posn_to_component:
-                        other_component = posn_to_component[component_posn]
-                        if other_component.dimensions[1] == 1 and len(other_component.in_pipes) == 1:
-                            other_component.in_pipes[0] = pipe
-                        continue
+                            if 0 <= pipe_idx < len(other.in_pipes):
+                                other.in_pipes[pipe_idx] = pipe
 
-                    for i in range(3):
-                        component_posn = pipe_end + (1, -1 - i)
-                        if component_posn in posn_to_component:
-                            other_component = posn_to_component[component_posn]
-                            if other_component.dimensions[1] > 1 and len(other_component.in_pipes) >= i + 1:
-                                other_component.in_pipes[i] = pipe
-                            break
+                            break  # Safe since we check bottom up
+
             self.validate_components()
         except Exception as e:
             raise SolutionImportError(str(e)) from e
@@ -668,8 +683,12 @@ class Solution:
                                 range(max(0, component.posn.row), min(OVERWORLD_ROWS,
                                                                       component.posn.row + component.dimensions[1]))):
                 grid[r][c] = '#'
-            if isinstance(component, Output):
-                # Display the output count in the component. All output are 2x3 so we should have room
+            if isinstance(component, NuclearMissile):
+                for o, output in enumerate(component._outputs):
+                    for i, s in enumerate(reversed(str(output.current_count))):
+                        grid[component.posn.row + o][component.posn.col + 1 - i] = s
+            elif isinstance(component, Output):
+                # Display the output count in the component. All outputs are 2x3 so we should have room
                 for i, s in enumerate(reversed(str(component.current_count))):
                     grid[component.posn.row + 1][component.posn.col + 1 - i] = s
 
@@ -791,8 +810,8 @@ class Solution:
                         # win even if never triggered). Not checking until an output completes also matches the expected
                         # behaviour of puzzles where all outputs are 0/0
                         if all(output.current_count >= output.target_count for output in outputs):
-                            if 'end-animation-cycles' in self.level:
-                                self.cycle += self.level['end-animation-cycles']
+                            if 'boss' in self.level:
+                                self.cycle += self.boss.DEATH_ANIMATION_CYCLES
 
                             # -1 looks weird but seems provably right based on output vs pause comparison
                             return Score(self.cycle - 1, len(reactors), self.symbols)

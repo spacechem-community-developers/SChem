@@ -26,6 +26,11 @@ class PauseException(SolutionRunError):
     __module__ = Exception.__module__
 
 
+class ControlError(SolutionRunError):
+    """Raised when a Control command is encountered by a waldo."""
+    __module__ = Exception.__module__
+
+
 class InvalidOutputError(SolutionRunError):
     """Raised when an invalid molecule is passed to a level output zone."""
     __module__ = Exception.__module__
@@ -33,4 +38,9 @@ class InvalidOutputError(SolutionRunError):
 
 class ScoreError(Exception):
     """Raised during validations if a solution's expected score does not match its actual score."""
+    __module__ = Exception.__module__
+
+
+class DeathError(SolutionRunError):
+    """Raised if you die in a defense level."""
     __module__ = Exception.__module__

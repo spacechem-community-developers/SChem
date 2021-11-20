@@ -146,7 +146,7 @@ VZAYh4FOOZHZFBwjp4snY0ceT2AsRjJd9nDJDLwjB196YvsCUcFlm70BAAA=''',
 zxGZ+iP+SP5a2ur4ZPIYzZPuFY02mUtOGLWWmFGRLNeqi5jQRjdqfp4zBVkM+iCByeyKnOxcc+
 /0RXyj5g2LvXR8SHaa+IbeBEqqdWWq/hwqMMLDoEefNWyzjFzWw4d1YxmPaJ2whh6H+GiHcmTZ
 /OjB9g0oP6LzZQEAAA==''',
-    # Note: In the below two levels I used 'has-fusion' instead of 'has-nuclear' as a hack to get 'drag-fusion-reactor'
+    # Note: In the below 3 levels I used 'has-fusion' instead of 'has-nuclear' as a hack to get 'drag-fusion-reactor'
     "Falling": '''H4sIAMTllmEC/22RUUvDMBCA/8rIs4WkOlH7LsJgPsomPmRp1gbaXLledLXM3+5dHMiceQjku/
 vuLsms9uHg6yLEIVHxCdGP6mExK827erHksXr60uVzZXjpqjR32lRlabRWVwtlJGuF00AQqxVy
 0vUtR44cgkSXFWfVQ+dd6ryIGyIMqa824t3/VHSQInFweTyVP1e2AR1EkbbS7Ub/Y5UX1jrATp
@@ -157,6 +157,12 @@ Z/pouy7ERlAdRj7AR/6Gke2cLGO8qgwKgqbhq7xxsk3UAua3sK5Vx29gLFTNwQEAAA==''',
 Vh9jybcyFnRGFWeqZD9jCjNGq7qtsrrq7ve7CzxU5SPnI/CBzBwGEM1PZ1EJAK9Z170lUqDC4j
 NpObTmF3nqo5EqY6z5T4RmmXqpP6VXRhPKsZg/eizJov9n+Tu0DkNEXVSud0S9XBp9nqVzxk9m
 021DcNbo7uUqoCJtE93iV5tcIl973qbKGugzThMN4EDFsmT6f3W+SzWz9Rd9s/EboQEAAA==''',
+    "Exploding Head Syndrome": '''H4sIADIb/mEC/4WRT2uEMBDFv4rkXEFlC9t6LvXmQg+FLnuYmlkNaEbyp6sV+9k7yZbK9tIcAn
+l575eZySLOakKZKj16l36SRisek0VkvItXcGjK6isr6jLnlZVFvs/ysijyLBPrXSIuCCPpLbKI
+gXpsfB8xx+0YcNUsDbWoI/EXGFBMashrx67inrm3uXqaQ6q+pvbFtYz/UofeO9LKD+XBc+xh9y
+exntbQwTvZUKp4JtOC68AE0wBTahAaRyZc7ljqwKYgP0A3KFlyxuOPevZWkb7VLCehxU108xir
+knhGbTE8omGI0tM09iSVbpMKQSYvs+YxDdEilYW+p0v8IMuoxqnruI8iCqmjtuV+T2wG7zoygf
+gGTSfWbwUpzVPbAQAA''',
     # Hephaestus IV
     "Like a Boss": '''H4sIAMTllmEC/32QwUrFMBBFf6VkbSAp4sLs7KYL/QHlLWIytME280gmSC31253EJ/hAJBCYe2
 fO3GQXIZ4LyQ+MkMV9twvd7qZW4WUXKy7gygJcicGmV4xmMFrfKSVuOuGwRGJL98fp4Fr9Oz9u
@@ -2086,7 +2092,7 @@ PsIf7XW4LXhQszLg/ynOUzl28q6PCrWz2YqVY6FvA1T7tBYhYPXirPNZlREHl2eQhvHHJw0AGf
 f6cNDp8zAv5adfwYEjbusBAAA=''',
 }
 
-unsupported_defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions", "Exploding Head Syndrome",
+unsupported_defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions",
                              "More than Machine", "Don't Fear the Reaper", "Freedom of Choice", "End of the Line"}
 
 # Dict of Resnet puzzle title: (volume, issue, puzzle) id - with shared-title levels storing lists of ids in the same

@@ -83,7 +83,7 @@ if __name__ == '__main__':
         with test_results_file.open('rb') as f:
             LAST_TEST_RESULTS = pickle.load(f)
 
-    unittest.main(verbosity=0, exit=False)
+    unittest.main(verbosity=0, failfast=True, exit=False)
     print(f"Ran {num_subtests} subtests")
 
     # If successful, write the current times/mem usage to file
