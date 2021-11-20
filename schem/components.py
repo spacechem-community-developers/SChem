@@ -250,10 +250,16 @@ class Component:
 
     def export_str(self):
         """Represent this component in solution export string format."""
-        # TODO: I'm still not sure what the 4th component field is used for. Custom reactor names maybe?
+        # By SC's convention, set the first lines of the export to be the first segment of each pipe
+        # Reverse zip to separate the first lines of each export
+        first_segment_lines, remainders = [], []
+        for i, pipe in enumerate(self.out_pipes):
+            first_segment_line, *remainder = pipe.export_str(pipe_idx=i).split('\n', maxsplit=1)
+            first_segment_lines.append(first_segment_line)
+            remainders.extend(remainder)
 
-        return f"COMPONENT:'{self.type}',{self.posn[0]},{self.posn[1]},''\n" \
-               + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
+        return '\n'.join([f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''",
+                          *first_segment_lines, *remainders])
 
 
 class Input(Component):
@@ -1044,9 +1050,19 @@ class Reactor(Component):
 
     def export_str(self):
         """Represent this reactor in solution export string format."""
-        export_str = f"COMPONENT:'{self.type}',{self.posn.col},{self.posn.row},''"
+        # Generate the generic component export, and separate it into the metadata and pipe lines
+        component_line, *pipes = super().export_str().split('\n', maxsplit=1)
+
+        # By SC's convention, MEMBER lines are ordered as waldo starts, then features, then remaining waldo instructions
+        # Grab the waldo start lines from the front of each waldo's export
+        waldo_starts, waldo_instrs = [], []
+        for waldo in self.waldos:
+            start, *instrs = waldo.export_str().split('\n', maxsplit=1)
+            waldo_starts.append(start)
+            waldo_instrs.extend(instrs)
 
         # TODO: Make reactors more agnostic of feature types
+        features = []
         for (posn, bond_types) in self.bonders:
             if bond_types == '+-':
                 feature_name = 'bonder'
@@ -1057,23 +1073,17 @@ class Reactor(Component):
             else:
                 raise Exception("Invalid bonder type in internal data")
 
-            export_str += f"\nMEMBER:'feature-{feature_name}',-1,0,1,{posn.col},{posn.row},0,0"
+            features.append(f"MEMBER:'feature-{feature_name}',-1,0,1,{posn.col},{posn.row},0,0")
         for posn in self.sensors:
-            export_str += f"\nMEMBER:'feature-sensor',-1,0,1,{posn.col},{posn.row},0,0"
+            features.append(f"MEMBER:'feature-sensor',-1,0,1,{posn.col},{posn.row},0,0")
         for posn in self.fusers:
-            export_str += f"\nMEMBER:'feature-fuser',-1,0,1,{posn.col},{posn.row},0,0"
+            features.append(f"MEMBER:'feature-fuser',-1,0,1,{posn.col},{posn.row},0,0")
         for posn in self.splitters:
-            export_str += f"\nMEMBER:'feature-splitter',-1,0,1,{posn.col},{posn.row},0,0"
+            features.append(f"MEMBER:'feature-splitter',-1,0,1,{posn.col},{posn.row},0,0")
         for posn in self.swappers:
-            export_str += f"\nMEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0"
+            features.append(f"MEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0")
 
-        export_str += '\n' + '\n'.join(waldo.export_str() for waldo in self.waldos)
-        export_str += '\n' + '\n'.join(pipe.export_str(pipe_idx=i) for i, pipe in enumerate(self.out_pipes))
-
-        for annotation in self.annotations:
-            export_str += '\n' + annotation
-
-        return export_str
+        return '\n'.join([component_line, *waldo_starts, *features, *waldo_instrs, *pipes, *self.annotations])
 
     def __hash__(self):
         """Hash of the current reactor state."""
