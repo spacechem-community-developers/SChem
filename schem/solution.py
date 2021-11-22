@@ -20,7 +20,8 @@ except ImportError:
     pass
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
-from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput, DEFAULT_RESEARCH_REACTOR_TYPE
+from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput, \
+                        TeleporterOutput, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
 from .exceptions import SolutionImportError, ScoreError
 from .grid import *
@@ -628,11 +629,16 @@ class Solution:
                                             for s in fields)
 
         # Components
-        # Exclude inputs whose pipes are length 1 (unmodified), and out-pipeless components like outputs and recycler
+        # Exclude inputs/teleporter outputs whose pipes are length 1 (unmodified), and out-pipeless components like
+        # outputs and recyclers. This is safe as these components are all always preset (whereas e.g. the player might
+        # place a storage tank with a length 1 pipe, which we can't exclude).
         # TODO: This doesn't cover inputs with preset pipes > 1 long - which also shouldn't be included
         #       Really it's probably just every unmodified preset component.
+        #       It's also improperly excluding output printers, which are player-placeable in sandbox levels.
+        #       Probably need a 'preset' property on components(/pipes?) to cover everything without special-casing.
         for component in self.components:
-            if component.out_pipes and not (isinstance(component, Input) and len(component.out_pipe) == 1):
+            if component.out_pipes and not (isinstance(component, (Input, TeleporterOutput))
+                                            and len(component.out_pipe) == 1):
                 export_str += '\n' + component.export_str()
 
         return export_str

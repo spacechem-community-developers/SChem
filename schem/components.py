@@ -232,7 +232,7 @@ class Component:
         return f'{self.type},{self.posn}'
 
     def do_instant_actions(self, _):
-        """'Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules)."""
+        """Do any instant actions (e.g. execute waldo instructions, spawn/consume molecules)."""
         return
 
     def move_contents(self, _):
