@@ -166,7 +166,8 @@ class Waldo:
         """Represent this waldo's instructions in solution export string format."""
         start_line = None
         lines = []
-        for posn, (arrow, instr) in self.instr_map.items():
+        # Sort the members by position (col then row)
+        for posn, (arrow, instr) in sorted(self.instr_map.items()):
             if arrow is not None:
                 waldo_int = 64 if self.idx == 0 else 16
                 dirn_degrees = (arrow.value - 1) * 90  # TODO: Should probably stop using .value for IntEnum's?
@@ -179,7 +180,7 @@ class Waldo:
                     lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
 
         # Put the start instr line at the front and sort the remaining lines
-        return start_line + '\n' + '\n'.join(sorted(lines))
+        return start_line + '\n' + '\n'.join(lines)
 
     def trace_path(self, num_cols=10, num_rows=8):
         """Return a dict of position: directions representing paths this waldo visually traces.

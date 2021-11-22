@@ -9,7 +9,7 @@ Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.c
 ```
 python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX_CYCLES]
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
-                [--json | --verbose] [--debug [DEBUG]]
+                [--export | --json | --verbose] [--debug [DEBUG]]
                 [solution_file]
 ```
 
