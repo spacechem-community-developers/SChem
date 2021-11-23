@@ -9,11 +9,12 @@ Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.c
 ```
 python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX_CYCLES]
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
-                [--export | --json | --verbose] [--debug [DEBUG]]
+                [--export] [--no-run] [--strict]
+                [--json | --verbose] [--debug [DEBUG]]
                 [solution_file]
 ```
 
-E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export in the user's clipboard.
+E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export(s) in the user's clipboard.
 
 ## Usage (API)
 

@@ -15,6 +15,7 @@ from .level import Level
 from .schem_random import SChemRandom
 from .components import RandomInput
 from .solution import Solution, DebugOptions
+from .exceptions import ScoreError
 
 
 def elapsed_readable(seconds, decimals=0):
@@ -91,12 +92,6 @@ def main(args: argparse.Namespace):
 
             solution = Solution(solution_str, level=level)
 
-            # If we're just re-exporting, print the export and skip running
-            # TODO: Make --export compatible with running - in particular, --export + --json might be useful
-            if args.export:
-                print(solution.export_str())
-                continue
-
             # Update the random input seed(s) if requested
             if args.seed is not None:
                 random_inputs = [input_component for input_component in solution.inputs
@@ -114,23 +109,42 @@ def main(args: argparse.Namespace):
                     solution.expected_score = None  # Ignore expected score if we messed with the seed
 
             # Call validate if the solution has an expected score, else run
-            # Also disable verbosity in case of --json, since we'll be printing the json
+            # Also disable verbosity for --json or --export to avoid interfering with their STDOUT outputs
             result = solution.evaluate(max_cycles=args.max_cycles,
                                        strict=args.strict,
                                        check_precog=args.check_precog,
                                        max_precog_check_cycles=args.max_precog_check_cycles,
-                                       verbosity=0 if args.json else 1 if not args.verbose else 2,
-                                       debug=debug)
+                                       verbosity=0 if args.json or args.export else 1 if not args.verbose else 2,
+                                       debug=debug,
+                                       _run=not args.no_run)
 
+            # Handle verbosity 0 flags, finalizing JSON or printing the export respectively
             if args.json:
+                if args.export:
+                    result['export'] = solution.export_str()
+
                 if 'error' in result:  # Make exceptions serializable
                     result['error'] = f"{type(result['error']).__name__}: {result['error']}"
 
                 jsons.append(result)
-            # Separate precog-related messages from the below validation to make it clear which solution they refer to.
-            # Avoids needing the full solution description in already-long precog messages. Not needed in verbose mode
-            # since the elapsed time printouts serve as sufficient separators.
-            elif not args.verbose and 'cycles' in result and ('precog' not in result or result['precog']):
+            elif args.export:
+                # Don't print the export if we encountered a validation error (note that we suppressed printouts
+                # above so we have to print the error here)
+                if 'error' in result:
+                    print(f"{type(result['error']).__name__}: {result['error']}", file=sys.stderr)
+                else:
+                    print(solution.export_str())
+            # Separate precog explanation messages from subsequent validation messages, to make things more readable and
+            # make it clear which solution the message pertains to.
+            # Avoids needing the full solution description in already-long precog messages.
+            # Not needed in verbose mode since the subsequent elapsed time printout includes a separator.
+            # Note that we have to cover both confirmed precog case and error in the precog check
+            elif (args.check_precog and not args.verbose
+                  # evaluate() doesn't print explanations for non-precog solutions, if not using --verbose
+                  and (('precog' in result and result['precog'])
+                       # Also add a separator after precog check error messages
+                       # Make sure the run succeeded by checking cycles was set, and ignore ScoreError
+                       or ('cycles' in result and 'error' in result and not isinstance(result['error'], ScoreError)))):
                 print("")
         except Exception as e:
             if args.json:
@@ -177,8 +191,6 @@ if __name__ == '__main__':
                              "If multiple random inputs are present, sets the first input to the given seed, and\n"
                              "keeps the relative difference between it and other inputs' seeds the same.\n"
                              "E.g. if a level had two same-seed inputs, both will use the given seed.")
-    parser.add_argument('--strict', action='store_true',
-                        help="Require that the solution(s) have an expected score to validate (not 0-0-0).")
     parser.add_argument('--max-cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
                              "1,000,000 if incomplete score metadata.\n"
@@ -202,18 +214,27 @@ if __name__ == '__main__':
                              "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
                              "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
+    parser.add_argument('--export', action='store_true',
+                        help="Re-export the given solution export so its lines are in schem-standardized order, and\n"
+                             "print it to STDOUT, suppressing default validation STDOUT messages.\n"
+                             "If using --json, instead add an 'export' field to JSON output.")
+    parser.add_argument('--no-run', action='store_true',
+                        help="Do not run/validate the given solution(s), displaying only their basic metadata.\n"
+                             "When used with --json, the cycles field will be set to the expected cycles, or if there\n"
+                             "is no expected score, the cycle field will be omitted. reactors/symbols will still\n"
+                             "be returned/validated since the latter don't require running the solution.")
+    parser.add_argument('--strict', action='store_true',
+                        help="Require that the solution(s) have an expected score to validate (not 0-0-0).")
     stdout_args = parser.add_mutually_exclusive_group()
-    stdout_args.add_argument('--export', action='store_true',
-                             help="Re-export the given solution export so its lines are in schem-standardized order,\n"
-                                  "and print it to STDOUT, then exit (without running the solution).")
     stdout_args.add_argument('--json', action='store_true',
                              help="Print JSON containing the run data, including level and solution metadata.\n"
                                   "If multiple solutions are provided, instead print an array of JSON objects.\n"
                                   "Suppresses default validation STDOUT messages.\n"
                                   "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
                                   "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
-                                  "        (ditto), and error (if the solution couldn't be imported, crashed, didn't\n"
-                                  "        match expected score, or the precog check timed out).")
+                                  "        (ditto), export (if --export), and error (if the solution couldn't be\n"
+                                  "        imported, crashed, didn't match expected score, or the precog check timed\n"
+                                  "        out).")
     stdout_args.add_argument('--verbose', action='store_true',
                         help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
                              "and if running with --check-precog, report extra info when a solution is non-precog,\n"
@@ -232,6 +253,24 @@ if __name__ == '__main__':
     if args.version:
         print(__version__)
         sys.exit()
+
+    # Flag sanity checks
+    if args.no_run:
+        if args.seed:
+            raise parser.error("Cannot combine --no-run and --seed.")
+        if args.max_cycles:
+            raise parser.error("Cannot combine --no-run and --max-cycles.")
+        if args.check_precog:
+            raise parser.error("Cannot combine --no-run and --check-precog.")
+
+    if args.max_precog_check_cycles and not args.check_precog:
+        raise parser.error("--max-precog-check-cycles requires --check-precog")
+
+    if args.export and not args.json:
+        if args.check_precog:
+            raise parser.error("--export overrides --check-precog STDOUT output.")
+        if args.verbose:
+            raise parser.error("--export overrides --verbose STDOUT output.")
 
     if args.seed and not (0 <= args.seed <= SChemRandom.MAX_SEED):
         raise ValueError(f"Seed must be from 0 to {SChemRandom.MAX_SEED}.")

@@ -863,7 +863,8 @@ class Solution:
                  check_precog: bool = False,
                  max_precog_check_cycles: Optional[float] = None,
                  verbosity: int = 0,
-                 debug: Optional[DebugOptions] = False) -> dict:
+                 debug: Optional[DebugOptions] = False,
+                 _run: bool = True) -> dict:
         """Run this solution, validating the expected score if it isn't None. Return a dict of summary data.
 
         Dict fields: level_name, resnet_id (a tuple of the ResearchNet volume + issue + puzzle, included only for
@@ -901,27 +902,36 @@ class Solution:
 
         # Catch runtime and score errors so we can still report which level the solution was for
         try:
+            # When checking the score, we tighten the max cycles based on the expected score to save time. Keep the
+            # original max cycles handy so we can use it for the precog check without over-restricting alternate runs
+            original_max_cycles = max_cycles
+
             if strict or self.expected_score is not None:
                 # _validate_setup returns an adjusted max_cycles and validates reactor/symbol counts
-                score = self.run(max_cycles=self._validate_setup(max_cycles), debug=debug)
-                result['cycles'] = score.cycles
+                # Note that we preserve the original value for the precog check's usage
+                max_cycles = self._validate_setup(max_cycles)
 
-                # Validate the cycle count
-                if score.cycles != self.expected_score.cycles:
-                    raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got {score.cycles}.")
-            else:
+            if _run:
                 score = self.run(max_cycles=max_cycles, debug=debug)
                 result['cycles'] = score.cycles
 
-            if verbosity >= 1:
-                print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
-        except Exception as e:
-            result['error'] = e
+                # Validate the cycle count if expected score was present
+                if self.expected_score is not None and score.cycles != self.expected_score.cycles:
+                    raise ScoreError(f"{self.description}: Expected {self.expected_score.cycles} cycles but got"
+                                     f" {score.cycles}.")
 
-        if 'error' not in result and check_precog:
-            try:
+                if verbosity >= 1:
+                    print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
+            else:
+                # --no-run mode sets cycles to the expected cycles if available
+                result['cycles'] = self.expected_score.cycles
+
+                if verbosity >= 1:
+                    print(self.description)
+
+            if check_precog:
                 result['precog'], result['precog_explanation'] = \
-                    self.is_precognitive(max_cycles=max_cycles,
+                    self.is_precognitive(max_cycles=original_max_cycles,
                                          max_total_cycles=max_precog_check_cycles,
                                          just_run_cycle_count=result['cycles'],
                                          include_explanation=True)
@@ -929,11 +939,11 @@ class Solution:
                 # At the middle verbosity level, print the explanation only if the solution was precognitive
                 if verbosity == 2 or (result['precog'] and verbosity == 1):
                     print(result['precog_explanation'])
-            except TimeoutError as e:
-                result['error'] = e
+        except Exception as e:
+            result['error'] = e
 
-        if 'error' in result and verbosity >= 1:
-            print(f"{type(result['error']).__name__}: {result['error']}", file=sys.stderr)
+            if verbosity >= 1:
+                print(f"{type(e).__name__}: {e}", file=sys.stderr)
 
         # Drop fields rather than setting them to None
         for k, v in list(result.items()):
