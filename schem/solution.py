@@ -670,7 +670,7 @@ class Solution:
             # Display each pipe with -, \, /, +, |, or a . for tiles containing a molecule
             for pipe in component.out_pipes:
                 last_posn = Position(-1, -1)
-                for relative_posn, molecule in zip(pipe.posns, pipe):
+                for relative_posn, molecule in zip(pipe.posns, pipe.to_list(self.cycle)):
                     posn = component.posn + relative_posn
 
                     if molecule is not None:
@@ -773,6 +773,10 @@ class Solution:
             while self.cycle < max_cycles + 1:
                 self.cycle += 1
 
+                if debug and self.cycle >= debug.cycle:
+                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
+                                     show_instructions=debug.show_instructions)
+
                 # Execute instant actions (entity inputs/outputs, waldo instructions)
                 for component in self.components:
                     if component.do_instant_actions(self.cycle):
@@ -792,10 +796,6 @@ class Solution:
                                      show_instructions=debug.show_instructions)
 
                 self.cycle_movement()
-
-                if debug and self.cycle >= debug.cycle:
-                    self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor, flash_features=False,
-                                     show_instructions=debug.show_instructions)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except KeyboardInterrupt:
