@@ -179,8 +179,8 @@ class Waldo:
                 else:
                     lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
 
-        # Put the start instr line at the front and sort the remaining lines
-        return start_line + '\n' + '\n'.join(lines)
+        # Put the start instr line at the front
+        return '\n'.join([start_line, *lines])
 
     def trace_path(self, num_cols=10, num_rows=8):
         """Return a dict of position: directions representing paths this waldo visually traces.
