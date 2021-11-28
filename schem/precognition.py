@@ -132,7 +132,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     # just_run_cycle_count was provided
     # Ignore molecules that only made it into the pipe since they can't affect the solution
     # TODO: Find a way to share this code with the same in-loop calculation
-    Ms = [random_input.num_inputs - len(random_input.out_pipe._molecules)
+    Ms = [random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
           if just_run_cycle_count else math.inf
           for random_input in random_inputs]
 
@@ -491,8 +491,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             if not (num_runs == 0 and just_run_cycle_count):
                 for i, random_input in enumerate(random_inputs):
                     # Ignore molecules that only made it into the pipe since their variant can't affect the solution
-                    # TODO: Bad Pipe internal attribute access since pipes are not cycle-independent now, ditto above/below
-                    this_M = random_input.num_inputs - len(random_input.out_pipe._molecules)
+                    this_M = random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
                     Ms[i] = min(Ms[i], this_M)
 
                 # If the solution didn't use any of the random inputs, it never will (and if it did it always will)
@@ -528,7 +527,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             target_variants_data = fail_run_variants  # The data set that this run's variants should be added to
             target_variants_data_first_match = fail_run_variants_first_match
             # Make sure we don't store data on variants of molecules from after the solution crashed
-            num_variants_to_store = [random_input.num_inputs - len(random_input.out_pipe._molecules)
+            num_variants_to_store = [random_input.num_inputs - sum(1 for mol in random_input.out_pipe if mol is not None)
                                      for random_input in random_inputs]
 
         # Update run/cycle counters
