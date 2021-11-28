@@ -397,8 +397,7 @@ terrains = {
             *product(range(9, 32), range(8, 10)),
             # Right end of platform
             *product(range(28, 32), range(1, 8)),
-            # TODO: Very hacky
-            # See above note about drag-spaceship-input
+            # TODO: See above note about drag-spaceship-input
             *product(range(1, 3), (11,)),
             *product(range(4, 6), (21,)),
         },
@@ -406,4 +405,21 @@ terrains = {
         'fixed-input-zones': (('drag-spaceship-input', (4, 19)),),
         'output-zones': (('output', (23, 12)),
                          ('output', (23, 18)))},
+    "Collapsar": {
+        'obstructed': {
+            # Top wall
+            *product(range(0, 32), range(0, 2)),
+            # Sun
+            *product(range(18, 32), (2,)),
+            *product(range(18, 32), range(13, 22)),
+            *product(range(18, 20), range(3, 13)),
+            *product((31,), range(3, 13)),
+            # TODO: See above note about drag-spaceship-input
+            *product(range(1, 3), (9,)),
+            *product(range(1, 3), (16,)),
+        },
+        'fixed-input-zones': (('drag-spaceship-input', (1, 7)),
+                              ('drag-spaceship-input', (1, 14)),),
+        'weapons': (('drag-weapon-canister', (26, 9)),
+                    ('drag-weapon-consumer', (15, 19)))},
 }

@@ -20,13 +20,13 @@ except ImportError:
     pass
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
-from .components import Component, Input, Output, Reactor, Recycler, DisabledOutput, \
+from .components import Component, Input, Output, Weapon, Reactor, Recycler, DisabledOutput, \
                         TeleporterOutput, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
 from .exceptions import SolutionImportError, ScoreError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
-from .levels import levels as built_in_levels, defense_names, resnet_ids
+from .levels import levels as built_in_levels, unsupported_defense_names, resnet_ids
 from .precognition import is_precognitive
 from .terrains import terrains, MAX_TERRAIN_INT
 
@@ -232,10 +232,10 @@ class Solution:
                     level_codes = built_in_levels[level_name]
                     matching_resnet_ids = (resnet_ids[level_name] if level_name in resnet_ids
                                            else len(built_in_levels[level_name]) * [None])
-            elif level_name in defense_names:
-                raise NotImplementedError("Defense levels unsupported")
+            elif level_name in unsupported_defense_names:
+                raise NotImplementedError(f"Defense level `{level_name}` is unsupported.")
             else:
-                raise Exception(f"No known level `{level_name}`")
+                raise Exception(f"No known level `{level_name}`.")
 
             # Use the first level which can be successfully loaded, or raise the first exception if none can
             exceptions = []
@@ -261,7 +261,7 @@ class Solution:
         # Set up the level terrain so we can look up input/output positions and any blocked terrain
         if level['type'].startswith('research'):
             terrain_id = 'research'
-        elif level['type'].startswith('production'):
+        elif level['type'].startswith('production') or level['type'] == 'defense':
             # Main game levels have unique terrain which we have to hardcode D:
             # We can at least avoid name collisions if we deliberately don't add the terrain field to their JSONs
             # TODO: This is a bit dangerous; the game auto-adds a terrain field if it ever gets its hands on the json
@@ -291,8 +291,7 @@ class Solution:
             # CE Productions finally give up on the useless distinction between fixed and random zones
             input_zone_types = ('random-input-components', 'programmed-input-components')
             output_zone_type = 'output-components'
-        else:
-            # Sandbox
+        else:  # Sandbox, Defense (type already checked above so `else` is safe)
             input_zone_types = ('random-input-zones', 'fixed-input-zones')
             output_zone_type = None
 
@@ -373,6 +372,13 @@ class Solution:
                 if i not in set(int(x) for x in self.level[output_zone_type]):
                     _, component_posn = terrains[terrain_id][output_zone_type][i]
                     posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
+
+        # Defense level weapons
+        if 'weapons' in self.level:
+            for i, weapon_dict in self.level['weapons'].items():
+                component_type, component_posn = terrains[terrain_id]['weapons'][int(i)]
+                posn_to_component[component_posn] = Weapon(component_dict=weapon_dict,
+                                                           _type=component_type, posn=component_posn)
 
         # Preset reactors
         if self.level['type'].startswith('research'):
@@ -779,6 +785,9 @@ class Solution:
                         # win even if never triggered). Not checking until an output completes also matches the expected
                         # behaviour of puzzles where all outputs are 0/0
                         if all(output.current_count >= output.target_count for output in outputs):
+                            if 'end-animation-cycles' in self.level:
+                                self.cycle += self.level['end-animation-cycles']
+
                             # -1 looks weird but seems provably right based on output vs pause comparison
                             return Score(self.cycle - 1, len(reactors), self.symbols)
 

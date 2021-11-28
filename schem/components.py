@@ -220,6 +220,8 @@ class Component:
             return super().__new__(TeleporterInput)
         elif _type == 'drag-qpipe-out':
             return super().__new__(TeleporterOutput)
+        elif 'weapon' in parts:
+            return super().__new__(Weapon)
         else:
             raise ValueError(f"Unrecognized component type {_type}")
 
@@ -1852,3 +1854,35 @@ class Reactor(Component):
             waldo.reset()
 
         return self
+
+
+# Component used in defense levels to damage a boss
+# In order to re-use as much existing logic as possible, we can treat these like outputs, which damage the boss when
+# completed if particular conditions are met.
+# 'drag-weapon-canister'
+# 'drag-weapon-consumer'... but it's just a typed recycler lol?
+class Weapon(Output):
+    __slots__ = ()  # TODO: 'boss' and any other properties common to other defense level weapons once implemented
+
+    def __new__(cls, component_dict, _type=None, **kwargs):
+        """Convert to the specific weapon subclass based on component name."""
+        _type = component_dict['type'] if _type is None else _type
+        if _type == 'drag-weapon-canister':
+            return super().__new__(CrashCanister)
+        elif _type == 'drag-weapon-consumer':
+            return super().__new__(InternalStorageTank)
+        else:
+            raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
+
+    def __init__(self, component_dict, *args, **kwargs):
+        super().__init__(output_dict=component_dict, *args, **kwargs)
+
+
+class CrashCanister(Weapon):
+    """Collapsar. While its component name indicates it's a weapon, it's effectively just an output."""
+    pass
+
+
+class InternalStorageTank(Weapon):
+    """Collapsar. While its component name indicates it's a weapon, it's effectively a 0-count output."""
+    pass

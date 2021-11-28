@@ -315,6 +315,14 @@ zQBNCTptWROsr3YQf91dDkct9HXEOwyxM3o4ebcQh8EXO6FvTPAc62q4cO0n4LAeY5iFaIqhA1
 26/nMTRHcxEzGaWd/kUv8QTxOIS1bU+qoQAaHv8cUFm14ejPYRn+ARdcBnu3qyK4LmHkOW5J2r
 ip+sgupOxJSTEDiWk/lrZjxD53acDAsOB8UVeRfMUJo2jRj9Shn/izy2mDkQ88uW4jj1/TZywY
 pgIAAA==''',
+    "Collapsar": """H4sIAGZXo2EC/22QTY/UMAyG/0qVMxFOulRAT2jmsAeQ0B5ZOITWO43UOiVNtFNG3d+Ok7b7IS
+ZSE9upH79vLuLBnrGVlsYY5F9HOInPxUUA7+JnhNJ8kl8aDHOPhPVaeAJ9y1+tlAZVQq3TqaDm
+jfeSNxDvCqES4mD8b0fFnaVTfXiCipuq1AqV1rWGFGtdAdRKVzqhuCIW7n5EMzp6EXMRg+uxiT
+0m7HfvAmO/uRa9Cc5vyor3xSGzFbNZFKhVZMr1lpcpXyepPJXvymqV3LhIgfk3sGwG3o69nVvv
+Tkj15j/51bvfvRmWJWcD60cKk3y0oZMuBn5hvr6/iDWWox3za9+Lu7yOX5/X8XgUv5gS5jEPbr
+05yT+pIYHStDOXteJg5uADT7yCTf9dwURDIQ7So2n46f6DfVxSiwsdevniYlV+RY+lnaBuNkLJ
+Z4tTsGSCdSSf8a+Lq+40CqmVhuyw1pu56bN+DQB8O5jzLnXa2J2ZdhdcCT7ia4/4gDRhEkVmyK
+WD63szTiZ7NTF07JrLP0zTieUfKiFyTQIDAAA=""",
     # ResearchNet
     # Volume 1 Issue 1
     "Tunnels I": '''H4sIAMQCKWAC/22OMQrDMAxFrxI0N2CnQ6A5QZdMnRo6mFRpDI4cbHlIg3v22u5Wsgj0+P9JO2
@@ -2078,8 +2086,8 @@ PsIf7XW4LXhQszLg/ynOUzl28q6PCrWz2YqVY6FvA1T7tBYhYPXirPNZlREHl2eQhvHHJw0AGf
 f6cNDp8zAv5adfwYEjbusBAAA=''',
 }
 
-defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions", "Exploding Head Syndrome",
-                 "More than Machine", "Don't Fear the Reaper", "Freedom of Choice", "End of the Line", "Collapsar"}
+unsupported_defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions", "Exploding Head Syndrome",
+                             "More than Machine", "Don't Fear the Reaper", "Freedom of Choice", "End of the Line"}
 
 # Dict of Resnet puzzle title: (volume, issue, puzzle) id - with shared-title levels storing lists of ids in the same
 # order as the sub-lists in `levels` above.

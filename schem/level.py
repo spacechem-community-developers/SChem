@@ -42,10 +42,12 @@ class Level:
             return super().__new__(ResearchLevel)
         elif d['type'].startswith('production'):
             return super().__new__(ProductionLevel)
-        elif d['type'].startswith('sandbox'):
+        elif d['type'] == 'sandbox':
             return super().__new__(SandboxLevel)
+        elif d['type'] == 'defense':
+            return super().__new__(DefenseLevel)
         else:
-            raise ValueError(f"Unrecognized level type {d['type']}")
+            raise ValueError(f"Unrecognized level type `{d['type']}`")
 
     def __init__(self, code=None):
         if code is None:
@@ -170,3 +172,27 @@ class SandboxLevel(Level):
             self['programmed-input-molecules'] = {}
 
         assert self['type'] == 'sandbox'
+
+
+class DefenseLevel(Level):
+    __slots__ = ()
+
+    def __init__(self, code=None):
+        super().__init__(code)
+
+        if code is None:
+            self['type'] = 'defense'
+            self['end-animation-cycles'] = 0
+            self['random-input-zones'] = {}
+            self['fixed-input-zones'] = {}
+            self['output-zones'] = {}
+            self['terrain'] = 0
+            self['max-reactors'] = 0
+            self['has-starter'] = False
+            self['has-assembly'] = False
+            self['has-disassembly'] = False
+            self['has-advanced'] = False
+            self['has-nuclear'] = False
+            self['has-recycler'] = False
+
+        assert self['type'] == 'defense'
