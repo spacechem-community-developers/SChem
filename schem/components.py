@@ -740,7 +740,8 @@ class TeleporterOutput(Component):
     def move_contents(self, cycle):
         # Move pipe contents first, then add the teleported molecule to the front to avoid double-moving it
         super().move_contents(cycle)
-        self.molecule, self.out_pipe[0] = None, self.molecule
+        if self.out_pipe[0] is None:
+            self.molecule, self.out_pipe[0] = None, self.molecule
 
     def reset(self):
         super().reset()
