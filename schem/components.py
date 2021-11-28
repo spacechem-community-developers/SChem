@@ -1879,8 +1879,39 @@ class Weapon(Output):
 
 
 class CrashCanister(Weapon):
-    """Collapsar. While its component name indicates it's a weapon, it's effectively just an output."""
-    pass
+    """Collapsar. While it's categorized as a weapon, it's effectively just an output with some end delay."""
+    __slots__ = 'canister_drop_cycle',
+    DEFAULT_SHAPE = (4, 4)
+
+    def __init__(self, component_dict, *args, **kwargs):
+        super().__init__(component_dict, *args, **kwargs)
+        self.canister_drop_cycle = None
+
+    # For most defense levels, the animation at the end halts all waldos, causing them to repeat the last cycle until
+    # the animation completes
+    # However in collapsar, when the output is complete it stops accepting molecules, while the canister drops, but the
+    # solution keeps running as normal and must not crash due to any clogs that result.
+    # To simulate this, instead of using an end-animation-cycles var like we'll do for other defense levels, have the
+    # canister not mark itself as complete until 2000 cycles after the 40th output
+    def do_instant_actions(self, cycle):
+        # Behave like a normal output until complete
+        if self.canister_drop_cycle is None:
+            if super().do_instant_actions(cycle):
+                # Once complete, save the cycle and artificially lower the complete count to ensure the solution can't
+                # end even if another output completes (since we're treating the hydrogen tank as a 0-count output)
+                self.current_count -= 1
+                self.canister_drop_cycle = cycle
+        elif cycle == self.canister_drop_cycle + 2000:
+            # Once the target count is met, stop processing inputs and wait for 2000 cycles before setting the target
+            # count back to its true value and indicating to the caller that the output just completed
+            self.current_count += 1
+            return True
+
+        return False
+
+    def reset(self):
+        super().reset()
+        self.canister_drop_cycle = None
 
 
 class InternalStorageTank(Weapon):
