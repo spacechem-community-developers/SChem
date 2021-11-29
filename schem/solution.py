@@ -476,15 +476,19 @@ class Solution:
                                    for p in component_posns), f"Component {component_type} is out of bounds"
 
                         posn_to_component[component_posn] = component
+                        update_pipes = True  # Non-preset components always have modifiable pipes
+                    else:
+                        # Handle preset reactors with immutable pipes
+                        # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne and
+                        # Collapsar disallow mutating a preset reactor's 1-long pipe whereas custom levels allow it.
+                        # The custom level codes for Ω-Pseudoethyne and Collapsar are the only ones to use this
+                        component = posn_to_component[component_posn]
+                        update_pipes = (not self.level['type'].startswith('research')
+                                        and ('mutable-pipes' not in self.level
+                                             or self.level['mutable-pipes']
+                                             or not isinstance(component, Reactor)))
 
                     # Update the existing component (e.g. its pipes or reactor internals)
-                    # 'mutable-pipes' is not used by SC, but is added to handle the fact that Ω-Pseudoethyne disallows
-                    # mutating a preset reactor's 1-long pipe whereas custom levels allow it.
-                    # The custom level code for Ω-Pseudoethyne is the only one to set this property (and sets it to false)
-                    update_pipes = (not self.level['type'].startswith('research')
-                                    and ('mutable-pipes' not in self.level
-                                         or self.level['mutable-pipes']))
-                    component = posn_to_component[component_posn]
                     try:
                         component.update_from_export_str(component_str, update_pipes=update_pipes)
                     except Exception as e:
