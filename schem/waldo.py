@@ -81,7 +81,8 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
             InstructionType.BOND_PLUS: ('bond', 0),
             InstructionType.BOND_MINUS: ('bond', 1),
             InstructionType.SENSE: ('sensor', 0),
-            InstructionType.FLIP_FLOP: ('toggle', 0)}
+            InstructionType.FLIP_FLOP: ('toggle', 0),
+            InstructionType.PAUSE: ('debug', 0)}
         if self.type in special_case_dict:
             name, sub_type = special_case_dict[self.type]
         else:
