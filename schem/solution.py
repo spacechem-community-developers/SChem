@@ -50,6 +50,7 @@ class DebugOptions:
 
 class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
     """Immutable class representing a SpaceChem solution score."""
+    INCOMPLETE_STR = '0-0-0'
     __slots__ = ()
 
     def __str__(self):
@@ -73,7 +74,7 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
         assert len(parts) == 3, "String is not a score"
 
         # Return None politely on either modern SC format or old SaveChemTool format for incomplete solution
-        if s == '0-0-0' or (parts[0] == 'Incomplete' and all(part.isdigit() for part in parts[1:])):
+        if s == cls.INCOMPLETE_STR or (parts[0] == 'Incomplete' and all(part.isdigit() for part in parts[1:])):
             return None
 
         return cls(*(int(x) for x in s.split('-')))
@@ -630,7 +631,8 @@ class Solution:
     def export_str(self) -> str:
         """Re-export this solution. Sorted to ensure uniqueness, so may differ from the initially given export."""
         # Solution metadata
-        fields = [self.level.name, self.author, str(self.expected_score)]
+        fields = [self.level.name, self.author,
+                  str(self.expected_score) if self.expected_score is not None else Score.INCOMPLETE_STR]
         if self.name is not None:
             fields.append(self.name)
 
