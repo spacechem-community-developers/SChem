@@ -939,7 +939,8 @@ class Solution:
                     print(f"Validated {self.describe(self.level.name, self.author, score, self.name)}")
             else:
                 # --no-run mode sets cycles to the expected cycles if available
-                result['cycles'] = self.expected_score.cycles
+                if self.expected_score is not None:
+                    result['cycles'] = self.expected_score.cycles
 
                 if verbosity >= 1:
                     print(self.description)
