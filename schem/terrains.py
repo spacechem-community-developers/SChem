@@ -292,7 +292,7 @@ terrains = {
     "No Thanks Necessary": {
         'obstructed': {},
         'random-input-zones': (('drag-atmospheric-input', (4, 5)),
-                               ('drag-atmospheric-input', (7, 18)),),
+                               ('drag-oceanic-input', (7, 18)),),
         'output-zones': (('output', (22, 7)),
                          ('output', (21, 17)),),
         'recycler': ('drag-recycler', (26, 1))},

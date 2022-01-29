@@ -36,7 +36,7 @@ solution.run()
 
 # Check the expected score that was in the export's metadata
 solution.expected_score
-# => Score(cycles=44, reactors=1, symbols-14)
+# => Score(cycles=44, reactors=1, symbols=14)
 
 # Reset the run state of a solution
 solution.reset()
@@ -76,5 +76,5 @@ solution.evaluate(check_precog=True)
 
 # Re-export the solution. Sorts export lines to ensure uniqueness
 solution.export_str()
-# "SOLUTION:..."
+# => "SOLUTION:..."
 ```
