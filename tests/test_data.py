@@ -69,6 +69,13 @@ yLnZuW1t0eYo2spPb20AxCzqNI061S8IHl2cBD1Bit+p000+z4Ur7FA0HufyehpgcMaT/j29wO
 K8gnEhcX32DgmaFUQpN8vt9wqzt9gli9DAYemjH9G1h4tQrZRSiVZJKQRU0PnkGBqptp9tq8An
 fk19M6rkTJpqq+OI9T0RmkFbwgqO3vUY68dbtUOwiX5V7Dob98QlltCRj3tgoSERPgsFa5j/Ia
 PF4ONf5iWUsyIS6thN+Qqn5yKfJ4xliQ9G4sw68VSmwpcZc9ubYTD5T3jJe21XNIfUb40BAAA=''',
+    "Head or Tails?": """H4sIAB1Qg2AA/3WRTU7DMBCFr1J53UhjG6IqWbCokFix6gYhFqadEEuOHflnUapyDk7FmfBPkg
+IVmyfl6c2bb5wTkXoMvno3Gh1pTgSSZC9+Pp/IYBTug0LSkK2wr0a325bRGoCsyd4E7UlD2fnl
+vCb0/8l7hQNqv9r16EX79RkbGMBVRywxwV/j/Gh6Qic9ttsP2LSUpRLaAq1pVJY0F1NoKa+jsq
+y0LGs5q2Oa06QszaY8pCmalfOSA146AEqGQ95zgYX52h9gj2bhYpmHT3Qsc9HCONNlDzIdh8wz
+7aITA+d1IoFy2cQ6cfHpHnrNFcF64Sol7BtW5S1J0wnlcE3ivzugrabsZjFGFdzswuIOUv+yU6
+1D7YwljbcBi9MFh3bZkDOjkt7/MT0qHI3Ndhn2xzG9mkWHwu77eIMWQ3IeUBxWxq52Qip3F30R
+fJ+WEsr4za1ExGgeZNfJ+PL+mOEu/TMxO38DQQr/TtoCAAA=""",
 }
 
 valid_solutions = [
@@ -5435,7 +5442,41 @@ PIPE:0,5,-7
 PIPE:0,5,-8
 PIPE:0,5,-9
 PIPE:0,5,-10
-PIPE:0,5,-11"""
+PIPE:0,5,-11""",
+    r"""SOLUTION:Head or Tails?,Team 89.1 bugfix,185-1-17,Double 0-count outputs
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',0,0,32,2,7,0,0
+MEMBER:'instr-start',180,0,128,1,7,0,0
+MEMBER:'feature-bonder',-1,0,1,2,5,0,0
+MEMBER:'feature-bonder',-1,0,1,8,3,0,0
+MEMBER:'feature-bonder',-1,0,1,7,2,0,0
+MEMBER:'feature-bonder',-1,0,1,7,6,0,0
+MEMBER:'feature-bonder',-1,0,1,6,3,0,0
+MEMBER:'feature-bonder',-1,0,1,8,6,0,0
+MEMBER:'feature-bonder',-1,0,1,3,4,0,0
+MEMBER:'feature-bonder',-1,0,1,2,4,0,0
+MEMBER:'feature-sensor',-1,0,1,6,7,0,0
+MEMBER:'feature-tunnel',-1,0,1,9,0,0,0
+MEMBER:'feature-tunnel',-1,0,1,0,0,0,0
+MEMBER:'instr-grab',-1,0,32,2,1,0,0
+MEMBER:'instr-input',-1,1,32,2,3,0,0
+MEMBER:'instr-arrow',180,0,16,9,1,0,0
+MEMBER:'instr-arrow',-90,0,16,9,7,0,0
+MEMBER:'instr-grab',-1,2,32,9,7,0,0
+MEMBER:'instr-arrow',0,0,16,2,7,0,0
+MEMBER:'instr-rotate',-1,1,32,3,6,0,0
+MEMBER:'instr-rotate',-1,1,32,2,6,0,0
+MEMBER:'instr-bond',-1,0,128,0,7,0,0
+MEMBER:'instr-arrow',90,0,16,2,1,0,0
+MEMBER:'instr-grab',-1,0,32,3,5,0,0
+MEMBER:'instr-input',-1,0,32,3,1,0,0
+MEMBER:'instr-sensor',180,0,32,9,6,0,6
+MEMBER:'instr-output',-1,1,32,8,6,0,0
+MEMBER:'instr-arrow',180,0,16,3,1,0,0
+MEMBER:'instr-toggle',-90,0,32,3,7,0,0
+MEMBER:'instr-rotate',-1,1,32,6,7,0,0
+PIPE:0,4,1
+PIPE:1,4,2"""
 ]
 
 missing_score = [
