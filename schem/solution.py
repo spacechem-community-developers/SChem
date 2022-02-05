@@ -380,12 +380,11 @@ class Solution:
 
         # Boss
         if 'boss' in self.level:
+            assert 'weapons' in self.level, "Level contains a boss but no weapons"  # Sanity check
             boss = Boss(self.level['boss'])
             # TODO: Bosses are tucked away at (-1, -1), but preset components are allowed to be there too, so this is a
             #       little unsafe
             posn_to_component[boss.posn] = boss
-
-            assert 'weapons' in self.level, "Level contains a boss but no weapons"  # Sanity check
 
         # Weapons
         if 'weapons' in self.level:
@@ -423,6 +422,11 @@ class Solution:
                         # As a convenience, propagate top-level "disallowed-instructions" into each component if defined
                         if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
                             component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
+
+                        # Allow control instructions in boss levels (disallowed-instructions can override this)
+                        # Checking boss presence instead of defense level type correctly handles the Collapsar edge case
+                        if 'boss' in self.level and 'has-controls' not in self.level:
+                            component_dict['has-controls'] = True
 
                         new_component = Component(component_dict)
 
@@ -473,12 +477,17 @@ class Solution:
                         if component_type.startswith('freeform-custom-reactor-'):
                             # Add custom reactor attributes if needed
                             i = int(component_type.split('-')[-1]) - 1
-                            component_dict = self.level['custom-reactors'][i]
+                            component_dict.update(self.level['custom-reactors'][i])
 
                         # As a convenience for defining early game levels without needing custom reactors, propagate
                         # any top-level "disallowed-instructions" value from the level into each reactor
                         if 'disallowed-instructions' in self.level and 'disallowed-instructions' not in component_dict:
                             component_dict['disallowed-instructions'] = self.level['disallowed-instructions']
+
+                        # Allow control instructions in boss levels
+                        # Checking boss presence instead of defense level type correctly handles the Collapsar edge case
+                        if 'boss' in self.level and 'has-controls' not in self.level:
+                            component_dict['has-controls'] = True
 
                         component = Component(component_dict, _type=component_type, posn=component_posn)
 

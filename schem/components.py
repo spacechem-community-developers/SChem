@@ -830,6 +830,10 @@ class Reactor(Component):
 
         # Set disallowed instructions
         self.disallowed_instrs = set() if 'disallowed-instructions' not in component_dict else set(component_dict['disallowed-instructions'])
+        # Toggles are assumed disallowed unless explicitly set otherwise
+        # Note that if controls are specifically set in disallowed-instructions, we ignore has-controls even if present
+        if not ('has-controls' in component_dict and component_dict['has-controls']):
+            self.disallowed_instrs.add('instr-control')
 
         # Place all features. For simplicity we will put each feature type in its own column(s) in a fresh reactor
         cur_col = 0

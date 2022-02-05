@@ -6316,6 +6316,13 @@ MEMBER:'instr-start',180,0,32,0,7,0,0
 MEMBER:'instr-toggle',0,0,64,0,0,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,illegal CTRL instruction
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,1,2,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'instr-control',0,0,16,0,0,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
     r'''SOLUTION:An Introduction to Pipelines,Zig,0-0-0,pipe out of bounds
 COMPONENT:'drag-silo-input',9,4,''
 PIPE:0,5,2
