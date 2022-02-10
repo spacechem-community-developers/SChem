@@ -76,6 +76,17 @@ y0LGs5q2Oa06QszaY8pCmalfOSA146AEqGQ95zgYX52h9gj2bhYpmHT3Qsc9HCONNlDzIdh8wz
 7aITA+d1IoFy2cQ6cfHpHnrNFcF64Sol7BtW5S1J0wnlcE3ivzugrabsZjFGFdzswuIOUv+yU6
 1D7YwljbcBi9MFh3bZkDOjkt7/MT0qHI3Ndhn2xzG9mkWHwu77eIMWQ3IeUBxWxq52Qip3F30R
 fJ+WEsr4za1ExGgeZNfJ+PL+mOEu/TMxO38DQQr/TtoCAAA=""",
+    "Continuous Flow Test": """H4sIAI+KBGIA/+1WTW/bMAz9K4HOEeC4RbAmxwFDz0FPG4pCsRlbmCW6+lhqFN1vHyXbi50EBb
+IWCQYkh3yQ5uPjE0nllRmhc1Rc6to7nqGqUYN2li1+vDKFFWS+gvEvtmD3TW6wAL28/52kyxm9
+kmVKbwmbsgy9dmwxS98epz26BcjZIpmy2mDuMydR8xwq0dBzU4beheS1rGMmtloxCnVNHVLlRh
+RcmLV0Rpim5UlZXiiSQgkgeZtejOkpPO/+E56U5oNE50OAw5A0hqR7IedplpuQh3ALI5SC/Hjb
+WyeMk7rgQxHeKTxQhxrEiTH/WN4++1F9UccOY6+qzkq1FUCKn3qo1BUjGlaJquKDGjrgls2XXc
+ufNe/doIXPmni+20UXyDu/UN52nIS13JUGfVHyCAambbmPUDkYhMEcbAzABo3qs3WcbrumewxA
+fe/zrXQlb9GGc3AUuC3cIX0A1at/jpDbBYyuBDMeLrKSVrilkTQgMornAbBzKfHSm23ca8TYCK
+nj98xTOjXwE0MtVCDzNbomq9Y1mREXUdOaoTWZBT/+ArNFU+VPXfRTXFxRjlJYvkbn+pudLZzx
+MLL3krSONeo8lhUPIPlrqCtvD61K6pHZgrY4jN54O0KzdSWdG5kcVFCjGRtzaXslpbZELbZeJ+
+SzF9p5xbf0iOV0LtpX1b65ac1hII7rmF51/BQdb646foqOt1cdT9Fxt6wHVxNtY+W1dA2HXAYL
+SdWrjZr+l3n0dvKNCEwewIY7THhXoiH/d1mwwG+zkXRBuXiJ/wEgoJnQFg0AAA==""",
 }
 
 valid_solutions = [
@@ -5739,7 +5750,8 @@ MEMBER:'instr-arrow',180,0,16,3,1,0,0
 MEMBER:'instr-toggle',-90,0,32,3,7,0,0
 MEMBER:'instr-rotate',-1,1,32,6,7,0,0
 PIPE:0,4,1
-PIPE:1,4,2"""
+PIPE:1,4,2""",
+    r"""SOLUTION:Continuous Flow Test,Zig,4-0-0""",
 ]
 
 missing_score = [

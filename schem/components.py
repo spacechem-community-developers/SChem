@@ -381,7 +381,9 @@ class Input(Component):
     def move_contents(self, cycle):
         """Create a new molecule if on the correct cycle and the pipe has room."""
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
-        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle) is None:
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting.
+        # This prevents double-moving the molecule and allows for continuous flow in the rate = 1 case
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
             self.out_pipe.push(copy.deepcopy(self.molecules[0]), cycle + 1)
             self.num_inputs += 1
 
@@ -427,7 +429,8 @@ class RandomInput(Input):
 
     def move_contents(self, cycle):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
-        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle) is None:
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
             self.out_pipe.push(copy.deepcopy(self.molecules[self.get_next_molecule_idx()]), cycle + 1)
             self.num_inputs += 1
 
@@ -462,7 +465,8 @@ class ProgrammedInput(Input):
 
     def move_contents(self, cycle):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
-        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle) is None:
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
+        if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
             if self.starting_idx == len(self.starting_molecules):
                 self.out_pipe.push(copy.deepcopy(self.repeating_molecules[self.repeating_idx]), cycle + 1)
                 self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
@@ -564,7 +568,8 @@ class PassThroughCounter(Output):
 
     def move_contents(self, cycle):
         # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
-        if self.stored_molecule is not None and self.out_pipe.get(0, cycle) is None:
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
+        if self.stored_molecule is not None and self.out_pipe.get(0, cycle + 1) is None:
             self.out_pipe.push(self.stored_molecule, cycle + 1)
             self.stored_molecule = None
 
@@ -611,21 +616,24 @@ class OutputPrinter(Component):
     def in_pipe(self, p):
         self.in_pipes[0] = p
 
-    def do_instant_actions(self, cycle):
+    def move_contents(self, cycle):
         """Consume and print incoming molecules."""
+        # TODO: The lack of an internal buffer on pass-through printers necessitates breaking our standard
+        #       of components consuming molecules during the instant_actions phase. Perhaps all non-reactor components
+        #       need only use move_contents, and do_instant_actions can be a Reactor-only method.
         if self.in_pipe is not None:
             # TODO: Print received molecules when in --debug somehow
             self.in_pipe.pop(cycle)
 
 
 class PassThroughPrinter(OutputPrinter):
-    """Displays the last 3 molecules passed to it and passes them on."""
-    __slots__ = 'stored_molecule',
+    """Displays the last 3 molecules passed to it and passes them on. Unlike a PassThroughCounter, has no internal
+    slot for holding a molecule (so does not pass-through/print a molecule if its output pipe is full).
+    """
+    __slots__ = ()
 
     def __init__(self, component_dict=None, _type=None, posn=None):
         super(OutputPrinter, self).__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1, num_out_pipes=1)
-
-        self.stored_molecule = None
 
     @property
     def out_pipe(self):
@@ -635,28 +643,16 @@ class PassThroughPrinter(OutputPrinter):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def do_instant_actions(self, cycle):
-        """Check for and process any incoming molecule, and return True if this output just completed (in which case
-        the caller should check if the other outputs are also done). This avoids checking all output counts every cycle.
-        """
+    def move_contents(self, cycle):
+        """Pass a molecule from the input to the output pipe if possible, and print it."""
         if self.in_pipe is None:
             return
 
-        # If there is a molecule stored (possibly stored just now), put it in the output pipe if possible
-        if self.stored_molecule is not None and self.out_pipe.get(0, cycle) is None:
-            self.out_pipe.push(self.stored_molecule, cycle + 1)
-            self.stored_molecule = None
-
-        # If the stored slot is empty, store the next molecule and 'print' it while we do so
-        if self.in_pipe.get(-1, cycle) is not None and self.stored_molecule is None:
-            self.stored_molecule = self.in_pipe.get(-1, cycle)
-            super().do_instant_actions(cycle)  # This will consume and print the input molecule
-
-    def reset(self):
-        super().reset()
-        self.stored_molecule = None
-
-        return self
+        molecule = self.in_pipe.get(-1, cycle)  # Don't pop to avoid interfering with the super() method
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
+        if molecule is not None and self.out_pipe.get(0, cycle + 1) is None:
+            super().move_contents(cycle)  # This will consume and print the input molecule
+            self.out_pipe.push(molecule, cycle + 1)
 
 
 class Recycler(Component):
@@ -709,7 +705,8 @@ class StorageTank(Component):
 
     def move_contents(self, cycle):
         """Add a molecule to the output pipe if the storage tank is not empty."""
-        if self.out_pipe.get(0, cycle) is None and self.contents:
+        # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
+        if self.out_pipe.get(0, cycle + 1) is None and self.contents:
             self.out_pipe.push(self.contents.pop(), cycle + 1)
 
     @classmethod
