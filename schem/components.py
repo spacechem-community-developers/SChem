@@ -81,13 +81,17 @@ class Pipe:
             return None
         # Provide O(1) access for either end which is all we use, else fall back to O(N)
         elif idx == 0:
+            # Cases where there is a molecule at the front:
             if (len(self._molecules) == len(self)  # Pipe is full
-                    or cycle == self._add_cycles[0]):  # A molecule was already added this cycle
+                    or cycle == self._add_cycles[0]  # A molecule was just added this cycle (hasn't moved yet)
+                    # Pipe was just full, and remaining (non-empty) molecules haven't moved yet
+                    or (cycle == self._last_pop_cycle and 1 <= len(self._molecules) == len(self) - 1)):
                 return self._molecules[0]
             else:
                 return None
         elif idx == -1:
-            # Make sure it's had time to reach the end
+            # Make sure it's had time to reach the end. Note that if a pop() just happened this cycle, the molecules
+            # won't have moved yet
             if cycle - self._add_cycles[-1] >= len(self) - 1 and cycle != self._last_pop_cycle:
                 return self._molecules[-1]
             else:
