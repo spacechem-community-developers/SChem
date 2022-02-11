@@ -37,13 +37,23 @@ def elapsed_readable(seconds, decimals=0):
 
 def main(args: argparse.Namespace):
     total_start = time.time()
-    with args.solution_file:  # args.solution_file is already open but `with` will close it for us
-        if not args.solution_file.isatty():
-            solutions_str = args.solution_file.read()
-            solutions_src = 'Solution file'  # For more helpful error message
-        else:  # If no STDIN input provided, instead of waiting on user input, use clipboard contents
-            solutions_str = clipboard.paste()
-            solutions_src = 'Clipboard'  # For more helpful error message
+
+    # Collect solutions from provided file(s) or the clipboard, yelling if any is empty
+    solutions = []
+    for solution_file in args.solution_files:  # Never empty since we default to [sys.stdin]
+        with solution_file:  # solution_file is already open but `with` will close it for us
+            if not solution_file.isatty():
+                solutions_str = solution_file.read() + '\n'
+                solutions_src = solution_file.name
+            else:  # If no STDIN input provided, use clipboard contents
+                solutions_str = clipboard.paste()
+                solutions_src = 'Clipboard'
+
+        cur_solutions = list(Solution.split_solutions(solutions_str))
+        if not cur_solutions:
+            raise ValueError(f"{solutions_src} is empty.")
+
+        solutions.extend(cur_solutions)
 
     # If multiple custom levels were provided, store them by name so we can grab the right one for each solution
     levels = {}
@@ -61,10 +71,6 @@ def main(args: argparse.Namespace):
                     raise ValueError(f"Multiple levels named `{level.name}` provided.")
 
                 levels[level.name] = level
-
-    solutions = list(Solution.split_solutions(solutions_str))
-    if not solutions:
-        raise ValueError(f"{solutions_src} is empty.")
 
     jsons = []
     for solution_str in solutions:
@@ -172,12 +178,12 @@ if __name__ == '__main__':
     sys.tracebacklimit = 0  # Suppress traceback in STDERR output
 
     parser = argparse.ArgumentParser(prog='python -m schem',  # Don't show Usage: __main__.py
-                                     description="Validate the solution(s) copied to the clipboard or in the given file.",
+                                     description="Validate the solution(s) on the clipboard or in the given file(s).",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--version', action='store_true', help="Print program version and exit")
-    parser.add_argument('solution_file', type=argparse.FileType('r', encoding='utf-8'),  # Accept path arg or stdin pipe
-                        nargs='?', default=sys.stdin,
-                        help="File containing the solution(s) to execute.\n"
+    parser.add_argument('solution_files', type=argparse.FileType('r', encoding='utf-8'),  # Accept paths or stdin pipe
+                        nargs='*', default=[sys.stdin],
+                        help="File(s) containing the solution(s) to execute.\n"
                              "If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
                         metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
