@@ -11,7 +11,7 @@ python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
                 [--export] [--no-run] [--strict]
                 [--json | --verbose] [--debug [DEBUG]]
-                [solution_file]
+                [solution_files ...]
 ```
 
 E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export(s) in the user's clipboard.
