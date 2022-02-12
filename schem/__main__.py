@@ -38,11 +38,11 @@ def elapsed_readable(seconds, decimals=0):
 def main(args: argparse.Namespace):
     total_start = time.time()
 
-    # Collect solutions from provided file(s) or the clipboard, yelling if any is empty
+    # Collect solutions from provided file(s)/STDIN or the clipboard, yelling if any is empty
     solutions = []
-    for solution_file in args.solution_files:  # Never empty since we default to [sys.stdin]
-        with solution_file:  # solution_file is already open but `with` will close it for us
-            if not solution_file.isatty():
+    for solution_file_str in args.solution_files:  # Never empty since we default to ['-'] (denotes stdin)
+        with argparse.FileType('r', encoding='utf-8')(solution_file_str) as solution_file:
+            if not solution_file.isatty():  # File or STDIN
                 solutions_str = solution_file.read() + '\n'
                 solutions_src = solution_file.name
             else:  # If no STDIN input provided, use clipboard contents
@@ -181,8 +181,8 @@ if __name__ == '__main__':
                                      description="Validate the solution(s) on the clipboard or in the given file(s).",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--version', action='store_true', help="Print program version and exit")
-    parser.add_argument('solution_files', type=argparse.FileType('r', encoding='utf-8'),  # Accept paths or stdin pipe
-                        nargs='*', default=[sys.stdin],
+    parser.add_argument('solution_files', nargs='*', default=['-'],  # '-' becomes STDIN when we convert to FileType
+                        # We don't use type=argparse.FileType(...) right away as it would open every input file at once
                         help="File(s) containing the solution(s) to execute.\n"
                              "If not provided, attempts to use the contents of the clipboard.")
     parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
