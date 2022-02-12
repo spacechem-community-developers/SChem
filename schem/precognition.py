@@ -56,6 +56,9 @@ MOLECULE_SUCCESS_RATE_DEVIATION_LIMIT = 0.75
 # raise an error if this will be exceeded (rather than returning an insufficiently-confident answer)
 DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't constrain typical required run counts
 
+# How many multiples of the base seed's cycle count we allow off-seed runs to take before we assume an infinite loop
+MAX_OFF_SEED_CYCLE_FACTOR = 2
+
 
 # TODO: Might want type hinting here, this post suggests a way to type hint Solution without introducing a circular
 #       import or needing to merge the modules:
@@ -98,8 +101,8 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
     Args:
         solution: The loaded solution to check.
         max_cycles: The maximum cycle count allowed for a SINGLE run of the solution (passed to Solution.run).
-            Note that this is not the total number of cycles allowed across all runs; any solution within this limit
-            is allowed to run at least twice, with the maximum runs taken being limited for extremely slow solutions.
+            Same default as Solution.run for the base seed, and capped to 2x the base seed's cycle count for all
+            alternate-seed runs.
         max_total_cycles: The maximum total cycle count that may be used by all runs; if this value is exceeded before
             sufficient confidence in an answer is obtained, a TimeoutError is raised.
         just_run_cycle_count: In order to save on excess runs, if the solution has just been successfully run on the
@@ -114,10 +117,6 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
 
     if not random_inputs:  # duh
         return (False, "Solution is not precognitive; level is non-random") if include_explanation else False
-
-    # Set a larger default for max_cycles than in Solution.run, since the seed might change the cycle count by a lot
-    if max_cycles is None and solution.expected_score is not None:
-        max_cycles = 2 * solution.expected_score.cycles
 
     if max_total_cycles is None:
         # TODO: Might also want to limit this by reactor count
@@ -482,6 +481,12 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             # if just_run_cycle_count was given, skip the first run to save time
             cycles = just_run_cycle_count if num_runs == 0 and just_run_cycle_count \
                      else solution.run(max_cycles=max_cycles).cycles
+
+            # Bound the remaining runs to 2 times the base seed's cycle count, to catch infinite loops reasonably fast
+            # while still giving some leeway for variations in runtime caused by changing the seed
+            if num_runs == 0:
+                max_cycles = min(MAX_OFF_SEED_CYCLE_FACTOR * cycles,
+                                 max_cycles if max_cycles is not None else math.inf)
 
             min_passing_run_cycles = min(min_passing_run_cycles, cycles)
 
