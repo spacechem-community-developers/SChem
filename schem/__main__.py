@@ -255,6 +255,7 @@ if __name__ == '__main__':
                              "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a\n"
                              "cycle per second.")
     args = parser.parse_args()
+    # TODO: Detect if the given string was a puzzle export and pretty-print its json if so?
 
     if args.version:
         print(__version__)

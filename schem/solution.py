@@ -21,9 +21,9 @@ except ImportError:
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
 from .components import Component, Input, Output, Weapon, Reactor, Recycler, DisabledOutput, \
-                        TeleporterOutput, Boss, NuclearMissile, DEFAULT_RESEARCH_REACTOR_TYPE
+                        TeleporterInput, TeleporterOutput, Boss, NuclearMissile, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
-from .exceptions import SolutionImportError, DeathError, ScoreError
+from .exceptions import SolutionImportError, ScoreError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
 from .levels import levels as built_in_levels, unsupported_defense_names, resnet_ids
@@ -252,7 +252,7 @@ class Solution:
             raise exceptions[0]
         elif isinstance(level, Level):
             self._load(level=level, soln_export_str=solution_str)
-        elif isinstance(level, str):
+        else:  # Accept raw level code
             self._load(level=Level(level), soln_export_str=solution_str)
 
     def _load(self, level: Level, soln_export_str=None):
@@ -370,38 +370,28 @@ class Solution:
                     new_component = Output(output_dict=output_dict)
                     posn_to_component[new_component.posn] = new_component
 
-        # Add disabled output components for the unused outputs of research levels (crash if given a molecule)
-        if self.level['type'].startswith('research') and not ('has-large-output' in self.level
-                                                              and self.level['has-large-output']):
-            for i in range(2):
-                if i not in set(int(x) for x in self.level[output_zone_type]):
-                    _, component_posn = terrains[terrain_id][output_zone_type][i]
-                    posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
-
-        # Boss
         self.boss = Boss(self.level['boss']) if 'boss' in self.level else None
 
-        # Weapons
-        if 'weapons' in self.level:
-            for i, weapon_dict in self.level['weapons'].items():
-                component_type, component_posn = terrains[terrain_id]['weapons'][int(i)]
-                posn_to_component[component_posn] = Weapon(component_dict=weapon_dict,
-                                                           _type=component_type, posn=component_posn)
-                posn_to_component[component_posn].boss = self.boss  # Might be None in e.g. Collapsar
-
-        # Preset reactors
+        # Preset components
         if self.level['type'].startswith('research'):
             # Preset one reactor, treating the level dict as its component dict
             reactor_type = self.level['reactor-type'] if 'reactor-type' in self.level else DEFAULT_RESEARCH_REACTOR_TYPE
             new_component = Reactor(self.level.dict, _type=reactor_type, posn=Position(col=2, row=0))
             posn_to_component[new_component.posn] = new_component
+
+            # Add disabled outputs for the unused zones of research levels (crash if given a molecule)
+            if not ('has-large-output' in self.level and self.level['has-large-output']):
+                for zone in range(2):
+                    if zone not in set(int(used_zone) for used_zone in self.level[output_zone_type]):
+                        _, component_posn = terrains[terrain_id][output_zone_type][zone]
+                        posn_to_component[component_posn] = DisabledOutput(_type='disabled-output', posn=component_posn)
         else:
             # Recycler
             if 'has-recycler' in self.level and self.level['has-recycler']:
                 component_type, component_posn = terrains[terrain_id]['recycler']
                 posn_to_component[component_posn] = Recycler(_type=component_type, posn=component_posn)
 
-            # Preset components
+            # Miscellaneous preset components (CE components + weapons)
             for component_list_key in ('pass-through-counters', 'components-with-output', 'other-components'):
                 if component_list_key in self.level:
                     for component_dict in self.level[component_list_key]:
@@ -418,15 +408,17 @@ class Solution:
                         # Allow control instructions in boss levels (disallowed-instructions can override this)
                         # Checking boss presence instead of defense level type correctly handles the Collapsar edge case
                         if 'boss' in self.level and 'has-controls' not in self.level:
-                            component_dict['has-controls'] = True
+                            component_dict['has-controls'] = True  # TODO: Stop mutating the level dict
 
                         new_component = Component(component_dict)
 
-                        if component_dict['type'] == 'drag-qpipe-in':
-                            # TODO: Bit hacky but since user levels can't use this, just going to make sure the
+                        if isinstance(new_component, TeleporterInput):
+                            # TODO: Bit hacky but since user levels can't use this, I just made sure the
                             #       Teleporter output is defined before its input in "Teleporters"
                             new_component.destination = posn_to_component[Position(col=component_dict['destination-x'],
                                                                                    row=component_dict['destination-y'])]
+                        elif isinstance(new_component, Weapon):
+                            new_component.boss = self.boss
 
                         posn_to_component[new_component.posn] = new_component
 

@@ -157,12 +157,12 @@ Z/pouy7ERlAdRj7AR/6Gke2cLGO8qgwKgqbhq7xxsk3UAua3sK5Vx29gLFTNwQEAAA==''',
 Vh9jybcyFnRGFWeqZD9jCjNGq7qtsrrq7ve7CzxU5SPnI/CBzBwGEM1PZ1EJAK9Z170lUqDC4j
 NpObTmF3nqo5EqY6z5T4RmmXqpP6VXRhPKsZg/eizJov9n+Tu0DkNEXVSud0S9XBp9nqVzxk9m
 021DcNbo7uUqoCJtE93iV5tcIl973qbKGugzThMN4EDFsmT6f3W+SzWz9Rd9s/EboQEAAA==''',
-    "Exploding Head Syndrome": '''H4sIADIb/mEC/4WRT2uEMBDFv4rkXEFlC9t6LvXmQg+FLnuYmlkNaEbyp6sV+9k7yZbK9tIcAn
-l575eZySLOakKZKj16l36SRisek0VkvItXcGjK6isr6jLnlZVFvs/ysijyLBPrXSIuCCPpLbKI
-gXpsfB8xx+0YcNUsDbWoI/EXGFBMashrx67inrm3uXqaQ6q+pvbFtYz/UofeO9LKD+XBc+xh9y
-exntbQwTvZUKp4JtOC68AE0wBTahAaRyZc7ljqwKYgP0A3KFlyxuOPevZWkb7VLCehxU108xir
-knhGbTE8omGI0tM09iSVbpMKQSYvs+YxDdEilYW+p0v8IMuoxqnruI8iCqmjtuV+T2wG7zoygf
-gGTSfWbwUpzVPbAQAA''',
+    "Exploding Head Syndrome": '''H4sIAOjZaGIC/4WRTU/DMAyG/8qUM5HaahODnhG7bRIHJNAOJvHaSGlc5YO1TOW343RjCC7kED
+lv/DivnZM4mAG1NK5PUX6QwyDuFydR8C6eIaKvN59Fta1LXkVdleuirKuqLAox3SwExRa9VNT1
+TLqY2deTiGOPmdceGnlE4EvpkrIIvjMhGIuC2YFTylsOxhysOOjIokoWL2W+j7nUZtSeGnSzm6
+uZbIM5RclFzqpW7Ok3tx3GTG3P1Lo6t/AftbMpkjOpq3eJsbvlH2LaT3s+v1HIVsUj+QZiCz4n
+dTBIj6Ai+Xy5ZKmFIEG/g1OoWYo+4UU9pGDI/dYCk9Dgj3gdJx7QhXl2DrpZehh6S9q4ZrFB0I
+un0fGYujlFmwDW0nH+3MClVOSn5tGKWZCRmob7zZ1Aii35XPEFVCumL46TKXAXAgAA''',
     # Hephaestus IV
     "Like a Boss": '''H4sIAMTllmEC/32QwUrFMBBFf6VkbSAp4sLs7KYL/QHlLWIytME280gmSC31253EJ/hAJBCYe2
 fO3GQXIZ4LyQ+MkMV9twvd7qZW4WUXKy7gygJcicGmV4xmMFrfKSVuOuGwRGJL98fp4Fr9Oz9u
@@ -206,14 +206,14 @@ fyFO3B8qKW2gEbcEWiI1hXKJRfNEriqWMDdigwSSyBRxivHbQneH/g/j81ubq57rYy7cXin1hy
 mt7LO+LC2N2a+uH0gvD0EA47/XvoS9Kz7Cw+5Nd8k1rJhTM2fIMhSCVvU55/cC1kDpKzXh7U1j
 fSvhmdS9s3rBRbUZ2qbtvEaRprci+cMjqEa15HdVbyqpK6kONkvnicrZdP8/ViGW7kqgXLfMZ/
 tYVm8d2A9oKikDpTFLCpV7jMvStNCEXPXJRo/w3o9fQV5gIAAA==''',
-    "More than Machine": '''H4sIAEMoCGIC/21Sy27CMBD8lcjnRrUdQKg5IaTeEFJPtKiHxVkSq4mN/ChQxL93bZAKqIesrf
-F6dmacE9vqAzalNrsYyh9r0LOX4sQ4VbZCY029wlqI8Yhzdn4qmAPT2OHf/hPLaALWJzbYHlXs
-MRHN+jhoE4diedAN1rO+eC6WxCoqIWr6Ks5rwadc1FJMBe3llBCe9oxmKhtNIJ4JCbgnnnfODj
-pg/YpEOXcXXilHUhL9lFOtEpWUcsLvuOT588+NR2wIE+NzsrhH2Flz66vRXnXgWixvhz/GQ1db
-0Oau5y1ujqTr6AP0V99ZaBYpkjAyL2oucxSc50XyDFJDCobTInI+ImeS2qtUxSghsrrmxgXL8j
-fWJ+3sHVxsScpXEjbAoXQIKliXDkcEdeBLaL7BqGw+uIhX1Mcduo01DbqHA7oOLd6DDtVR9bet
-4bjL5hvcovGY5hsYMrSwDovQgSkWoDpt8iHFC31v9/k/9ESigr48wJploAy2bSnQ9GQQQ2fTMP
-ZBDOz8C0iWYJ3CAgAA''',
+    "More than Machine": '''H4sIAK73aGIC/21Sy27bMBD8FYHnCCUpJxCiUxCgtyBAT2mDHNbURiJKkQYfrVXD/55dxnk46E
+HLxXA0uzPSQTzbPY6t9buS23/BYxLXzUFIquIBffDDAw5KXW6kFMeLRkTwY1j+yz+IijLweBBL
+cGiKQxa6cWWxvizN/d6OONy45ltzT6qqU2qgp5NyULKXatCqV9TrnhDJvaCZJhSfSeeKFjgXvp
+1jWGzG4TuS5G181dV6ozXJ95Jqx1Ja6yt5pqWPTx9uEuJImLo8ssWQZ4ytCcuO7Pk3P3nd1ZFj
+hKlNZYfRQSJeRDA5RNbes4akZqWmp3O0ycwQJ2w/L/01ViJOYP0Z50fZruRnTRncKa9qsJpTbI
+hCU4PUNUIp66FlBYnAgUo6VM1V1SyZ3nFVG0Z0d8pbKlGz2IbEVsVPiGWiVX7zYgvs3xzy5Yag
+GVIL4x/wpoaWY8ETWlPZBj9i/HJBr8OE52BEsxr3mfoeMT6jT8jzPSwVugsRmzyDb+7AzNbXS4
+oXnAt/6/+bSMRkG3z9XqICbQ7TRIGyPSh5DjxM/CIFcXwBk35nPvoCAAA=''',
     # Atropos Station
     "The Blue Danube": '''H4sIAMTllmEC/5WOsQoCMQyGX6VkttA7xMHbxMEHcFIcYhs84UwlbQU9zme3V3VSB5dAvj//R3
 o48jlFffNMAeaqB1NmoSPY9nDyHdnUUd5gdXXiD8TNqqmqyhiYKLA+cczhbJioX9d3U4+FyjT1
@@ -276,15 +276,15 @@ LW9XAjWeu+xt0Xe77mqhxckmjOwpjcAnGPX/KISvNx9Hg3nYEZ1GwDDYc/EbxeuaTiIYtAw2GB
 t8PPuR3NZ7FPp2S2PCUGHyIH3xmPPc53wKmG6lXdNe8FnYk3nmeVHATLFZnmVLv7IsuzLjX7dB
 8lbw0pp2ZI/Y+Yu98mKK5bCQyRMhaX4/xdFg4g1CGmYrqvEaxRaeC4uK78YCYmxCMUkQMlJOS9
 tRUUlEkEtzde3NYYk7uwZBUPzk5Zoc/gEy9f0kdAQAAA==''',
-    "Freedom of Choice": '''H4sIAM19aGIC/62T32vbMBDH/xWjpw1qkOSE0vlxYeyhe8kIjG19uMpKLbAkY8u0IaR/++4k5V
-fTlg2mBCs6RZ+77+nrLRvANd6WxvVTKJW3vXfahZF9Kn5tmfWdVlOnXyxxxRYGgrdGFd/Ng4X6
-98QrqJ65rIWQXApeS5o5Z1cFU35yAQ8JubvDZU45at1gkGOkH3wzqWC8KxvdwYb+S3E/BSqrN3
-0qgS0XNBhRwqaPhTQDPJTglMGykwxK+UQInAlV7a6Kd7XE4m/Kbzq04HTScvP1mc+iGCFETQ9e
-C44fFCY4/kaN/1ncP8oS85jweGflowltmbBJ5EWK1Wp1iwMnoi0vM44BhqCHctCggh/2OWf7nL
-PYy8vScX/xxt28gZxn5PXrxOWxVBxLOvXX6NjeXC6dedSALSLulvH4PDMDu4VRD8Vio4sP14I7
-+zHbGS0gD2aoDmYQMjk82SFZg5MrsjXk3hon3Dk/5R6g6XURNGfomdNeAc3k/AjKnAypEoTn4+
-xuh61l934kleyHDy19Y5csPO2bRpsVhaYA950+XMEaulGfNlyvtRs1nXZgY+jLgC73tvDr4nPr
-jYqbMMUkuP0TVMt2fwBn+FKPYwQAAA==''',
+    "Freedom of Choice": '''H4sIAGD4aGIC/62T32vbMBDH/xWjpxVqkOyE0vlxoeyhe8kIjG19uMqX2mBJxpZpQ0n/9t1Jyq
++mLRtMCVGk033uh756FgPY2pm8tf3kc+1M7yxaP4rP2a9nYVyHeurw1ZJWYtGCd6bV2ff2wUD1
+e5IllC+yqJQqZKFkVfAspbjMhHaT9eSkiu0dLVPIEbGmTUk7/eDqSfvW2bzGDjZ8lvfd5Dmtvu
+1jCmK54CGY4jd9SKQe4CEHq1tKO5bBIZ8YQTOjyu1l9mEtIfnr/Bv6BizGWq6/vshZKEYpVfGP
+rJSkDxWmJP2nGv9zcf9YlpqHgIc7yx9b3+QRG4s8C7FarW5p0MS05XnE0cPgccgHBO3dsIs528
+WchV6ep072xTt38w5ynpBXbxOXh1RpLNnrr9GhvSld9nG+oUOvxX1CekQgY64bJE1D18GIB1yZ
+cJzyiYzELZ/LFhvMPl0pac1FeggknmIvo3IvI1XEtxGFFEUlWU9JVMVOVEfcuTzm7qHxoSmeE/
+REo2+AZsX8AEqcBCkjRCZ3cRfadu9GrlL8oP7xNzTEwNOu3Wzk1pjJw32H+8tbQzfi8VXhGu2I
+7G3BhK2bgd6HM5lbZ18a1+pghCkEIfNP0I3Y/gGRsuZ9nQQAAA==''',
     # Australia!
     "Moustachium 602": '''H4sIAMTllmEC/62PQYrDMAxFrxK0rsExZRbNqgfoBVq6UB2TGByrOHKHacicvbKnA7PIcjYCfU
 nvfy3g4z2zelJ0MxyaBXStVS3CZYGJgrM5OOngmGdOGHyeuuOja1uj91rDrgFLObJstGa9rtK3
@@ -338,14 +338,14 @@ zQBNCTptWROsr3YQf91dDkct9HXEOwyxM3o4ebcQh8EXO6FvTPAc62q4cO0n4LAeY5iFaIqhA1
 26/nMTRHcxEzGaWd/kUv8QTxOIS1bU+qoQAaHv8cUFm14ejPYRn+ARdcBnu3qyK4LmHkOW5J2r
 ip+sgupOxJSTEDiWk/lrZjxD53acDAsOB8UVeRfMUJo2jRj9Shn/izy2mDkQ88uW4jj1/TZywY
 pgIAAA==''',
-    "Collapsar": """H4sIAJuwpGEC/21QTU/DMAz9K1XORCTpqICe0HbYASS0Ix8Hr/XWSm1S0kTbmMpvx+nHNsQi1b
-Ff6uf3fGSbco85L3XjHf82Glv2GB2ZoMg+vIjhgT9l6A4VakwH4EeoJX2plErIWKQq3FKkFCjG
-FAS7iZgMFHOwa6OjVam36fxHJNSUhFaRKJUqEXKlEiFSqRIVqAhhHXXvEBqjz2KOrDYVZr7CQP
-tqjSPaF5OjBWfsqCy6jeY9tyRuEiXkIDLUaqzjUA+TZD+V3uJkkJwZrx3xz0Q3Gvg7dnnIrdmi
-Tkf/wa+a/E7Nouv6qib9qF3Ld6UruPGONkzP70c25Lwpm37b72zVn8Xz6SwWC/ZJLO7Q9INzC1
-v+FRoCUZi2J1hJSg6U3NHEK7Thvys0HrTzNbcIGa3uH9l9F1qMK9Dys4tB+RU9pZ4Y5GxkiOnO
-sXWlBlcazU/0l+CgO4yqYT+Jacfu2jtYV3jysoGqRcILaCf9hDrr8dIdblC3GORoqHtobqoKmh
-Z6l+BdQX4JfoOsYN0vVZiC4PwCAAA=""",
+    "Collapsar": """H4sIAOv6aGIC/3VSTU/jMBD9K5HPa63tQASbE2oPHEBacdzCYUimjaXEDv4Q7Vbtb2ecj5Zdiq
+WMx8+ZN89+3rO13mLNtelj4H+tQc9+ZXsmKLLnKHK45XcVhl2LBssROAp1T18ppRIyF6VKsxQl
+BYo5BcF+ZEwmigW4V2uyJ2025eIoCioqUqkolCqVSLlShRClVIVKVISwA1VXtutJjQmev+vQcB
+sDKSTK1Z6NOe91P6hdsadhLB9OY7lcshdiCbsek4zawYa/pYJElNRtCVaSkh0l19TxAm367wJN
+BBNixx1CFaz7QnZzSCU2NOj4+RSj8gt6tJkZ5NXEkNNcow/aQNDW8BP9Z/Cs+x/SdwTqyCsw2g
+c8qysm7luaO9tiFduh6LezgQx6tDU6oONMHmc/s8XgkiSXyF4hR7vTWk3rPK1Hz+TgH+3lxWh+
+ZaNJbl2J7yVa42N3liivJ4nyf433u9rZDZpyenbpman5mc2dxHDtHWxnY/x0k10M8Nriydc1tB
+4Jb8DPXhIaXMTPTuMajcfUwEA3QAvbttB7GARDDA15T/AfqBp2+AAjcOeeSAMAAA==""",
     # ResearchNet
     # Volume 1 Issue 1
     "Tunnels I": '''H4sIAMQCKWAC/22OMQrDMAxFrxI0N2CnQ6A5QZdMnRo6mFRpDI4cbHlIg3v22u5Wsgj0+P9JO2
@@ -2110,7 +2110,7 @@ f6cNDp8zAv5adfwYEjbusBAAA=''',
 }
 
 unsupported_defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions",
-                             "More than Machine", "Don't Fear the Reaper", "Freedom of Choice", "End of the Line"}
+                             "Don't Fear the Reaper", "End of the Line"}
 
 # Dict of Resnet puzzle title: (volume, issue, puzzle) id - with shared-title levels storing lists of ids in the same
 # order as the sub-lists in `levels` above.

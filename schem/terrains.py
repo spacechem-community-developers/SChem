@@ -16,10 +16,10 @@ MAX_TERRAIN_INT = 7
 terrains = {
     'research':
         {'obstructed': {},
-         'input-zones': (('research-input', (0, 1)),  # actually these have empty type in SC but fuck that
-                         ('research-input', (0, 2))),
-         'output-zones': (('research-output', (7, 1)),
-                          ('research-output', (7, 2)),)},
+         'input-zones': (('drag-research-input', (0, 1)),  # actually these have empty type in SC but fuck that
+                         ('drag-research-input', (0, 2))),
+         'output-zones': (('drag-research-output', (7, 1)),
+                          ('drag-research-output', (7, 2)),)},
     0: {  # Sernimir IV
         'obstructed': {
             # Top-left rock
@@ -213,7 +213,7 @@ terrains = {
         'fixed-input-zones': (('drag-silo-input', (9, 4)),
                               ('drag-silo-input', (8, 12))),
         'output-zones': (('output', (23, 6)),
-                         ('output', (23, 12)),)},
+                         ('output', (23, 12)))},
     "There's Something in the Fishcake": {
         'obstructed': {
             # Top-left rock
@@ -360,8 +360,7 @@ terrains = {
             # Bottom-middle ice
             *product(range(13, 16), range(19, 22)),
         },
-        'fixed-input-zones': (('drag-oceanic-input', (5, 18)),),
-        'weapons': (('drag-weapon-nuclearmissile', (17, 15)),)},
+        'fixed-input-zones': (('drag-oceanic-input', (5, 18)),)},
     "Molecular Foundry": {
         'obstructed': {
             # Middle rock
@@ -420,13 +419,10 @@ terrains = {
         },
         'fixed-input-zones': (('drag-silo-input', (0, 1)),),
         'random-input-zones': (('drag-mining-input', (2, 14)),),
-        'weapons': (('drag-superlaser-reactor', (10, 8)),),
         'recycler': ('drag-recycler', (26, 17))},
-    "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so terrain may be empty
+    "Ω-Pseudoethyne": {'obstructed': {}},  # Flidais components can't be added/modified so can ignore terrain
     "Σ-Ethylene": {'obstructed': {}},
-    "Freedom of Choice": {
-        'obstructed': {},
-        'weapons': (('drag-weapon-chemicallaser', (13, 5)),)},
+    "Freedom of Choice": {'obstructed': {}},
     "Teleporters": {
         'obstructed': {
             # Top wall
@@ -478,7 +474,5 @@ terrains = {
             *product(range(1, 3), (16,)),
         },
         'fixed-input-zones': (('drag-spaceship-input', (1, 7)),
-                              ('drag-spaceship-input', (1, 14)),),
-        'weapons': (('drag-weapon-canister', (26, 9)),
-                    ('drag-weapon-consumer', (15, 19)))},
+                              ('drag-spaceship-input', (1, 14)),)},
 }

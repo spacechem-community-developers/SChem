@@ -49,6 +49,7 @@ class Level:
         else:
             raise ValueError(f"Unrecognized level type `{d['type']}`")
 
+    # TODO: Allow initializing directly from dict too
     def __init__(self, code=None):
         if code is None:
             self.dict = {}
@@ -103,9 +104,10 @@ class Level:
         assert isinstance(s, str), "Level type must be a string"
         self.dict['type'] = s
 
-    # TODO: More properties
+    # TODO: More properties and update Solution to use them
 
 
+# TODO: Don't really need the subclasses by level type
 class ResearchLevel(Level):
     __slots__ = ()
 

@@ -20,8 +20,8 @@ from .waldo import Waldo, Instruction, InstructionType
 # Dimensions of components that differ from the standard dimensions for their type
 COMPONENT_SHAPES = {
     # SC stores co-ordinates as col, row
-    'research-input': (1, 1),
-    'research-output': (1, 1),
+    'drag-research-input': (1, 1),
+    'drag-research-output': (1, 1),
     'disabled-output': (1, 1),
     'drag-silo-input': (5, 5),
     'drag-atmospheric-input': (2, 2),
@@ -206,34 +206,37 @@ class Component:
         if _type is None:
             _type = component_dict['type']
 
+        # Instantiate the appropriate subclass. If the subclass also overrides __new__ for deeper subclassing, we'll
+        # pass through their __new__ method too, otherwise we can save a recursion by using super() (object)
+        # instead
         parts = _type.split('-')
-        # TODO: Initialize SuperLaserReactor through Reactor class to avoid this ugly check
-        if 'reactor' in parts and parts[1] != 'superlaser':
-            return super().__new__(Reactor)
-        elif 'input' in parts:
-            return super().__new__(Input)
-        elif _type == 'drag-printer-output':
-            return super().__new__(OutputPrinter)
-        elif _type == 'drag-printer-passthrough':
-            return super().__new__(PassThroughPrinter)
-        elif 'output' in parts or 'production-target' in _type:
-            return super().__new__(Output)
+        if len(parts) >= 3:
+            if parts[2] == 'reactor':
+                return Reactor.__new__(Reactor, _type=_type)
+            elif parts[2] == 'input':
+                return Input.__new__(Input, component_dict)
+            elif _type == 'drag-printer-output':
+                return super().__new__(OutputPrinter)
+            elif _type == 'drag-printer-passthrough':
+                return super().__new__(PassThroughPrinter)
+            elif parts[2] in ('output', 'production'):
+                return super().__new__(Output)
+            elif _type == 'drag-storage-tank':
+                return super().__new__(StorageTank)
+            elif _type == 'drag-storage-tank-infinite':
+                return super().__new__(InfiniteStorageTank)
+            elif _type == 'drag-qpipe-in':
+                return super().__new__(TeleporterInput)
+            elif _type == 'drag-qpipe-out':
+                return super().__new__(TeleporterOutput)
+            elif parts[1] == 'weapon':  # SuperLaserReactor is handled by Reactor
+                return Weapon.__new__(Weapon, component_dict, _type=_type)
         elif _type == 'drag-recycler':
             return super().__new__(Recycler)
-        elif _type == 'drag-storage-tank':
-            return super().__new__(StorageTank)
-        elif _type == 'drag-storage-tank-infinite':
-            return super().__new__(InfiniteStorageTank)
         elif _type == 'freeform-counter':
             return super().__new__(PassThroughCounter)
-        elif _type == 'drag-qpipe-in':
-            return super().__new__(TeleporterInput)
-        elif _type == 'drag-qpipe-out':
-            return super().__new__(TeleporterOutput)
-        elif 'weapon' in parts or _type == 'drag-superlaser-reactor':
-            return super().__new__(Weapon)
-        else:
-            raise ValueError(f"Unrecognized component type {_type}")
+
+        raise ValueError(f"Unrecognized component type {_type}")
 
     def __init__(self, component_dict=None, _type=None, posn=None, num_in_pipes=0, num_out_pipes=0):
         self.type = _type if _type is not None else component_dict['type']
@@ -806,6 +809,14 @@ class Reactor(Component):
                  'bond_plus_pairs', 'bond_minus_pairs',
                  'quantum_walls_x', 'quantum_walls_y', 'disallowed_instrs',
                  'annotations', 'debug')
+
+    def __new__(cls, component_dict=None, _type=None, **kwargs):
+        """Convert to SuperLaserReactor as needed."""
+        _type = component_dict['type'] if _type is None else _type
+        if _type == 'drag-superlaser-reactor':
+            return object.__new__(SuperLaserReactor)
+        else:
+            return object.__new__(Reactor)
 
     def __init__(self, component_dict=None, _type=None, posn=None,
                  _num_in_pipes=2, _num_out_pipes=2):  # Hidden args so these can be overridden by SuperLaserReactor
@@ -1975,15 +1986,15 @@ class Weapon(Component):
         """Convert to the specific weapon subclass based on component name."""
         _type = component_dict['type'] if _type is None else _type
         if _type == 'drag-weapon-nuclearmissile':
-            return super().__new__(NuclearMissile)
+            return object.__new__(NuclearMissile)
         elif _type == 'drag-superlaser-reactor':
-            return super().__new__(SuperLaserReactor)
+            return object.__new__(SuperLaserReactor)
         elif _type == 'drag-weapon-chemicallaser':
-            return super().__new__(ChemicalLaser)
+            return object.__new__(ChemicalLaser)
         elif _type == 'drag-weapon-consumer':
-            return super().__new__(InternalStorageTank)
+            return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
-            return super().__new__(CrashCanister)
+            return object.__new__(CrashCanister)
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
@@ -1999,7 +2010,7 @@ class NuclearMissile(Weapon):
     def __init__(self, component_dict, _type=None, posn=None):
         super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=3)
 
-        self._outputs = [Output(mol_dict, _type='research-output', posn=(0, 0))  # Dummy values as these aren't exposed
+        self._outputs = [Output(mol_dict, _type='drag-research-output', posn=(0, 0))  # Dummy values
                          for mol_dict in component_dict['molecules']]
 
     def do_instant_actions(self, cycle):
