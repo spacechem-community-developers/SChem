@@ -1728,19 +1728,39 @@ class Reactor(Component):
     def delete_atom_bonds(self, posn):
         """Helper used by fuse and swap to remove all bonds from an atom and break up its molecule if needed.
         If no atom at the given position, does nothing.
+        Note that this properly updates all neighbors' molecule priorities, but for performance reasons does not
+        necessarily update the atom itself if it had no bonds to start with.
         """
         molecule = self.get_molecule(posn)
         if molecule is None:
             return
 
         atom = molecule.atom_map[posn]
-        for dirn in CARDINAL_DIRECTIONS:
-            if dirn in atom.bonds:
+        if atom.bonds:  # Safe optimization since callers always update the target molecule's priority themselves
+            num_bonds = len(atom.bonds)
+
+            # Remove bonds
+            for dirn in list(atom.bonds):  # Copy so we don't mutate what we're iterating on
                 neighbor_atom = molecule.atom_map[posn + dirn]
                 del atom.bonds[dirn]
                 del neighbor_atom.bonds[dirn.opposite()]
 
-        self.defrag_molecule(molecule, posn)
+            # Skip graph-searching the molecule when we know the atom wasn't a connector
+            if num_bonds == 1:
+                # Extract the atom into its own molecule
+                del molecule.atom_map[posn]
+                new_molecule = Molecule(atom_map={posn: atom})
+                self.molecules[new_molecule] = None
+                # Update the references of any waldos that were holding the atom
+                for waldo in self.waldos:
+                    if waldo.molecule is molecule and waldo.position == posn:
+                        waldo.molecule = new_molecule
+
+                # Update the priority of the old molecule
+                del self.molecules[molecule]
+                self.molecules[molecule] = None
+            else:
+                self.defrag_molecule(molecule, posn)
 
     def reduce_excess_bonds(self, posn):
         """Helper used by fuse and split to reduce bonds on a mutated atom down to its new max count, and break up its
