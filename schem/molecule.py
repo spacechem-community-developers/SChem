@@ -366,9 +366,6 @@ class Molecule:
         return out
 
     def output_zone_idx(self, large_output=False):
-        if not self:
-            return None
-
         if any(posn.col < 6 for posn in self.atom_map):
             return None
         elif large_output:
