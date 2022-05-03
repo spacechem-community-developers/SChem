@@ -48,35 +48,6 @@ class Atom:
         return self
 
 
-# Performance requirements:
-# Molecule:
-# * moving/rotating molecule is fast
-# * lookup if pos in molecule is fast
-# * lookup if molecule in an output zone is fast
-# * (Nice-to-have) Isomorphism algorithm is easy to implement
-
-# Molecule internal struct candidates:
-# * direct grid pos-atom dict: O(1) lookup by pos
-# * internal positions, with one map from an internal atom's position/direction to a grid
-#   position/direction for reference: O(1) lookup, but a lot of overhead. Seemed to be
-#   slower in practice.
-#   * Only need to update one position and direction on move/rotate
-
-# Reactor.molecules:
-# * Molecules are ordered by last creation/modification
-#   Used By: compliance with spacechem hidden priorities (output order)
-# * Molecules container has fast add/delete (dict? If so, ensure __hash__ is left
-#   as the default implementation which just checks object identity)
-#   Used By: input, output, bond+, bond-
-# * molecules can be quickly looked up by a single grid position
-#   Used By: grab, bond+, bond-, fuse, etc.
-
-# Reactor molecules container candidates:
-# * dict + a posn to molecule dict: adds more memory than single dict, but allows O(1) lookup by pos
-#   * moving a molecule now has overhead equal to it size... but if it speeds up collision checks it's
-#     probably worth it, not to mention commands like bond+, fuse.
-# * dict +: ordered, O(1) add/delete, O(N) lookup by pos (assuming O(1) pos lookup on Molecule)
-# * list -: ordered, saves memory, O(1) add, O(N) delete, O(N) lookup by pos
 class Molecule:
     """Class used for representing a molecule in a level's input/output zones and for evaluating
     solutions during runtime.
