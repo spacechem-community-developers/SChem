@@ -20,10 +20,10 @@ except ImportError:
     pass
 # TODO: Hoping to avoid default number-highlighting via Console(highlight=False).print but it seems to break ANSI resets
 
-from .components import Component, Input, Output, Weapon, Reactor, Recycler, DisabledOutput, \
+from .components import Component, Input, RandomInput, Output, Weapon, Reactor, Recycler, DisabledOutput, \
                         TeleporterInput, TeleporterOutput, Boss, NuclearMissile, DEFAULT_RESEARCH_REACTOR_TYPE
 from .waldo import InstructionType
-from .exceptions import SolutionImportError, ScoreError
+from .exceptions import SolutionImportError, ScoreError, InfiniteLoopError
 from .grid import *
 from .level import Level, OVERWORLD_COLS, OVERWORLD_ROWS
 from .levels import levels as built_in_levels, unsupported_defense_names, resnet_ids
@@ -80,10 +80,30 @@ class Score(namedtuple("Score", ('cycles', 'reactors', 'symbols'))):
         return cls(*(int(x) for x in s.split('-')))
 
 
+# Helper for tracking solution states, in particular the tree of states that arises when random inputs are involved
+class StateTreeSegment:
+    """A single consecutive sequence of states, uninfluenced by randomness.
+    A solution's tree of states consists of junctions caused by random inputs, connected by these segments. A non-random
+    level thus contains only a single segment.
+    """
+    __slots__ = 'cycles', 'output_cycles', 'next_node'
+
+    def __init__(self, num_outputs):
+        self.cycles = 0  # Number of cycles (states) in this segment
+        # Cycles (relative to the start of this segment) during which a (successful) output occurred, for each output
+        # component in the level
+        self.output_cycles = [[] for _ in range(num_outputs)]
+        self.next_node = None  # The next branch node caused by a random input
+
+
 class Solution:
     """Class for constructing and running game entities from a given level object and solution code."""
     __slots__ = ('level', 'expected_score', 'author', 'name',
-                 'components', 'boss', 'cycle')
+                 'components', 'boss', 'cycle',
+                 # Hashing-related attributes
+                 '_prior_states', '_state_tree_segments', '_state_tree_nodes',
+                 '_cur_state_tree_segment_idx', '_cycles_to_new_state',
+                 '_random_inputs', '_random_input_copies')
 
     DEFAULT_MAX_CYCLES = 1_000_000  # Default timeout for solutions whose expected cycle count is unknown
 
@@ -626,8 +646,21 @@ class Solution:
                             break  # Safe since we check bottom up
 
             self.validate_components()
+
+            # Hashing-related vars
+            # TODO: These are probably better off living on some dedicated StateTree class
+            self._prior_states = {}  # Set containing hashes of every previous state
+            self._state_tree_segments = [StateTreeSegment(num_outputs=len(list(self.outputs)))]
+            self._cur_state_tree_segment_idx = 0
+            self._state_tree_nodes = []
+            self._cycles_to_new_state = 0
         except Exception as e:
             raise SolutionImportError(str(e)) from e
+
+    def __hash__(self):
+        # Hash all components. Note that we didn't set outputs to hash their counts, and still include them in the hash
+        # so we don't fail to hash the pipes of pass-through outputs
+        return hash(tuple(c.hashable_repr(self.cycle) for c in self.components))
 
     def validate_components(self):
         """Validate that this solution is legal (whether or not it can run to completion)."""
@@ -751,13 +784,306 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
+    def hash_and_check_state(self, debug=False):
+        """Hash the current solution state and check if it matches a past state, fast-forwarding cycles when possible.
+        Return True if the solution has been fast-forwarded to successful completion.
+        """
+        # If we previously did a lookahead to the next unexplored branch, we can remember how many cycles
+        # we are from an unknown state and skip calculating the hash while we're advancing the solution to that state.
+        # This also guarantees that every time the below code notices we just did a random input, we are adding a new
+        # segment and not following an already-explored segment
+        if self._cycles_to_new_state > 0:
+            self._cycles_to_new_state -= 1
+            return
+
+        # If the current cycle included a molecule being consumed from a random input's pipe, add a new branch node if
+        # the segment we're in doesn't already link to one (i.e. we didn't just fast-forward), and add a segment for the
+        # new branch
+        # Conveniently, our current pipe implementation already has to track the last pop cycle
+        if any(rand_input.out_pipe._last_pop_cycle == self.cycle for rand_input in self._random_inputs):
+            last_segment = self._state_tree_segments[self._cur_state_tree_segment_idx]
+
+            if last_segment.next_node is None:  # next_node should only be present if we previously fast-forwarded
+                self._state_tree_nodes.append({})
+                last_segment.next_node = len(self._state_tree_nodes) - 1
+
+            cur_node = self._state_tree_nodes[last_segment.next_node]
+
+            # Add a new segment, link to it from the node, and set it as the current segment
+            self._state_tree_segments.append(StateTreeSegment(num_outputs=len(list(self.outputs))))
+            self._cur_state_tree_segment_idx = len(self._state_tree_segments) - 1
+
+            # Create a key representing which random branch we entered, accounting for multiple random inputs
+            # potentially having produced in the same cycle
+            # Could construct this for this block's `if`, but we want the check's main case to be as fast as possible
+            input_branch_key = tuple(rand_input_copy.get_next_molecule_idx()  # Note that this advances the input copy
+                                     if rand_input.out_pipe._last_pop_cycle == self.cycle else None
+                                     for rand_input, rand_input_copy in zip(self._random_inputs, self._random_input_copies))
+            assert input_branch_key not in cur_node  # Should be guaranteed by our cycles_to_new_state fast-forwarding
+            cur_node[input_branch_key] = self._cur_state_tree_segment_idx
+
+        # Update the current segment's cycle and output counts
+        cur_segment = self._state_tree_segments[self._cur_state_tree_segment_idx]
+        for output_idx, output in enumerate(self.outputs):
+            if output.in_pipe is not None and output.in_pipe._last_pop_cycle == self.cycle:
+                cur_segment.output_cycles[output_idx].append(cur_segment.cycles)  # Cycle relative to segment start
+        cur_segment.cycles += 1
+
+        # Check if we match a previous state
+        cur_state = hash(self)
+        if cur_state not in self._prior_states:
+            # Store the current state and which segment it's in
+            self._prior_states[cur_state] = self._cur_state_tree_segment_idx
+            return
+
+        # Check which segment we looped back to
+        other_segment_idx = self._prior_states[cur_state]
+
+        # Count how many cycles into the matched segment we skipped. We need to know this whether or not it's the same
+        # as our current segment
+        skipped_cycles = 1  # We always skip at least the cycle leading to the hash we merged with
+        for state, segment_idx in self._prior_states.items():
+            if segment_idx != other_segment_idx:  # Ignore irrelevant segments
+                continue
+            elif state == cur_state:
+                break
+
+            skipped_cycles += 1
+
+        # If the matched hash is in the current segment of the hash tree, we found a deterministic loop and can
+        # safely fast-forward or declare an infinite loop
+        if other_segment_idx == self._cur_state_tree_segment_idx:
+            # Special case: In all-0-count output levels (e.g. `Head or Tails?`), the below code would accidentally
+            # think all outputs were complete and allow infinite loops to 'win'.
+            # However note that in that case we can't have ever output before, or we'd have won, so any loop must be an
+            # infinite loop
+            if all(output.target_count == 0 for output in self.outputs):
+                raise InfiniteLoopError("Solution contains an infinite loop.")
+
+            # Figure out how many cycles it will take each output to complete. The max is our winning cycle
+            remaining_cycles = 0
+            for output_idx, output in enumerate(self.outputs):
+                # Ignore the output if it's already complete. At least one must not be complete or we'd have
+                # exited while executing this cycle
+                remaining_outputs = output.target_count - output.current_count
+                if remaining_outputs <= 0:
+                    continue
+
+                # Identify the outputs that are contained in the part of the segment we're looping over
+                loop_outputs = [c for c in cur_segment.output_cycles[output_idx] if c >= skipped_cycles]
+                if not loop_outputs:
+                    # If this loop doesn't output any molecules into an incomplete output, we will never win
+                    raise InfiniteLoopError("Solution contains an infinite loop.")
+
+                # Note that the last loop can't be a full loop, so we add a -1 to the remaining outputs
+                full_loops, outputs_remainder = divmod(remaining_outputs - 1, len(loop_outputs))
+                outputs_remainder += 1  # Per the -1 above, we've ensured this is at least 1
+                cycles_remainder = 0
+                if outputs_remainder != 0:
+                    # +1 since it's 0-indexed
+                    cycles_remainder = loop_outputs[outputs_remainder - 1] - skipped_cycles + 1
+                remaining_cycles = max(remaining_cycles,
+                                       full_loops * (cur_segment.cycles - skipped_cycles) + cycles_remainder)
+            self.cycle += remaining_cycles
+
+            return True
+
+        # At this point we know the loop wasn't internal to our current segment
+        other_segment = self._state_tree_segments[other_segment_idx]
+
+        # 'Extend' the current segment based on the other segment's remaining cycles
+        # We will also initialize some incoming_<measure> vars that will be used in the lookahead after this
+        incoming_cycles = other_segment.cycles - skipped_cycles
+        incoming_outputs = []  # The amount each output will be incremented by in what remains of this segment
+        for i in range(len(list(self.outputs))):  # TODO: Stop re-incurring the cost of counting output objects...
+            other_outputs = [cur_segment.cycles + c - skipped_cycles
+                             for c in other_segment.output_cycles[i]
+                             if c >= skipped_cycles]
+            incoming_outputs.append(len(other_outputs))
+            cur_segment.output_cycles[i].extend(other_outputs)
+        cur_segment.cycles += incoming_cycles
+        cur_segment.next_node = other_segment.next_node
+        incoming_cycles += 1  # I think the above had an off-by-1 error?
+
+        # At this point we must have finished exploring a branch and have at least one loopback; look for another
+        # unexplored branch. Since we don't store full copies of the solution, we can't actually advance the current
+        # solution state to just before a new unexplored branch, but we can fast-forward the cycle/output counts past
+        # any loops we foresee re-encountering and skip hash checks on our way to the new branch.
+        # Starting from the matched state, search forward in the state tree, drawing random inputs as needed,
+        # and tallying up the future cycle and output counts for each jump.
+        # If we find...
+        # * that our accumulation of output counts will make us win: stop and step through each state
+        #   in the winning segment to figure out exactly what cycle we'll win on.
+        # * An unexplored branch: stop searching and exit, keeping note of how many cycles to ignore hashes for
+        # * A loop to a node we've visited: Add the loop's cycles/outputs to the solution's real counts,
+        #   then reset the tally of future cycles/outputs to those from before the loop, and continue searching.
+        segment_idx = self._cur_state_tree_segment_idx
+        segment = cur_segment
+        # Track the nodes we encounter while hopping through segments, along with how many cycles/outputs away they are
+        visit_path = {}  # node_idx: [next_branch_input_key, cycles_until_this_node, outputs_until_this_node]
+        while True:
+            # Check if the level will be completed by the outputs from all segments forecasted so far
+            if all(output.current_count + incoming_outputs[output_idx] >= output.target_count
+                   for output_idx, output in enumerate(self.outputs)):
+                if debug:
+                    print(f'Fast-forwarding to end from cycle {self.cycle}')
+
+                # Figure out exactly which cycle we won on from the segment we just fast-forwarded through
+                # (we must have won in the current segment or we'd have caught it last loop).
+                # We could check before fast-forwarding but this is more convenient since our first
+                # lookahead above may have been only partway through the segment we matched
+                for output_idx, output in enumerate(self.outputs):
+                    output.current_count += incoming_outputs[output_idx]
+
+                winning_cycle = 0
+                for output_idx, output in enumerate(self.outputs):
+                    output_diff = output.current_count - output.target_count
+                    assert output_diff >= 0  # Sanity check that we actually won
+                    if output_diff < len(segment.output_cycles[output_idx]):
+                        winning_cycle = max(winning_cycle, segment.output_cycles[output_idx][-output_diff - 1])
+                self.cycle += incoming_cycles - (segment.cycles - winning_cycle)
+
+                return True
+
+            # Check the next random branch node
+            node_idx = segment.next_node
+            node = self._state_tree_nodes[node_idx]
+            # If this node is already in our visit path, we found a loop; pre-emptively increase our cycle/outputs,
+            # re-jigger the corresponding input component/pipe to omit that part of the random sequence, and remove the
+            # loop from our visit history.
+            # E.g. our current forecast might be:
+            # [---- A ------ B -------- A] where A and B are different states where a random input occurs, in which case
+            # we should update to:
+            # [---- A] while adding all the cycles and outputs from the removed loop, and removing the future random
+            # sequence entries that will be drawn at B and the first A.
+            if node_idx in visit_path:
+                if debug:
+                    print(f"Cycle {self.cycle}: Fast-forwarding a loop from cycles {self.cycle + visit_path[node_idx][1]}"
+                          f" to {self.cycle + incoming_cycles}")
+
+                # Add the loop's cycles/outputs pre-emptively; this is safe since we've already checked that we
+                # won't win before or during the discovered loop
+                self.cycle += incoming_cycles - visit_path[node_idx][1]  # Add loop cycles to our total
+                for output_idx, output in enumerate(self.outputs):
+                    output.current_count += incoming_outputs[output_idx] - visit_path[node_idx][2][output_idx]
+
+                # Do surgery on the random input(s) and their pipes to remove all molecules that were part of this loop,
+                # shuffling later molecules into their existing positions
+                def remove_inputs(random_input: RandomInput, indices: set):
+                    """Remove a set of input sequence indices from the given random input component and its pipe."""
+                    max_idx = max(indices)
+                    num_pipe_mols = len(random_input.out_pipe._molecules)
+
+                    # To avoid unnecessary molecule construction, remove inputs not yet in the pipe first
+                    restore_indices = []
+                    for i in range(num_pipe_mols, 1 + max_idx):
+                        mol_idx = random_input.get_next_molecule_idx()
+                        if i not in indices:
+                            restore_indices.append(mol_idx)
+                        else:
+                            indices.remove(i)
+                    # Restore the indices we weren't supposed to remove (to the front of the input's queue)
+                    random_input.forecast_queue.extend(reversed(restore_indices))
+
+                    # The remaining indices should correspond to molecules already in the pipe; sort and remove them
+                    # in order, while constructing and adding an equal number of molecules back into the pipe, shuffling
+                    # all molecules along so they fill the same positions
+                    idx_offset = 0  # As we remove indices, all remaining indices have to be shifted
+                    for remove_idx in sorted(indices):
+                        remove_idx -= idx_offset
+                        # Remove from the molecules queue and add a new molecule from the input.
+                        # Due to the nature of our timed queue pipe implementation, this implicitly shuffles the
+                        # molecules along to fill each other's positions
+                        # Make sure to use right-indexing
+                        del random_input.out_pipe._molecules[num_pipe_mols - 1 - remove_idx]  # slow but oh well
+                        new_molecule = copy.deepcopy(random_input.molecules[random_input.get_next_molecule_idx()])
+                        random_input.out_pipe._molecules.appendleft(new_molecule)
+
+                        idx_offset += 1
+
+                # Identify all the molecules that were part of the loop and remove them
+                # We need some helper vars here since not every node will necessarily consume all random inputs,
+                # so the indices of each random input's sequence that we have to start removing from may vary
+                cur_input_seq_indices = [0 for _ in self._random_inputs]
+                input_seq_indices_to_remove = [set() for _ in self._random_inputs]
+                in_loop = False  # So we know when to start removing
+                for cur_node_idx, (input_key, _, _) in visit_path.items():
+                    if cur_node_idx == node_idx:
+                        in_loop = True
+
+                    for input_idx, mol_idx in enumerate(input_key):
+                        if mol_idx is not None:
+                            if in_loop:
+                                input_seq_indices_to_remove[input_idx].add(cur_input_seq_indices[input_idx])
+
+                            cur_input_seq_indices[input_idx] += 1
+
+                for rand_input, seq_indices in zip(self._random_inputs, input_seq_indices_to_remove):
+                    remove_inputs(rand_input, seq_indices)
+
+                # Reset accumulated cycles/outputs
+                incoming_cycles = visit_path[node_idx][1]
+                incoming_outputs = list(visit_path[node_idx][2])
+                # Reset visit path to before the loop
+                new_visit_path = {}
+                for k, v in visit_path.items():
+                    new_visit_path[k] = v
+                    if k == node_idx:
+                        break
+                visit_path = new_visit_path
+
+            # Examine one branch of this node (there must be at least one) to know which random input(s) we need,
+            # then draw new inputs from these
+            sample_input_key = next(iter(node))  # [(input1_mol_idx | None), (input2_mol_idx | None), ...]
+            new_input_key = tuple(self._random_input_copies[i].get_next_molecule_idx()
+                                  if sample_mol_idx is not None else None
+                                  for i, sample_mol_idx in enumerate(sample_input_key))
+            # In addition to the random input indices predicted, store the cycles and output counts accumulated
+            # up to this node, so we can quickly measure loops and reset our counts after finding one
+            visit_path[node_idx] = [new_input_key, incoming_cycles, tuple(incoming_outputs)]
+
+            # Check if this branch is already explored or not
+            if new_input_key in node:
+                # Fast-forward through the explored segment we found, updating our accumulation of cycles/outputs
+                segment_idx = node[new_input_key]
+                segment = self._state_tree_segments[segment_idx]
+                incoming_cycles += segment.cycles
+                for output_idx, output_cycles in enumerate(segment.output_cycles):
+                    incoming_outputs[output_idx] += len(output_cycles)
+            else:
+                # While we'll be skipping all hash checks until the unexplored branch and thus don't need to restore
+                # most of the reference input' molecules that were extracted from the PRNG, we do need to restore
+                # the one(s) that triggers the unexplored branch, as that will be used to add the new branch to the node
+                # on the first cycle after renewing hash checking
+                for input_idx, input_mol_idx in enumerate(new_input_key):
+                    if input_mol_idx is not None:
+                        self._random_input_copies[input_idx].forecast_queue.appendleft(input_mol_idx)
+
+                # Indicate how many cycles we should skip state checking for, to avoid accidentally re-triggering
+                # a search (as all the states we'll pass through on the way to the new branch are known)
+                # The last forecast cycle is the one that will put us in a new branch and needs to be checked, so
+                # we need a -1 here.
+                # TODO: I think this is correct but the random input cycle - technically the start of a
+                #       segment - may have been 'two-wrongs-make-a-right'ed
+                self._cycles_to_new_state = incoming_cycles - 1
+                # Also update the 'current segment' to what it will be when we start state-checking again
+                self._cur_state_tree_segment_idx = segment_idx
+
+                break
+
     def run(self, max_cycles: Optional[float] = None,  # Sucky way to make sure math.inf doesn't get yelled at
+            hash_states: int = 1000,
             debug: Optional[DebugOptions] = False) -> Score:
         """Run this solution, returning a Score or raising an exception if it crashes or exceeds max_cycles.
 
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
-                        or 1,000,000 cycles if not provided (use math.inf if you don't fear infinite loop solutions).
+                        or 1,000,000 cycles if not provided. Also accepts math.inf.
+            hash_states: Maximum number of unique cycle states to hash for the purposes of loop detection. Default 1000.
+                         Pass 0 to disable hashing.
+            hashing: If true, store hashes of each cycle's solution state and use them to fastforward execution and
+                     detect infinite loops. Could theoretically result in invalid results due to hash collisions.
+                     Default True.
             debug: Print an updating view of the solution while running. See DebugOptions.
         """
         # Set the maximum runtime if unspecified to ensure a broken solution can't infinite loop forever
@@ -767,12 +1093,24 @@ class Solution:
             else:
                 max_cycles = self.DEFAULT_MAX_CYCLES
 
+        # Hashing can't handle defense and sandbox levels
+        if self.level.type in {'defense', 'sandbox'}:
+            hash_states = 0
+
         # Default debug view to the reactor's interior in research levels
         if debug and self.level['type'].startswith('research'):
             debug.reactor = 0
 
         reactors = list(self.reactors)
         outputs = list(self.outputs)
+
+        # Hashing-related helpers that need to be dynamic (e.g. to pick up changes to the inputs' seeds that may have
+        # been done after the constructor)
+        if hash_states > 0:
+            self._random_inputs = [c for c in self.components if isinstance(c, RandomInput)]  # Convenience
+            # Reference copies of the random inputs
+            # Ease tracking which molecules were just consumed from the random inputs' pipes
+            self._random_input_copies = [copy.deepcopy(i) for i in self._random_inputs]
 
         # If we are continuing running from a pause, start with a movement phase
         # TODO: If it was a red pause, need to do the blue instants phase first... and if both
@@ -819,6 +1157,10 @@ class Solution:
                                      show_instructions=debug.show_instructions)
 
                 self.cycle_movement()
+
+                # Attempt to fast-forward if we're within our hash memory limit and not in a defense or sandbox level
+                if len(self._prior_states) < hash_states and self.hash_and_check_state(debug=bool(debug)):
+                    return Score(self.cycle - 1, len(reactors), self.symbols)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
         except KeyboardInterrupt:
@@ -869,6 +1211,7 @@ class Solution:
         return max_cycles
 
     def validate(self, max_cycles: Optional[float] = None,
+                 hash_states: int = 1000,
                  debug: Optional[DebugOptions] = False) -> Solution:
         """Same behaviour as Solution.run, but additionally raises an exception if the score does not match
         the expected score in solution metadata (expected_score). The run is skipped entirely if reactor/symbol counts
@@ -879,7 +1222,7 @@ class Solution:
         max_cycles = self._validate_setup(max_cycles)
 
         # Run the solution to completion
-        cycles, _, _ = self.run(max_cycles=max_cycles, debug=debug)
+        cycles, _, _ = self.run(max_cycles=max_cycles, hash_states=hash_states, debug=debug)
 
         # Validate the cycle count
         if cycles != self.expected_score.cycles:
@@ -891,6 +1234,7 @@ class Solution:
         return is_precognitive(self, *args, **kwargs)
 
     def evaluate(self, max_cycles: Optional[float] = None,
+                 hash_states: int = 1000,
                  strict: bool = False,
                  check_precog: bool = False,
                  max_precog_check_cycles: Optional[float] = None,
@@ -908,7 +1252,9 @@ class Solution:
 
         Args:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
-                or 1,000,000 cycles if no expected_score (use math.inf if you don't fear infinite loop solutions).
+                or 1,000,000 cycles if no expected_score. Also accepts math.inf.
+            hash_states: Maximum number of unique cycle states to hash for the purposes of loop detection. Default 1000.
+                         Pass 0 to disable hashing.
             strict: Require that expected_score isn't None, always validating it.
             check_precog: If True, do additional runs on the solution to check if it fits the current community
                 definition of a precognitive solution. Default False.
@@ -944,7 +1290,7 @@ class Solution:
                 max_cycles = self._validate_setup(max_cycles)
 
             if _run:
-                score = self.run(max_cycles=max_cycles, debug=debug)
+                score = self.run(max_cycles=max_cycles, hash_states=hash_states, debug=debug)
                 result['cycles'] = score.cycles
 
                 # Validate the cycle count if expected score was present
@@ -966,6 +1312,7 @@ class Solution:
                 result['precog'], result['precog_explanation'] = \
                     self.is_precognitive(max_cycles=original_max_cycles,
                                          max_total_cycles=max_precog_check_cycles,
+                                         hash_states=hash_states,
                                          just_run_cycle_count=result['cycles'],
                                          include_explanation=True)
 
@@ -994,6 +1341,13 @@ class Solution:
             self.boss.reset()
 
         self.cycle = 0
+
+        # Hashing-related vars
+        self._prior_states = {}  # Set containing hashes of every previous state
+        self._state_tree_segments = [StateTreeSegment(num_outputs=len(list(self.outputs)))]
+        self._cur_state_tree_segment_idx = 0
+        self._state_tree_nodes = []
+        self._cycles_to_new_state = 0
 
         return self
 

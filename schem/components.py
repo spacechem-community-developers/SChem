@@ -76,6 +76,15 @@ class Pipe:
     def __len__(self):
         return len(self.posns)
 
+    def hashable_repr(self, cycle):
+        """Return a hashable representation of this pipe's contents."""
+        # TODO: I *think* returning a frozenset of the molecules and their indices will be better in terms of reducing
+        #       hash collisions since every empty value in the pipe adds a chance to find a collision (and we don't need
+        #       the hash to work well across pipe lengths so removing the empty values makes sense), but it's incredibly
+        #       hard to get concrete info on this and/or if the extra inclusion of indices would reduce entropy more
+        #       than it was increased by frozenset's de-ordering.
+        return tuple(self.to_list(cycle))
+
     def get(self, idx: int, cycle: int) -> Optional[Molecule]:
         """Return the molecule at the given index, else None."""
         if not self._molecules:
@@ -257,6 +266,13 @@ class Component:
                 self.out_pipes.append(Pipe(posns=[pipe_start_posn]))
                 pipe_start_posn += DOWN
 
+    def hashable_repr(self, cycle):
+        """Represent this component and its pipes in a hashable format."""
+        # Hashing pipes every cycle loses all the gains from the O(1) pipe rework... but we won't hash pipes in the
+        # non-naive version of hashing so leaving it be
+        # By default a component's only hash-relevant contents are its pipes
+        return tuple(pipe.hashable_repr(cycle) for pipe in self.out_pipes)
+
     @classmethod
     def parse_metadata(cls, s):
         """Given a component export string or its COMPONENT line, return its component type and posn."""
@@ -357,8 +373,12 @@ class Input(Component):
     def out_pipe(self, p):
         self.out_pipes[0] = p
 
-    def __new__(cls, input_dict, *args, **kwargs):
+    def __new__(cls, input_dict=None, *args, **kwargs):
         """Convert to a random or programmed input if relevant."""
+        # Avoid having a required positional arg so stuff like deepcopy works
+        if input_dict is None:
+            return object.__new__(cls)
+
         if 'repeating-molecules' in input_dict:
             return object.__new__(ProgrammedInput)
 
@@ -387,6 +407,17 @@ class Input(Component):
 
         self.num_inputs = 0
 
+    def hashable_repr(self, cycle):
+        # A static input's state is only dependent on how many cycles remain until it next produces a molecule
+        return (cycle - 1) % self.input_rate, super().hashable_repr(cycle)
+
+    def hashable_repr(self, cycle):
+        # As a small optimization, ignore the identities of the molecules in the pipe since they can't have had their
+        # state affected by a reactor yet; hash only the positional indices of the molecules in the pipe and the number
+        # of cycles remaining until the next output.
+        return (cycle - 1) % self.input_rate, frozenset(i for i, mol in enumerate(self.out_pipe.to_list(cycle))
+                                                        if mol is not None)
+
     def move_contents(self, cycle):
         """Create a new molecule if on the correct cycle and the pipe has room."""
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
@@ -404,7 +435,7 @@ class Input(Component):
 
 
 class RandomInput(Input):
-    __slots__ = 'seed', 'random_generator', 'input_counts', 'random_bucket'
+    __slots__ = 'seed', 'random_generator', 'input_counts', 'random_bucket', 'forecast_queue'
 
     def __init__(self, input_dict, _type=None, posn=None, is_research=False):
         super().__init__(input_dict, _type=_type, posn=posn, is_research=is_research)
@@ -419,8 +450,21 @@ class RandomInput(Input):
         molecules_key = 'inputs' if 'inputs' in input_dict else 'molecules'
         self.input_counts = [input_mol_dict['count'] for input_mol_dict in input_dict[molecules_key]]
 
+        # Required so the state fast-forwarder can search ahead in the random sequence while putting the drawn values
+        # back afterward
+        self.forecast_queue = collections.deque()
+
+    # Use the same hashable_repr definition as Input, which (as an optimization) ignores the identities of the pipe's
+    # molecules. This allows us to be slightly less naive in our hashing, avoiding the state being considered different
+    # just because of a bunch of unprocessed random molecules piling up in the pipe. We'll do our state branching based
+    # on the molecules exiting the pipe rather than those currently being produced
+
     def get_next_molecule_idx(self):
         """Get the next input molecule's index. Exposed to allow for tracking branches in random level states."""
+        # If the state fast-forwarder looked ahead in our sequence, use any values it restored first
+        if self.forecast_queue:
+            return self.forecast_queue.pop()
+
         # Create the next balance bucket if we've run out.
         # The bucket stores an index identifying one of the 2-3 molecules
         if not self.random_bucket:
@@ -471,6 +515,11 @@ class ProgrammedInput(Input):
             self.input_rate = 10
 
         self.num_inputs = 0
+
+    def hashable_repr(self, cycle):
+        # Given the info of what repetition index the programmed input is on, the identities of the molecules in the
+        # pipe can be deduced, so we're safe to again use Input's identity-unaware handling of the pipe's molecules
+        return self.starting_idx, self.repeating_idx, super().hashable_repr(cycle)
 
     def move_contents(self, cycle):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
@@ -548,6 +597,10 @@ class PassThroughCounter(Output):
         # 'count' and 'molecule' are nested in 'target' for pass-through counters; unwrap before calling Output's init
         super().__init__({**output_dict, **output_dict['target']}, num_out_pipes=1)
         self.stored_molecule = None
+
+    def hashable_repr(self, cycle):
+        return (self.stored_molecule.hashable_repr() if self.stored_molecule is not None else None,
+                super().hashable_repr(cycle))
 
     @property
     def out_pipe(self):
@@ -700,6 +753,11 @@ class StorageTank(Component):
     @out_pipe.setter
     def out_pipe(self, p):
         self.out_pipes[0] = p
+
+    def hashable_repr(self, cycle):
+        # Include the stored molecules in the hash
+        return (tuple(mol.hashable_repr() for mol in self.contents),
+                super().hashable_repr(cycle))
 
     def do_instant_actions(self, cycle):
         if self.in_pipe is None:
@@ -1150,6 +1208,11 @@ class Reactor(Component):
             features.append(f"MEMBER:'feature-tunnel',-1,0,1,{posn.col},{posn.row},0,0")
 
         return '\n'.join([component_line, *waldo_starts, *features, *waldo_instrs, *pipes, *self.annotations])
+
+    def hashable_repr(self, cycle):
+        return (tuple(molecule.hashable_repr() for molecule in self.molecules),
+                tuple(self.waldos),
+                super().hashable_repr(cycle))
 
     def __hash__(self):
         """Hash of the current reactor state."""

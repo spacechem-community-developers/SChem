@@ -117,6 +117,7 @@ def main(args: argparse.Namespace):
             # Call validate if the solution has an expected score, else run
             # Also disable verbosity for --json or --export to avoid interfering with their STDOUT outputs
             result = solution.evaluate(max_cycles=args.max_cycles,
+                                       hash_states=args.hash_states,
                                        strict=args.strict,
                                        check_precog=args.check_precog,
                                        max_precog_check_cycles=args.max_precog_check_cycles,
@@ -191,12 +192,6 @@ if __name__ == '__main__':
                              "If not provided, solution is checked against any official level with a matching title.\n"
                              "If flag is used multiple times, it will be checked that the solution validates for at\n"
                              "least one of the levels.")
-    parser.add_argument('--seed', type=int, default=None,
-                        help="Override the seed of the level's random input.\n"
-                             "Expected score is ignored when this flag is used.\n"
-                             "If multiple random inputs are present, sets the first input to the given seed, and\n"
-                             "keeps the relative difference between it and other inputs' seeds the same.\n"
-                             "E.g. if a level had two same-seed inputs, both will use the given seed.")
     parser.add_argument('--max-cycles', type=int, default=None,
                         help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
                              "1,000,000 if incomplete score metadata.\n"
@@ -220,6 +215,16 @@ if __name__ == '__main__':
                              "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
                              "null. Pass -1 to take as many runs as determined to be needed.\n"
                              "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Override the seed of the level's random input.\n"
+                             "Expected score is ignored when this flag is used.\n"
+                             "If multiple random inputs are present, sets the first input to the given seed, and\n"
+                             "keeps the relative difference between it and other inputs' seeds the same.\n"
+                             "E.g. if a level had two same-seed inputs, both will use the given seed.")
+    parser.add_argument('--hash-states', type=int, default=1000,
+                        help="Hash up to the given number of unique cycle states in order to detect loops.\n"
+                             "This enables fast infinite loop detection as well as speeding up execution of many\n"
+                             "classes of solutions, particularly non-random ones. Pass 0 to disable hashing.")
     parser.add_argument('--export', action='store_true',
                         help="Re-export the given solution export so its lines are in schem-standardized order, and\n"
                              "print it to STDOUT, suppressing default validation STDOUT messages.\n"

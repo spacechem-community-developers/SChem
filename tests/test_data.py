@@ -6366,6 +6366,7 @@ MEMBER:'instr-grab',-1,1,128,2,1,0,0
 MEMBER:'instr-rotate',-1,0,128,4,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
+    r"""SOLUTION:Head or Tails?,Zig,0-0-0,Infinite loop with double 0-count outputs""",
 ]
 
 invalid_outputs = [

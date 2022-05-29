@@ -1,24 +1,25 @@
 # SChem
 
-https://pypi.org/project/schem/
+https://pypi.org/project/schem/. Install with `pip install schem`
 
 Clean Room implementation of the backend of SpaceChem (https://www.zachtronics.com/spacechem).
 
 ## Usage (CLI)
 
 ```
-python -m schem [-h] [--version] [-l LEVEL_FILE] [--seed SEED] [--max-cycles MAX_CYCLES]
+python -m schem [-h] [--version] [-l LEVEL_FILE] [--max-cycles MAX_CYCLES]
                 [--check-precog] [--max-precog-check-cycles MAX_PRECOG_CHECK_CYCLES]
+                [--seed SEED] [--hash-states HASH_STATES]
                 [--export] [--no-run] [--strict]
                 [--json | --verbose] [--debug [DEBUG]]
                 [solution_files ...]
 ```
 
-E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export(s) in the user's clipboard.
+E.g. `python -m schem` will validate the cycles-reactors-symbols score of any solution export(s) in the user's clipboard. See `python -m schem --help` for details.
 
-## Usage (API)
+## Usage (python)
 
-Some sample API calls, supposing `level_export`, `solution_export` are strings as exported by SpaceChem CE:
+Some sample programmatic calls, supposing `level_export`, `solution_export` are strings as exported by SpaceChem CE:
 ```python
 from schem import Level, Solution
 

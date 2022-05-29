@@ -36,6 +36,11 @@ class InvalidOutputError(SolutionRunError):
     __module__ = Exception.__module__
 
 
+class InfiniteLoopError(SolutionRunError):
+    """Raised when an infinite loop is detected in a solution."""
+    __module__ = Exception.__module__
+
+
 class ScoreError(Exception):
     """Raised during validations if a solution's expected score does not match its actual score."""
     __module__ = Exception.__module__

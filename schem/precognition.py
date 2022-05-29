@@ -63,7 +63,7 @@ MAX_OFF_SEED_CYCLE_FACTOR = 2
 # TODO: Might want type hinting here, this post suggests a way to type hint Solution without introducing a circular
 #       import or needing to merge the modules:
 #       https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
-def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total_cycles=None,
+def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_states=1000, just_run_cycle_count=None,
                     include_explanation=False) -> Union[bool, tuple]:
     """Run this solution enough times to check if fits the community definition of a precognitive solution.
 
@@ -105,6 +105,8 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             alternate-seed runs.
         max_total_cycles: The maximum total cycle count that may be used by all runs; if this value is exceeded before
             sufficient confidence in an answer is obtained, a TimeoutError is raised.
+        hash_states: Maximum number of unique cycle states to hash within each run for the purposes of loop detection.
+            Default 1000. Pass 0 to disable hashing.
         just_run_cycle_count: In order to save on excess runs, if the solution has just been successfully run on the
             loaded level (and not been modified or reset() since), pass its cycle count here to skip the first run (but
             still pull the first run's data from the Solution object).
@@ -480,7 +482,7 @@ def is_precognitive(solution, max_cycles=None, just_run_cycle_count=0, max_total
             # Run the solution
             # if just_run_cycle_count was given, skip the first run to save time
             cycles = just_run_cycle_count if num_runs == 0 and just_run_cycle_count \
-                     else solution.run(max_cycles=max_cycles).cycles
+                     else solution.run(max_cycles=max_cycles, hash_states=hash_states).cycles
 
             # Bound the remaining runs to 2 times the base seed's cycle count, to catch infinite loops reasonably fast
             # while still giving some leeway for variations in runtime caused by changing the seed

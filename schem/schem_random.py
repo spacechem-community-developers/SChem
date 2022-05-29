@@ -34,7 +34,7 @@ import numpy as np
 
 
 class SChemRandom:
-    """Class for providing random values, which mimics the windows PRNG used by Spacechem."""
+    """Class for providing random values, which mimics the windows PRNG used by SpaceChem."""
     __slots__ = 'inext', 'inextp', 'SeedArray'
 
     inext: int

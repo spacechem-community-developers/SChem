@@ -138,11 +138,11 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                     print(f"✅  {test_id}")
 
     def test_run_infinite_loops(self):
-        """Tests for solutions that should exceed run()'s timeout."""
+        """Tests for solutions that should have an infinite loop detected."""
         for test_id, level_code, solution_code in iter_test_data(test_data.infinite_loops):
             with self.subTest(msg=test_id):
                 solution = schem.Solution(solution_code, level=level_code)
-                with self.assertRaises(TimeoutError):
+                with self.assertRaises(schem.InfiniteLoopError):
                     solution.run()
                 print(f"✅  {test_id}")
 
@@ -195,9 +195,7 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                 print(f"✅  {test_id}")
 
     def test_validate_valid_solutions(self):
-        """Tests for solutions that should run to completion and match the expected score.
-        Also outputs runtime performance stats.
-        """
+        """Tests for solutions that should run to completion and match the expected score."""
         for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
             with self.subTest(msg=test_id):
                 schem.Solution(solution_code, level=level_code).validate()
