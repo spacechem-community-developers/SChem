@@ -224,7 +224,8 @@ if __name__ == '__main__':
     parser.add_argument('--hash-states', type=int, default=1000,
                         help="Hash up to the given number of unique cycle states in order to detect loops.\n"
                              "This enables fast infinite loop detection as well as speeding up execution of many\n"
-                             "classes of solutions, particularly non-random ones. Pass 0 to disable hashing.")
+                             "classes of solutions, particularly non-random ones. Pass 0 to disable hashing.\n"
+                             "Default 1000.")
     parser.add_argument('--export', action='store_true',
                         help="Re-export the given solution export so its lines are in schem-standardized order, and\n"
                              "print it to STDOUT, suppressing default validation STDOUT messages.\n"
