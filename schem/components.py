@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import collections
-import copy
 import itertools
 import math
 from typing import List, Optional
@@ -424,7 +423,7 @@ class Input(Component):
         # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting.
         # This prevents double-moving the molecule and allows for continuous flow in the rate = 1 case
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
-            self.out_pipe.push(copy.deepcopy(self.molecules[0]), cycle + 1)
+            self.out_pipe.push(self.molecules[0].copy(), cycle + 1)
             self.num_inputs += 1
 
     def reset(self):
@@ -484,7 +483,7 @@ class RandomInput(Input):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
-            self.out_pipe.push(copy.deepcopy(self.molecules[self.get_next_molecule_idx()]), cycle + 1)
+            self.out_pipe.push(self.molecules[self.get_next_molecule_idx()].copy(), cycle + 1)
             self.num_inputs += 1
 
     def reset(self):
@@ -526,10 +525,10 @@ class ProgrammedInput(Input):
         # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
             if self.starting_idx == len(self.starting_molecules):
-                self.out_pipe.push(copy.deepcopy(self.repeating_molecules[self.repeating_idx]), cycle + 1)
+                self.out_pipe.push(self.repeating_molecules[self.repeating_idx].copy(), cycle + 1)
                 self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
             else:
-                self.out_pipe.push(copy.deepcopy(self.starting_molecules[self.starting_idx]), cycle + 1)
+                self.out_pipe.push(self.starting_molecules[self.starting_idx].copy(), cycle + 1)
                 self.starting_idx += 1
 
             self.num_inputs += 1
