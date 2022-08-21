@@ -27,6 +27,9 @@ class Atom:
         self.element = element
         self.bonds = bonds if bonds is not None else {}
 
+    def copy(self):
+        return Atom(self.element, self.bonds.copy())
+
     def __str__(self):
         return self.element.symbol
 
@@ -57,6 +60,9 @@ class Molecule:
     def __init__(self, name='', atom_map=None):
         self.name = name
         self.atom_map = atom_map if atom_map is not None else {}
+
+    def copy(self):
+        return Molecule(self.name, {pos: atom.copy() for pos, atom in self.atom_map.items()})
 
     @classmethod
     def from_json_string(cls, json_string):

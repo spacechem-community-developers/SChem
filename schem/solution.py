@@ -996,7 +996,7 @@ class Solution:
                         # molecules along to fill each other's positions
                         # Make sure to use right-indexing
                         del random_input.out_pipe._molecules[num_pipe_mols - 1 - remove_idx]  # slow but oh well
-                        new_molecule = copy.deepcopy(random_input.molecules[random_input.get_next_molecule_idx()])
+                        new_molecule = random_input.molecules[random_input.get_next_molecule_idx()].copy()
                         random_input.out_pipe._molecules.appendleft(new_molecule)
 
                         idx_offset += 1
