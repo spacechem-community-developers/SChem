@@ -19,17 +19,14 @@ E.g. `python -m schem` will validate the cycles-reactors-symbols score of any so
 
 ## Usage (python)
 
-Some sample programmatic calls, supposing `level_export`, `solution_export` are strings as exported by SpaceChem CE:
+Supposing `level_export`, `solution_export` are strings as exported by SpaceChem CE:
 ```python
 from schem import Level, Solution
 
-# Load a solution, using a specified custom level
-solution = Solution(solution_export, level=level_export)
-# or
-solution = Solution(solution_export, level=Level(level_export))
-
-# Load a solution, automatically using the appropriate official level
-solution = Solution(solution_export)
+# Load a solution
+solution = Solution(solution_export)  # Auto-use appropriate official level
+solution = Solution(solution_export, level=level_export)  # Custom level
+solution = Solution(solution_export, level=Level(level_export))  # Alternative
 
 # Run a solution
 solution.run()

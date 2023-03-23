@@ -1080,9 +1080,8 @@ class Solution:
             max_cycles: Maximum cycle count to run to. Default 1.1x the expected cycle count in the solution metadata,
                         or 1,000,000 cycles if not provided. Also accepts math.inf.
             hash_states: Maximum number of unique cycle states to hash for the purposes of loop detection. Default 1000.
-                         Pass 0 to disable hashing.
-            hashing: If true, store hashes of each cycle's solution state and use them to fastforward execution and
-                     detect infinite loops. Could theoretically result in invalid results due to hash collisions.
+                         Pass 0 to disable hashing. Can theoretically result in invalid results due to hash collisions,
+                         but in practice this is not a problem.
                      Default True.
             debug: Print an updating view of the solution while running. See DebugOptions.
         """
@@ -1158,7 +1157,7 @@ class Solution:
 
                 self.cycle_movement()
 
-                # Attempt to fast-forward if we're within our hash memory limit and not in a defense or sandbox level
+                # Attempt to fast-forward if we're within our hash memory limit
                 if len(self._prior_states) < hash_states and self.hash_and_check_state(debug=bool(debug)):
                     return Score(self.cycle - 1, len(reactors), self.symbols)
 

@@ -35,7 +35,141 @@ def elapsed_readable(seconds, decimals=0):
     return s
 
 
-def main(args: argparse.Namespace):
+def main(args=None):
+    parser = argparse.ArgumentParser(prog='python -m schem',  # Don't show Usage: __main__.py
+                                     description="Validate the solution(s) on the clipboard or in the given file(s).",
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--version', action='store_true', help="Print program version and exit")
+    parser.add_argument('solution_files', nargs='*', default=['-'],  # '-' becomes STDIN when we convert to FileType
+                        # We don't use type=argparse.FileType(...) right away as it would open every input file at once
+                        help="File(s) containing the solution(s) to execute.\n"
+                             "If not provided, attempts to use the contents of the clipboard.")
+    parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
+                        metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
+                        help="File containing the puzzle to check the solution(s) against.\n"
+                             "If not provided, solution is checked against any official level with a matching title.\n"
+                             "If flag is used multiple times, it will be checked that the solution validates for at\n"
+                             "least one of the levels.")
+    parser.add_argument('--max-cycles', type=int, default=None,
+                        help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
+                             "1,000,000 if incomplete score metadata.\n"
+                             "Pass -1 to run infinitely.")
+    parser.add_argument('--check-precog', action='store_true',
+                        help="Check if the given solution(s) are precognitive, per the community definition.\n"
+                             "\nA solution is considered precognitive if either it fails for > 80%% of random seeds,\n"
+                             "or it assumes knowledge of a *particular* input molecule other than the first.\n"
+                             "In other words, if, for some n >= 2, there is a choice of the nth input\n"
+                             "for which the solution will always fail regardless of the rest of the input sequence.\n"
+                             "\nNote that this is calculated by running the solution a dozen to hundreds of times, so\n"
+                             "the runtime will increase accordingly (for typical sub-10k cycle solutions, this will\n"
+                             "be anywhere from sub-second up to ~15 seconds).\n"
+                             "\nIf a solution is precog, prints a report of why, with similar reports for non-precog\n"
+                             "solutions being omitted unless --verbose is used.\n"
+                             "If --json is used, instead adds 'precog' (boolean) and 'precog_explanation' fields to\n"
+                             "the JSON output, with the latter populated regardless of result.\n")
+    parser.add_argument('--max-precog-check-cycles', type=int, default=None,
+                        help="The maximum total cycle count that may be used by all precognition-check runs;\n"
+                             "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
+                             "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
+                             "null. Pass -1 to take as many runs as determined to be needed.\n"
+                             "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
+    parser.add_argument('--seed', type=int, default=None,
+                        help="Override the seed of the level's random input.\n"
+                             "Expected score is ignored when this flag is used.\n"
+                             "If multiple random inputs are present, sets the first input to the given seed, and\n"
+                             "keeps the relative difference between it and other inputs' seeds the same.\n"
+                             "E.g. if a level had two same-seed inputs, both will use the given seed.")
+    parser.add_argument('--hash-states', type=int, default=1000,
+                        help="Hash up to the given number of unique cycle states in order to detect loops.\n"
+                             "This enables fast infinite loop detection as well as speeding up execution of many\n"
+                             "classes of solutions, particularly non-random ones. Pass 0 to disable hashing.\n"
+                             "Default 1000.")
+    parser.add_argument('--export', action='store_true',
+                        help="Re-export the given solution export so its lines are in schem-standardized order, and\n"
+                             "print it to STDOUT, suppressing default validation STDOUT messages.\n"
+                             "If using --json, instead add an 'export' field to JSON output.")
+    parser.add_argument('--no-run', action='store_true',
+                        help="Do not run/validate the given solution(s), displaying only their basic metadata.\n"
+                             "When used with --json, the cycles field will be set to the expected cycles, or if there\n"
+                             "is no expected score, the cycle field will be omitted. reactors/symbols will still\n"
+                             "be returned/validated since the latter don't require running the solution.")
+    parser.add_argument('--strict', action='store_true',
+                        help="Require that the solution(s) have an expected score to validate (not 0-0-0).")
+    stdout_args = parser.add_mutually_exclusive_group()
+    stdout_args.add_argument('--json', action='store_true',
+                             help="Print JSON containing the run data, including level and solution metadata.\n"
+                                  "If multiple solutions are provided, instead print an array of JSON objects.\n"
+                                  "Suppresses default validation STDOUT messages.\n"
+                                  "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
+                                  "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
+                                  "        (ditto), export (if --export), and error (if the solution couldn't be\n"
+                                  "        imported, crashed, didn't match expected score, or the precog check timed\n"
+                                  "        out).")
+    stdout_args.add_argument('--verbose', action='store_true',
+                             help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
+                                  "and if running with --check-precog, report extra info when a solution is non-precog,\n"
+                                  "not just when it's precog.")
+    parser.add_argument('--debug', nargs='?', const='', type=str,
+                        help="Print an updating view of the solution while it runs.\n"
+                             "Can accept a comma-separated string with any of the following options:\n"
+                             "rR: Debug reactor R (0-indexed). If unspecified, overworld is shown in production lvls.\n"
+                             "cC: Start debugging from cycle C. Default 0.\n"
+                             "sS: Speed of debug in cycles/s. Default 10.\n"
+                             "i: Show instructions. Default False since this mode can actually reduce readability.\n"
+                             "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a\n"
+                             "cycle per second.")
+    args = parser.parse_args(args)
+    # TODO: Detect if the given string was a puzzle export and pretty-print its json if so?
+
+    if args.version:
+        print(__version__)
+        return
+
+    # Flag sanity checks
+    if args.no_run:
+        if args.seed:
+            raise parser.error("Cannot combine --no-run and --seed.")
+        if args.max_cycles:
+            raise parser.error("Cannot combine --no-run and --max-cycles.")
+        if args.check_precog:
+            raise parser.error("Cannot combine --no-run and --check-precog.")
+
+    if args.max_precog_check_cycles and not args.check_precog:
+        raise parser.error("--max-precog-check-cycles requires --check-precog")
+
+    if args.export and not args.json:
+        if args.check_precog:
+            raise parser.error("--export overrides --check-precog STDOUT output.")
+        if args.verbose:
+            raise parser.error("--export overrides --verbose STDOUT output.")
+
+    if args.seed and not (0 <= args.seed <= SChemRandom.MAX_SEED):
+        raise ValueError(f"Seed must be from 0 to {SChemRandom.MAX_SEED}.")
+
+    if args.max_cycles == -1:
+        args.max_cycles = math.inf
+
+    if args.max_precog_check_cycles == -1:
+        args.max_precog_check_cycles = math.inf
+
+    debug = False
+    if args.debug is not None:
+        reactor = None
+        cycle = 0
+        speed = 10
+        show_instructions = False
+        for s in args.debug.split(','):
+            if s and s[0] == 'r':
+                reactor = int(s[1:])
+            elif s and s[0] == 'c':
+                cycle = int(s[1:])
+            elif s and s[0] == 's':
+                speed = float(s[1:])
+            elif s == 'i':
+                show_instructions = True
+        debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
+
+
     total_start = time.time()
 
     # Collect solutions from provided file(s)/STDIN or the clipboard, yelling if any is empty
@@ -178,141 +312,8 @@ def main(args: argparse.Namespace):
 if __name__ == '__main__':
     sys.tracebacklimit = 0  # Suppress traceback in STDERR output
 
-    parser = argparse.ArgumentParser(prog='python -m schem',  # Don't show Usage: __main__.py
-                                     description="Validate the solution(s) on the clipboard or in the given file(s).",
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--version', action='store_true', help="Print program version and exit")
-    parser.add_argument('solution_files', nargs='*', default=['-'],  # '-' becomes STDIN when we convert to FileType
-                        # We don't use type=argparse.FileType(...) right away as it would open every input file at once
-                        help="File(s) containing the solution(s) to execute.\n"
-                             "If not provided, attempts to use the contents of the clipboard.")
-    parser.add_argument('-l', '--level-file', '--puzzle-file', type=Path, action='append', dest='level_files',
-                        metavar='LEVEL_FILE',  # otherwise LEVEL_FILES will be shown which is misleading
-                        help="File containing the puzzle to check the solution(s) against.\n"
-                             "If not provided, solution is checked against any official level with a matching title.\n"
-                             "If flag is used multiple times, it will be checked that the solution validates for at\n"
-                             "least one of the levels.")
-    parser.add_argument('--max-cycles', type=int, default=None,
-                        help="Maximum cycle count solutions may be run to. Default 1.1x the expected score, or\n"
-                             "1,000,000 if incomplete score metadata.\n"
-                             "Pass -1 to run infinitely.")
-    parser.add_argument('--check-precog', action='store_true',
-                        help="Check if the given solution(s) are precognitive, per the community definition.\n"
-                             "\nA solution is considered precognitive if either it fails for > 80%% of random seeds,\n"
-                             "or it assumes knowledge of a *particular* input molecule other than the first.\n"
-                             "In other words, if, for some n >= 2, there is a choice of the nth input\n"
-                             "for which the solution will always fail regardless of the rest of the input sequence.\n"
-                             "\nNote that this is calculated by running the solution a dozen to hundreds of times, so\n"
-                             "the runtime will increase accordingly (for typical sub-10k cycle solutions, this will\n"
-                             "be anywhere from sub-second up to ~15 seconds).\n"
-                             "\nIf a solution is precog, prints a report of why, with similar reports for non-precog\n"
-                             "solutions being omitted unless --verbose is used.\n"
-                             "If --json is used, instead adds 'precog' (boolean) and 'precog_explanation' fields to\n"
-                             "the JSON output, with the latter populated regardless of result.\n")
-    parser.add_argument('--max-precog-check-cycles', type=int, default=None,
-                        help="The maximum total cycle count that may be used by all precognition-check runs;\n"
-                             "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
-                             "error will be raised, or in the case of --json, the 'precog' field will be set to\n"
-                             "null. Pass -1 to take as many runs as determined to be needed.\n"
-                             "Default 2,000,000 cycles (this is sufficient for most sub-100k solutions).")
-    parser.add_argument('--seed', type=int, default=None,
-                        help="Override the seed of the level's random input.\n"
-                             "Expected score is ignored when this flag is used.\n"
-                             "If multiple random inputs are present, sets the first input to the given seed, and\n"
-                             "keeps the relative difference between it and other inputs' seeds the same.\n"
-                             "E.g. if a level had two same-seed inputs, both will use the given seed.")
-    parser.add_argument('--hash-states', type=int, default=1000,
-                        help="Hash up to the given number of unique cycle states in order to detect loops.\n"
-                             "This enables fast infinite loop detection as well as speeding up execution of many\n"
-                             "classes of solutions, particularly non-random ones. Pass 0 to disable hashing.\n"
-                             "Default 1000.")
-    parser.add_argument('--export', action='store_true',
-                        help="Re-export the given solution export so its lines are in schem-standardized order, and\n"
-                             "print it to STDOUT, suppressing default validation STDOUT messages.\n"
-                             "If using --json, instead add an 'export' field to JSON output.")
-    parser.add_argument('--no-run', action='store_true',
-                        help="Do not run/validate the given solution(s), displaying only their basic metadata.\n"
-                             "When used with --json, the cycles field will be set to the expected cycles, or if there\n"
-                             "is no expected score, the cycle field will be omitted. reactors/symbols will still\n"
-                             "be returned/validated since the latter don't require running the solution.")
-    parser.add_argument('--strict', action='store_true',
-                        help="Require that the solution(s) have an expected score to validate (not 0-0-0).")
-    stdout_args = parser.add_mutually_exclusive_group()
-    stdout_args.add_argument('--json', action='store_true',
-                             help="Print JSON containing the run data, including level and solution metadata.\n"
-                                  "If multiple solutions are provided, instead print an array of JSON objects.\n"
-                                  "Suppresses default validation STDOUT messages.\n"
-                                  "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
-                                  "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
-                                  "        (ditto), export (if --export), and error (if the solution couldn't be\n"
-                                  "        imported, crashed, didn't match expected score, or the precog check timed\n"
-                                  "        out).")
-    stdout_args.add_argument('--verbose', action='store_true',
-                        help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
-                             "and if running with --check-precog, report extra info when a solution is non-precog,\n"
-                             "not just when it's precog.")
-    parser.add_argument('--debug', nargs='?', const='', type=str,
-                        help="Print an updating view of the solution while it runs.\n"
-                             "Can accept a comma-separated string with any of the following options:\n"
-                             "rR: Debug reactor R (0-indexed). If unspecified, overworld is shown in production lvls.\n"
-                             "cC: Start debugging from cycle C. Default 0.\n"
-                             "sS: Speed of debug in cycles/s. Default 10.\n"
-                             "i: Show instructions. Default False since this mode can actually reduce readability.\n"
-                             "E.g. --debug=r0,c1000,s0.5 starts debugging the first reactor on cycle 1000, at half a\n"
-                             "cycle per second.")
-    args = parser.parse_args()
-    # TODO: Detect if the given string was a puzzle export and pretty-print its json if so?
-
-    if args.version:
-        print(__version__)
-        sys.exit()
-
-    # Flag sanity checks
-    if args.no_run:
-        if args.seed:
-            raise parser.error("Cannot combine --no-run and --seed.")
-        if args.max_cycles:
-            raise parser.error("Cannot combine --no-run and --max-cycles.")
-        if args.check_precog:
-            raise parser.error("Cannot combine --no-run and --check-precog.")
-
-    if args.max_precog_check_cycles and not args.check_precog:
-        raise parser.error("--max-precog-check-cycles requires --check-precog")
-
-    if args.export and not args.json:
-        if args.check_precog:
-            raise parser.error("--export overrides --check-precog STDOUT output.")
-        if args.verbose:
-            raise parser.error("--export overrides --verbose STDOUT output.")
-
-    if args.seed and not (0 <= args.seed <= SChemRandom.MAX_SEED):
-        raise ValueError(f"Seed must be from 0 to {SChemRandom.MAX_SEED}.")
-
-    if args.max_cycles == -1:
-        args.max_cycles = math.inf
-
-    if args.max_precog_check_cycles == -1:
-        args.max_precog_check_cycles = math.inf
-
-    debug = False
-    if args.debug is not None:
-        reactor = None
-        cycle = 0
-        speed = 10
-        show_instructions = False
-        for s in args.debug.split(','):
-            if s and s[0] == 'r':
-                reactor = int(s[1:])
-            elif s and s[0] == 'c':
-                cycle = int(s[1:])
-            elif s and s[0] == 's':
-                speed = float(s[1:])
-            elif s == 'i':
-                show_instructions = True
-        debug = DebugOptions(reactor=reactor, cycle=cycle, speed=speed, show_instructions=show_instructions)
-
     # Raise any caught errors from None to also suppress python's implicit exception chaining
     try:
-        main(args)
+        main()
     except Exception as e:
         raise e from None
