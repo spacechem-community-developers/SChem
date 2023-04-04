@@ -82,7 +82,8 @@ class Pipe:
         #       the hash to work well across pipe lengths so removing the empty values makes sense), but it's incredibly
         #       hard to get concrete info on this and/or if the extra inclusion of indices would reduce entropy more
         #       than it was increased by frozenset's de-ordering.
-        return tuple(self.to_list(cycle))
+        return tuple((None if molecule is None else molecule.hashable_repr())
+                     for molecule in self.to_list(cycle))
 
     def get(self, idx: int, cycle: int) -> Optional[Molecule]:
         """Return the molecule at the given index, else None."""
@@ -405,10 +406,6 @@ class Input(Component):
             self.input_rate = 10
 
         self.num_inputs = 0
-
-    def hashable_repr(self, cycle):
-        # A static input's state is only dependent on how many cycles remain until it next produces a molecule
-        return (cycle - 1) % self.input_rate, super().hashable_repr(cycle)
 
     def hashable_repr(self, cycle):
         # As a small optimization, ignore the identities of the molecules in the pipe since they can't have had their
@@ -1209,6 +1206,7 @@ class Reactor(Component):
         return '\n'.join([component_line, *waldo_starts, *features, *waldo_instrs, *pipes, *self.annotations])
 
     def hashable_repr(self, cycle):
+        # TODO: Investigate using an incremental hash function for performance
         return (tuple(molecule.hashable_repr() for molecule in self.molecules),
                 tuple(self.waldos),
                 super().hashable_repr(cycle))

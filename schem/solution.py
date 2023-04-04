@@ -814,7 +814,7 @@ class Solution:
             self._cur_state_tree_segment_idx = len(self._state_tree_segments) - 1
 
             # Create a key representing which random branch we entered, accounting for multiple random inputs
-            # potentially having produced in the same cycle
+            # potentially having been produced in the same cycle
             # Could construct this for this block's `if`, but we want the check's main case to be as fast as possible
             input_branch_key = tuple(rand_input_copy.get_next_molecule_idx()  # Note that this advances the input copy
                                      if rand_input.out_pipe._last_pop_cycle == self.cycle else None
