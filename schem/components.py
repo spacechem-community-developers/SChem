@@ -853,8 +853,8 @@ class Reactor(Component):
     NUM_ROWS = 8
     NUM_WALDOS = 2
     NUM_MOVE_CHECKS = 10  # Number of times to check for collisions during molecule movement
-    walls = {UP: -0.5 + ATOM_RADIUS, DOWN: 7.5 - ATOM_RADIUS,
-             LEFT: -0.5 + ATOM_RADIUS, RIGHT: 9.5 - ATOM_RADIUS}
+    walls = {UP: -0.5 + ATOM_RADIUS, DOWN: NUM_ROWS - 0.5 - ATOM_RADIUS,
+             LEFT: -0.5 + ATOM_RADIUS, RIGHT: NUM_COLS - 0.5 - ATOM_RADIUS}
     # Names of features as stored in attributes
     FEATURE_NAMES = ('bonders', 'sensors', 'fusers', 'splitters', 'swappers')
     __slots__ = ('in_pipes', 'out_pipes',
@@ -1431,7 +1431,7 @@ class Reactor(Component):
                 if waldo.molecule is not None and not waldo.is_stalled:
                     waldo.molecule.round_posns()
                     # Do the final check we skipped for non-rotating molecules
-                    self.check_collisions_lazy(waldo.molecule)
+                    self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
                 elif waldo.is_rotating:
                     waldo.molecule.round_posns()
                     # Rotate atom bonds
@@ -1456,7 +1456,7 @@ class Reactor(Component):
                 waldos_moving_molecules = [w for w in self.waldos if not w.is_stalled and w.molecule is not None]
                 # (skipped if both waldos holding same molecule)
                 # Check if a molecule being moved will bump into the back of another moving molecule
-                if (len(waldos_moving_molecules) == 2 and self.waldos[0].direction != self.waldos[1].direction):
+                if len(waldos_moving_molecules) == 2 and self.waldos[0].direction != self.waldos[1].direction:
                     for waldo in self.waldos:
                         # Intersect the target positions of this waldo's molecule with the current positions of the
                         # other waldo's molecules
@@ -1478,10 +1478,9 @@ class Reactor(Component):
                 else:
                     waldo.molecule.move(waldo.direction)
 
-            # Perform collision checks against the moved molecules
-            for waldo in self.waldos:
-                if waldo.molecule is not None and not waldo.is_stalled:
-                    self.check_collisions_lazy(waldo.molecule)
+            # Perform collision checks against the moved molecules (AFTER they have all moved)
+            for waldo in waldos_moving_molecules:
+                self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
 
         # Move waldos and mark them as no longer stalled. Note that is_rotated must be left alone to tell it not to
         # rotate twice
@@ -1504,6 +1503,23 @@ class Reactor(Component):
                    for p in molecule.atom_map):
             raise ReactionError("A molecule has collided with a wall")
 
+    def check_wall_collisions_lazy(self, molecule, direction):
+        """Raise an exception if the given molecule collides with the specified wall."""
+        if direction == RIGHT:
+            if all(p.col < self.NUM_COLS for p in molecule.atom_map):
+                return
+        elif direction == UP:
+            if all(p.row >= 0 for p in molecule.atom_map):
+                return
+        elif direction == DOWN:
+            if all(p.row < self.NUM_ROWS for p in molecule.atom_map):
+                return
+        elif direction == LEFT:
+            if all(p.col >= 0 for p in molecule.atom_map):
+                return
+
+        raise ReactionError("A molecule has collided with a wall")
+
     def check_quantum_wall_collisions(self, molecule):
         for r, (c1, c2) in self.quantum_walls_x:
             for p in molecule.atom_map:
@@ -1525,12 +1541,12 @@ class Reactor(Component):
                 elif max((p.row - r1)**2, (p.row - r2)**2) + (p.col - c)**2 < ATOM_RADIUS**2:
                     raise ReactionError("A molecule has collided with a quantum wall")
 
-    def check_collisions_lazy(self, molecule):
+    def check_collisions_lazy(self, molecule, direction):
         """Raise an exception if the given molecule collides with any other molecules or walls.
         Assumes integer co-ordinates in all molecules.
         """
         self.check_molecule_collisions_lazy(molecule)
-        self.check_wall_collisions(molecule)
+        self.check_wall_collisions_lazy(molecule, direction=direction)
         # Quantum wall collision checks may be skipped since they should only lie on grid edges
 
     def check_collisions(self, molecule):
