@@ -6443,22 +6443,6 @@ MEMBER:'instr-arrow',90,0,16,9,0,0,0
 MEMBER:'instr-sync',-1,0,32,9,1,0,0
 PIPE:0,4,1
 PIPE:1,4,2''',
-    r'''SOLUTION:QT-1,Zig,0-0-0,Quantum wall collision
-COMPONENT:'drag-quantum-reactor-x',2,0,''
-MEMBER:'instr-start',-90,0,128,1,3,0,0
-MEMBER:'instr-start',180,0,32,0,7,0,0
-MEMBER:'feature-tunnel',-1,0,1,8,7,0,0
-MEMBER:'feature-tunnel',-1,0,1,9,7,0,0
-MEMBER:'instr-grab',-1,1,128,1,1,0,0
-MEMBER:'instr-input',-1,0,128,1,2,0,0
-MEMBER:'instr-arrow',0,0,64,1,1,0,0
-MEMBER:'instr-arrow',90,0,64,6,1,0,0
-MEMBER:'instr-arrow',180,0,64,6,4,0,0
-MEMBER:'instr-arrow',-90,0,64,1,4,0,0
-MEMBER:'instr-grab',-1,2,128,6,4,0,0
-MEMBER:'instr-output',-1,1,128,5,4,0,0
-PIPE:0,4,1
-PIPE:1,4,2''',
     # Narrow molecule collision
     r'''SOLUTION:TestMoleculeCollisions,Zig,33-1-57,'7x3 past (5,5) (collision)'
 COMPONENT:'custom-research-reactor',2,0,''
@@ -7150,6 +7134,37 @@ MEMBER:'instr-bond',-1,0,32,3,7,0,0
 MEMBER:'instr-bond',-1,0,32,4,7,0,0
 MEMBER:'instr-bond',-1,0,32,5,7,0,0
 MEMBER:'instr-bond',-1,0,32,6,7,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+    r'''SOLUTION:QT-1,Zig,0-0-0,Quantum wall collision
+COMPONENT:'drag-quantum-reactor-x',2,0,''
+MEMBER:'instr-start',-90,0,128,1,3,0,0
+MEMBER:'instr-start',180,0,32,0,7,0,0
+MEMBER:'feature-tunnel',-1,0,1,8,7,0,0
+MEMBER:'feature-tunnel',-1,0,1,9,7,0,0
+MEMBER:'instr-grab',-1,1,128,1,1,0,0
+MEMBER:'instr-input',-1,0,128,1,2,0,0
+MEMBER:'instr-arrow',0,0,64,1,1,0,0
+MEMBER:'instr-arrow',90,0,64,6,1,0,0
+MEMBER:'instr-arrow',180,0,64,6,4,0,0
+MEMBER:'instr-arrow',-90,0,64,1,4,0,0
+MEMBER:'instr-grab',-1,2,128,6,4,0,0
+MEMBER:'instr-output',-1,1,128,5,4,0,0
+PIPE:0,4,1
+PIPE:1,4,2''',
+    r'''SOLUTION:QT-1,Zig,0-0-0,Quantum wall collision while other molecule rotates
+COMPONENT:'drag-quantum-reactor-x',2,0,''
+MEMBER:'instr-start',180,0,128,2,0,0,0
+MEMBER:'instr-start',-90,0,32,1,4,0,0
+MEMBER:'feature-tunnel',-1,0,1,3,5,0,0
+MEMBER:'feature-tunnel',-1,0,1,6,5,0,0
+MEMBER:'instr-arrow',0,0,16,1,1,0,0
+MEMBER:'instr-grab',-1,0,32,1,1,0,0
+MEMBER:'instr-arrow',90,0,64,1,0,0,0
+MEMBER:'instr-input',-1,0,128,1,0,0,0
+MEMBER:'instr-grab',-1,0,128,1,1,0,0
+MEMBER:'instr-input',-1,0,128,1,2,0,0
+MEMBER:'instr-rotate',-1,1,128,1,5,0,0
 PIPE:0,4,1
 PIPE:1,4,2''']
 

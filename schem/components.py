@@ -1467,18 +1467,9 @@ class Reactor(Component):
 
             # Move all molecules
             for waldo in waldos_moving_molecules:
-                # If we're moving perpendicular to any quantum walls, check for collisions with them
-                if ((self.quantum_walls_y and waldo.direction in (LEFT, RIGHT))
-                        or (self.quantum_walls_x and waldo.direction in (UP, DOWN))):
-                    # Move the molecule halfway, check for quantum wall collisions, then move the last half
-                    waldo.molecule.move(waldo.direction, distance=0.5)
-                    self.check_quantum_wall_collisions(waldo.molecule)
-                    waldo.molecule.move(waldo.direction, distance=0.5)
-                    waldo.molecule.round_posns()
-                else:
-                    waldo.molecule.move(waldo.direction)
+                waldo.molecule.move(waldo.direction)
 
-            # Perform collision checks against the moved molecules (AFTER they have all moved)
+            # Perform collision checks for the moved molecules (AFTER they have all moved)
             for waldo in waldos_moving_molecules:
                 self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
 
@@ -1521,6 +1512,7 @@ class Reactor(Component):
         raise ReactionError("A molecule has collided with a wall")
 
     def check_quantum_wall_collisions(self, molecule):
+        """Given a molecule (possibly on float coordinates), check if it collided with a quantum wall."""
         for r, (c1, c2) in self.quantum_walls_x:
             for p in molecule.atom_map:
                 # If the atom's center (p) is in line with the wall, check its not too close to the wall segment
@@ -1541,23 +1533,48 @@ class Reactor(Component):
                 elif max((p.row - r1)**2, (p.row - r2)**2) + (p.col - c)**2 < ATOM_RADIUS**2:
                     raise ReactionError("A molecule has collided with a quantum wall")
 
-    def check_collisions_lazy(self, molecule, direction):
-        """Raise an exception if the given molecule collides with any other molecules or walls.
-        Assumes integer co-ordinates in all molecules.
-        """
-        self.check_molecule_collisions_lazy(molecule)
-        self.check_wall_collisions_lazy(molecule, direction=direction)
-        # Quantum wall collision checks may be skipped since they should only lie on grid edges
+    def check_quantum_wall_collisions_lazy(self, molecule, direction):
+        """Given a molecule that just moved and is on integer coordinates, check if it collided with a quantum wall."""
+        # Recall that we treat integer coordinates as the centers of cells, so quantum walls are on half-coordinates.
+        # E.g. the top wall of the reactor would be row: -0.5, cols: (-0.5, 9.5).
+        if direction == UP:
+            # Check if the atom just crossed the wall given its movement
+            if any(p.row < r < p.row + 1 and c1 < p.col < c2
+                   for r, (c1, c2) in self.quantum_walls_x
+                   for p in molecule.atom_map):
+                raise ReactionError("A molecule has collided with a quantum wall")
+        elif direction == DOWN:
+            if any(p.row - 1 < r < p.row and c1 < p.col < c2
+                   for r, (c1, c2) in self.quantum_walls_x
+                   for p in molecule.atom_map):
+                raise ReactionError("A molecule has collided with a quantum wall")
+        elif direction == RIGHT:
+            if any(p.col - 1 < c < p.col and r1 < p.row < r2
+                   for c, (r1, r2) in self.quantum_walls_y
+                   for p in molecule.atom_map):
+                raise ReactionError("A molecule has collided with a quantum wall")
+        elif direction == LEFT:
+            if any(p.col < c < p.col + 1 and r1 < p.row < r2
+                   for c, (r1, r2) in self.quantum_walls_y
+                   for p in molecule.atom_map):
+                raise ReactionError("A molecule has collided with a quantum wall")
 
     def check_collisions(self, molecule):
-        """Check that the given molecule isn't colliding with any walls or other molecules.
-        Raise an exception if it is.
-        """
+        """Raise an exception if the given molecule is colliding with any other molecules, walls, or quantum walls."""
         for other_molecule in self.molecules:
             molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
         self.check_wall_collisions(molecule)
         self.check_quantum_wall_collisions(molecule)
+
+    def check_collisions_lazy(self, molecule, direction):
+        """Raise an exception if the given molecule, that just moved in the given direction, collided with any other
+        molecules, walls, or quantum walls. Assumes integer co-ordinates in all molecules.
+        """
+        # Don't abuse direction knowledge for molecule checks since one of them may also have just moved
+        self.check_molecule_collisions_lazy(molecule)
+        self.check_wall_collisions_lazy(molecule, direction=direction)
+        self.check_quantum_wall_collisions_lazy(molecule, direction=direction)
 
     def exec_instrs(self, waldo, cycle):
         if waldo.position not in waldo.instr_map:
