@@ -1565,7 +1565,8 @@ class Reactor(Component):
             molecule.check_collisions(other_molecule)  # Implicitly ignores self
 
         self.check_wall_collisions(molecule)
-        self.check_quantum_wall_collisions(molecule)
+        if self.quantum_walls_y or self.quantum_walls_x:
+            self.check_quantum_wall_collisions(molecule)
 
     def check_collisions_lazy(self, molecule, direction):
         """Raise an exception if the given molecule, that just moved in the given direction, collided with any other
@@ -1574,7 +1575,8 @@ class Reactor(Component):
         # Don't abuse direction knowledge for molecule checks since one of them may also have just moved
         self.check_molecule_collisions_lazy(molecule)
         self.check_wall_collisions_lazy(molecule, direction=direction)
-        self.check_quantum_wall_collisions_lazy(molecule, direction=direction)
+        if self.quantum_walls_y or self.quantum_walls_x:
+            self.check_quantum_wall_collisions_lazy(molecule, direction=direction)
 
     def exec_instrs(self, waldo, cycle):
         if waldo.position not in waldo.instr_map:
