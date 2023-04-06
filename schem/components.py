@@ -1395,48 +1395,101 @@ class Reactor(Component):
 
         # If any waldo is about to rotate a molecule, don't skimp on collision checks
         # Note that a waldo might be marked as rotating (and stalled accordingly) while holding nothing, in the case
-        # that red hits a rotate and then has its atom fused or swapped away by blue in the same cycle
-        # Hence the waldo.molecule is not None check is necessary
-        if any(waldo.is_rotating and waldo.molecule is not None for waldo in self.waldos):
+        # that red hits a rotate and then has its atom fused or swapped away by blue in the same cycle.
+        # We'll ignore those here, hence the waldo.molecule is not None check.
+        rotating_waldos = [waldo for waldo in self.waldos if waldo.is_rotating and waldo.molecule is not None]
+        sliding_waldos = [waldo for waldo in self.waldos if not waldo.is_stalled and waldo.molecule is not None]
+        if rotating_waldos:
             # If both waldos are holding the same molecule and either of them is rotating, a crash occurs
             # (even if they're in the same position and rotating the same direction)
             if self.waldos[0].molecule is self.waldos[1].molecule:
                 raise ReactionError("Molecule pulled apart")
 
-            # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
-            step_radians = math.pi / (2 * self.NUM_MOVE_CHECKS)
-            step_distance = 1 / self.NUM_MOVE_CHECKS
-            for _ in range(self.NUM_MOVE_CHECKS):
-                # Move all molecules currently being held by a waldo forward a step
+            # Check if we can approximate the movement checks based on cells they vs other molecules span
+            # This is slightly expensive, but not as expensive as 10x float math collision checks against all molecules
+            rotation_spans = [self.rotate_span(waldo.molecule,
+                                               pivot=waldo.position,
+                                               direction=waldo.cur_cmd().direction)
+                              for waldo in rotating_waldos]
+            slide_spans = [waldo.molecule.atom_map.keys() | {posn + waldo.direction for posn in waldo.molecule.atom_map}
+                           for waldo in sliding_waldos]
+            moving_molecules = {waldo.molecule for waldo in self.waldos
+                                if waldo.molecule is not None and waldo.is_rotating or not waldo.is_stalled}
+            # We already know static molecules don't overlap so pre-merging their spans is safe
+            static_molecules_span = {posn for molecule in self.molecules
+                                     for posn in molecule.atom_map.keys()
+                                     if molecule not in moving_molecules}
+
+            # To check if any moving/rotating/static molecules' spans intersect, union them all and check if
+            # the length equals the sum of their individual lengths.
+            spans_sum = (sum(len(span) for span in rotation_spans)
+                         + sum(len(span) for span in slide_spans)
+                         + len(static_molecules_span))
+            spans_union = static_molecules_span.union(*rotation_spans, *slide_spans)
+
+            # Note that crossing a wall does not guarantee a collision, both due to quantum walls and because our
+            # rotation spans aren't necessarily tight bounds.
+            def span_crosses_wall(span):
+                if not all(0 <= p.row < self.NUM_ROWS and 0 <= p.col < self.NUM_COLS for p in span):
+                    return True
+
+                if self.quantum_walls_y or self.quantum_walls_x:
+                    # Check for atoms on both sides of the wall within the span.
+                    for c, (r1, r2) in self.quantum_walls_y:
+                        if (any(p.col <= c and r1 < p.row < r2 for p in span)
+                                and any(p.col >= c and r1 < p.row < r2 for p in span)):
+                            return True
+                    for r, (c1, c2) in self.quantum_walls_x:
+                        if (any(p.row <= r and c1 < p.col < c2 for p in span)
+                                and any(p.row >= r and c1 < p.col < c2 for p in span)):
+                            return True
+
+                return False
+
+            if spans_sum == len(spans_union) and not any(span_crosses_wall(span)
+                                                         for span in (*rotation_spans, *slide_spans)):
+                # Given that no molecules are moving near each other or across walls, we can do a single move step and
+                # skip further collision checks
+                for waldo in sliding_waldos:
+                    waldo.molecule.move(waldo.direction)
+
+                for waldo in rotating_waldos:
+                    waldo.molecule.rotate(pivot_pos=waldo.position, direction=waldo.cur_cmd().direction)
+            else:
+                # Otherwise, move each waldo's molecule partway at a time and check for collisions each time
+                step_radians = math.pi / (2 * self.NUM_MOVE_CHECKS)
+                step_distance = 1 / self.NUM_MOVE_CHECKS
+                for _ in range(self.NUM_MOVE_CHECKS):
+                    # Move all molecules currently being held by a waldo forward a step
+                    for waldo in self.waldos:
+                        if waldo.molecule is not None and not waldo.is_stalled:
+                            waldo.molecule.move(waldo.direction, distance=step_distance)
+                        elif waldo.is_rotating:
+                            waldo.molecule.rotate_fine(pivot_pos=waldo.position,
+                                                       direction=waldo.cur_cmd().direction,
+                                                       radians=step_radians)
+
+                    # After moving all molecules, check each rotated molecule for collisions with walls or other molecules
+                    # Though all molecules had to move, only the rotating one(s) needs to do checks at each step, since we
+                    # know the other waldo will only have static molecules left to check against, and translation movements
+                    # can't clip through a static atom without ending on top of it
+                    # Note: This only holds true for <= 2 waldos and since we checked that at least one waldo is rotating
+                    for waldo in self.waldos:
+                        if waldo.is_rotating:
+                            self.check_collisions(waldo.molecule)
+
+                # After completing all steps of the movement, convert moved molecules back to integer co-ordinates and do
+                # any final checks/updates
                 for waldo in self.waldos:
                     if waldo.molecule is not None and not waldo.is_stalled:
-                        waldo.molecule.move(waldo.direction, distance=step_distance)
+                        waldo.molecule.round_posns()
+                        # Do the final check we skipped for non-rotating molecules
+                        self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
                     elif waldo.is_rotating:
-                        waldo.molecule.rotate_fine(pivot_pos=waldo.position,
-                                                   direction=waldo.cur_cmd().direction,
-                                                   radians=step_radians)
-
-                # After moving all molecules, check each rotated molecule for collisions with walls or other molecules
-                # Though all molecules had to move, only the rotating one(s) needs to do checks at each step, since we
-                # know the other waldo will only have static molecules left to check against, and translation movements
-                # can't clip through a static atom without ending on top of it
-                # Note: This only holds true for <= 2 waldos and since we checked that at least one waldo is rotating
-                for waldo in self.waldos:
-                    if waldo.is_rotating:
-                        self.check_collisions(waldo.molecule)
-
-            # After completing all steps of the movement, convert moved molecules back to integer co-ordinates and do
-            # any final checks/updates
-            for waldo in self.waldos:
-                if waldo.molecule is not None and not waldo.is_stalled:
-                    waldo.molecule.round_posns()
-                    # Do the final check we skipped for non-rotating molecules
-                    self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
-                elif waldo.is_rotating:
-                    waldo.molecule.round_posns()
-                    # Rotate atom bonds
-                    waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
-        elif any(waldo.molecule is not None and not waldo.is_stalled for waldo in self.waldos):
+                        waldo.molecule.round_posns()
+                        # Rotate atom bonds
+                        waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
+        elif sliding_waldos:
             # If we are not doing any rotates, we can skip the full collision checks
             # Non-rotating molecules can cause collisions/errors if:
             # * The waldos are pulling a molecule apart
@@ -1451,12 +1504,11 @@ class Reactor(Component):
                     raise ReactionError("A molecule has been grabbed by both waldos and pulled apart.")
 
                 # Only mark one waldo as moving a molecule so we don't move their molecule twice
-                waldos_moving_molecules = [self.waldos[0]]
+                sliding_waldos = [self.waldos[0]]
             else:
-                waldos_moving_molecules = [w for w in self.waldos if not w.is_stalled and w.molecule is not None]
                 # (skipped if both waldos holding same molecule)
                 # Check if a molecule being moved will bump into the back of another moving molecule
-                if len(waldos_moving_molecules) == 2 and self.waldos[0].direction != self.waldos[1].direction:
+                if len(sliding_waldos) == 2 and self.waldos[0].direction != self.waldos[1].direction:
                     for waldo in self.waldos:
                         # Intersect the target positions of this waldo's molecule with the current positions of the
                         # other waldo's molecules
@@ -1466,11 +1518,11 @@ class Reactor(Component):
                             raise ReactionError("Collision between molecules")
 
             # Move all molecules
-            for waldo in waldos_moving_molecules:
+            for waldo in sliding_waldos:
                 waldo.molecule.move(waldo.direction)
 
             # Perform collision checks for the moved molecules (AFTER they have all moved)
-            for waldo in waldos_moving_molecules:
+            for waldo in sliding_waldos:
                 self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
 
         # Move waldos and mark them as no longer stalled. Note that is_rotated must be left alone to tell it not to
@@ -1558,6 +1610,77 @@ class Reactor(Component):
                    for c, (r1, r2) in self.quantum_walls_y
                    for p in molecule.atom_map):
                 raise ReactionError("A molecule has collided with a quantum wall")
+
+    @staticmethod
+    def rotate_span(molecule, pivot, direction):
+        """Given a waldo about to rotate a molecule, return a superset of every cell that is at least partially covered
+        by the rotation. Runs in O(len(molecule)) time.
+        """
+        # Calculate a bounding box (in terms of cell coordinates, ignoring atom widths) for the molecule
+        t1 = min(posn.row for posn in molecule.atom_map)  # Top
+        b1 = max(posn.row for posn in molecule.atom_map)  # Bottom
+        l1 = min(posn.col for posn in molecule.atom_map)  # Left
+        r1 = max(posn.col for posn in molecule.atom_map)  # Right
+
+        # Calculate the bounding box after rotation
+        if direction == Direction.CLOCKWISE:
+            t2 = pivot.row - (pivot.col - l1)  # Dist from pivot to left edge, but now above the pivot
+            b2 = pivot.row + (r1 - pivot.col)  # and so on...
+            l2 = pivot.col - (b1 - pivot.row)
+            r2 = pivot.col + (pivot.row - t1)
+        else:
+            t2 = pivot.row - (r1 - pivot.col)  # Dist from pivot to right edge, but now above the pivot
+            b2 = pivot.row + (pivot.col - l1)  # and so on...
+            l2 = pivot.col - (pivot.row - t1)
+            r2 = pivot.col + (b1 - pivot.row)
+
+        # Calculate the bounding box that supersets the before and after boxes
+        t = min(t1, t2)
+        r = max(r1, r2)
+        b = max(b1, b2)
+        l = min(l1, l2)
+
+        # Fatten each box edge by a worst case factor (rounded up) if its relevant adjacent quadrant is non-empty
+        # The intuition is that a rotation from say the top-left quadrant to the top-right quadrant can only exit the
+        # top of the combined bounding box, and atoms in line with the pivot won't exit the box.
+        # This will overcount cells near the corners of the bounding box but is fast to calculate.
+        # Claim 1: Finding the true maximum distance of any atom per quadrant gives a tighter bound but isn't worth the
+        #          extra computation.
+        # Claim 2: Because of the nature of how we calculated the overall bounding box before and after the rotation,
+        #          every non-empty quadrant of the bounding box is roughly square, so the use of sqrt(2) is correct.
+        extended_nw, extended_ne, extended_se, extended_sw = False, False, False, False  # Compass coordinates
+        for posn in molecule.atom_map:
+            # Strictly speaking any atom within the diagonal of the quadrant's sides can't extend the box
+            if posn.col == pivot.col or posn.row == pivot.row:  # We know these can't extend the box
+                continue
+
+            # Keep in mind the molecule is still unrotated
+            if not extended_nw and posn.col < pivot.col and posn.row < pivot.row:
+                if direction == Direction.CLOCKWISE:
+                    t -= math.ceil((math.sqrt(2) - 1) * (pivot.row - t))  # Extends by ~41% which is usually 1-2 cells
+                else:
+                    l -= math.ceil((math.sqrt(2) - 1) * (pivot.col - l))
+                extended_nw = True
+            elif not extended_ne and posn.col > pivot.col and posn.row < pivot.row:
+                if direction == Direction.CLOCKWISE:
+                    r += math.ceil((math.sqrt(2) - 1) * (r - pivot.col))
+                else:
+                    t -= math.ceil((math.sqrt(2) - 1) * (pivot.row - t))
+                extended_ne = True
+            elif not extended_se and posn.col > pivot.col and posn.row > pivot.row:
+                if direction == Direction.CLOCKWISE:
+                    b += math.ceil((math.sqrt(2) - 1) * (b - pivot.row))
+                else:
+                    r += math.ceil((math.sqrt(2) - 1) * (r - pivot.col))
+                extended_se = True
+            elif not extended_sw and posn.col < pivot.col and posn.row > pivot.row:
+                if direction == Direction.CLOCKWISE:
+                    l -= math.ceil((math.sqrt(2) - 1) * (pivot.col - l))
+                else:
+                    b += math.ceil((math.sqrt(2) - 1) * (b - pivot.row))
+                extended_sw = True
+
+        return set(Position(col=col, row=row) for col in range(l, r + 1) for row in range(t, b + 1))
 
     def check_collisions(self, molecule):
         """Raise an exception if the given molecule is colliding with any other molecules, walls, or quantum walls."""

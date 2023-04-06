@@ -71,6 +71,15 @@ class Position(namedtuple("Position", ('col', 'row'))):
         c_delta, r_delta = self.dirn_to_delta[direction]
         return Position(self.col + distance * c_delta, self.row + distance * r_delta)
 
+    def rotate(self, pivot_pos, direction):
+        """Rotate a quarter turn."""
+        if direction == Direction.CLOCKWISE:
+            return Position(pivot_pos.col - (self.row - pivot_pos.row),
+                            pivot_pos.row + (self.col - pivot_pos.col))
+        else:
+            return Position(pivot_pos.col + (self.row - pivot_pos.row),
+                            pivot_pos.row - (self.col - pivot_pos.col))
+
     def rotate_fine(self, pivot_pos, direction, radians):
         """Rotate in sub-quarter-turn increments."""
         # In normal cartesian math clockwise would be negative, but our vertical axis is reversed
