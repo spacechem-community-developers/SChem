@@ -1763,15 +1763,17 @@ class Reactor(Component):
             raise ControlError("CTRL commands are unsupported.")
 
     def input(self, waldo, input_idx, cycle):
-        # If there is no such pipe or it has no molecule available, stall the waldo
-        if (input_idx > len(self.in_pipes) - 1
-                or self.in_pipes[input_idx] is None
-                or self.in_pipes[input_idx].get(-1, cycle) is None):
+        # If there is no such pipe, stall the waldo
+        if input_idx > len(self.in_pipes) - 1 or self.in_pipes[input_idx] is None:
             waldo.is_stalled = True
             return
 
-        # Grab the molecule from the appropriate pipe or stall if no such molecule (or no pipe)
+        # Grab the molecule from the appropriate pipe or stall if no such molecule
+        # TODO: Kick out 3.7 some day and walrus-ify this into one if
         new_molecule = self.in_pipes[input_idx].pop(cycle)
+        if new_molecule is None:  # Not merged with above case to avoid calling both Pipe.get and Pipe.pop
+            waldo.is_stalled = True
+            return
 
         sample_posn = next(iter(new_molecule.atom_map))
         # If the molecule came from a previous reactor, shift its columns from output to input co-ordinates
