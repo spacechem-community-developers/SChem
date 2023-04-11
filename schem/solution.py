@@ -1114,10 +1114,10 @@ class Solution:
         # If we are continuing running from a pause, start with a movement phase
         # TODO: If it was a red pause, need to do the blue instants phase first... and if both
         #       there's no way to tell which it was without storing an extra variable in Solution
-        if any(waldo.instr_map[waldo.position][1].type == InstructionType.PAUSE
+        if any(waldo.commands[waldo.position].type == InstructionType.PAUSE
                for reactor in reactors
                for waldo in reactor.waldos
-               if waldo.position in waldo.instr_map):
+               if waldo.position in waldo.commands):
             self.cycle_movement()
 
         # Run the level

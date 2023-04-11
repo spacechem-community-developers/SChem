@@ -104,7 +104,7 @@ class Instruction(namedtuple('Instruction', ('type', 'direction', 'target_idx'),
 
 
 class Waldo:
-    __slots__ = 'idx', 'instr_map', 'flipflop_states', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
+    __slots__ = 'idx', 'arrows', 'commands', 'flipflop_states', 'position', 'direction', 'molecule', 'is_stalled', 'is_rotating'
 
     # Map of good unicode characters for displaying a waldo's paths
     dirns_to_char = {
@@ -125,19 +125,19 @@ class Waldo:
         frozenset((RIGHT, DOWN, LEFT)): '┬',
         frozenset((UP, RIGHT, DOWN, LEFT)): '┼'}
 
-    def __init__(self, idx, instr_map):
+    def __init__(self, idx, arrows, commands):
         self.idx = idx
-        self.instr_map = instr_map  # Position map of tuples containing arrow (direction) and 'command' (non-arrow) instructions
+        self.arrows = arrows  # Position map of tuples containing arrow instructions
+        self.commands = commands  # Position map of tuples containing non-arrow instructions
         self.flipflop_states = {}
         self.position = None  # Dummy init so we can check for duplicate Start
-        for posn, (_, cmd) in instr_map.items():
-            if cmd is not None:
-                if cmd.type == InstructionType.FLIP_FLOP:
-                    self.flipflop_states[posn] = False
-                elif cmd.type == InstructionType.START:
-                    assert self.position is None, "Duplicate waldo Start instruction"
-                    self.position = posn
-                    self.direction = cmd.direction
+        for posn, cmd in commands.items():
+            if cmd.type == InstructionType.FLIP_FLOP:
+                self.flipflop_states[posn] = False
+            elif cmd.type == InstructionType.START:
+                assert self.position is None, "Duplicate waldo Start instruction"
+                self.position = posn
+                self.direction = cmd.direction
         assert self.position is not None, "Missing waldo Start instruction"
 
         self.molecule = None
@@ -153,34 +153,30 @@ class Waldo:
 
     def __repr__(self):
         return (f'Waldo({self.idx}, pos={self.position}, dir={self.direction}, is_stalled={self.is_stalled}'
-                + f', instr_map={self.instr_map})')
+                + f', arrows={self.arrows}, cmds={self.commands})')
 
     def __len__(self):
-        return sum(1 for cell_instrs in self.instr_map.values()
-                   for instr in cell_instrs
-                   if (instr is not None
-                       and not (isinstance(instr, Instruction) and instr.type == InstructionType.START)))
+        return len(self.arrows) + len(self.commands) - 1  # Should be one Start instruction
 
     def cur_cmd(self):
         """Return a waldo's current 'command', i.e. non-arrow instruction, or None."""
-        return None if self.position not in self.instr_map else self.instr_map[self.position][1]
+        return self.commands[self.position] if self.position in self.commands else None
 
     def export_str(self):
         """Represent this waldo's instructions in solution export string format."""
         start_line = None
         lines = []
-        # Sort the members by position (col then row)
-        for posn, (arrow, instr) in sorted(self.instr_map.items()):
-            if arrow is not None:
+        # Merge arrows and commands and sort them all by position (col then row), but separating the start command
+        for posn, instr in sorted(list(self.arrows.items()) + list(self.commands.items()),  # Arrows before commands
+                                  key=lambda x: x[0]):  # Tie-break will keep arrows in front of non-arrows
+            if isinstance(instr, Direction):  # Arrow
                 waldo_int = 64 if self.idx == 0 else 16
-                dirn_degrees = (arrow.value - 1) * 90  # TODO: Should probably stop using .value for IntEnum's?
+                dirn_degrees = (instr.value - 1) * 90  # TODO: Should probably stop using .value for IntEnum's?
                 lines.append(f"MEMBER:'instr-arrow',{dirn_degrees},0,{waldo_int},{posn.col},{posn.row},0,0")
-
-            if instr is not None:
-                if instr.type == InstructionType.START:
-                    start_line = instr.export_str(waldo_idx=self.idx, posn=posn)
-                else:
-                    lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
+            elif instr.type == InstructionType.START:
+                start_line = instr.export_str(waldo_idx=self.idx, posn=posn)
+            else:  # Command
+                lines.append(instr.export_str(waldo_idx=self.idx, posn=posn))
 
         # Put the start instr line at the front
         return '\n'.join([start_line, *lines])
@@ -195,8 +191,8 @@ class Waldo:
         branching_instr_types = {InstructionType.SENSE, InstructionType.FLIP_FLOP}
 
         # Override the start direction with any arrow since unlike other directional commands it can't branch
-        start_posn, start_dirn = next((posn, arrow_dirn if arrow_dirn is not None else cmd.direction)
-                                      for posn, (arrow_dirn, cmd) in self.instr_map.items()
+        start_posn, start_dirn = next((posn, (self.arrows[posn] if posn in self.arrows else cmd.direction))
+                                      for posn, cmd in self.commands.items()
                                       if cmd.type == InstructionType.START)
         visited_posn_dirns = {}  # posn: directions to catch when we're looping
         traced_posn_dirns = {}  # posn: directions that were visually traced (separate from visited since
@@ -210,11 +206,8 @@ class Waldo:
                 traced_posn_dirns[cur_posn] = set()
             traced_posn_dirns[cur_posn].add(incoming_dirn.opposite())
 
-            # Check the current cell for an arrow and/or branching instruction
-            arrow_dirn, cmd = self.instr_map[cur_posn] if cur_posn in self.instr_map else (None, None)
-
             # Arrows update the direction of the current branch but don't create a new one
-            outgoing_dirn = arrow_dirn if arrow_dirn is not None else incoming_dirn
+            outgoing_dirn = self.arrows[cur_posn] if cur_posn in self.arrows else incoming_dirn
 
             # Check the current position/direction against the visit map. We do this after evaluating the arrow to
             # reduce excess visits (since the original direction of a waldo never matters to its outgoing path if an
@@ -230,6 +223,7 @@ class Waldo:
             visited_posn_dirns[cur_posn].add(outgoing_dirn)
 
             # Add any new branch
+            cmd = self.commands[cur_posn] if cur_posn in self.commands else None
             if cmd is not None and cmd.type in branching_instr_types:
                 traced_posn_dirns[cur_posn].add(cmd.direction)
                 next_branch_posn = cur_posn + cmd.direction
@@ -244,8 +238,8 @@ class Waldo:
         return traced_posn_dirns
 
     def reset(self):
-        for posn, (_, cmd) in self.instr_map.items():
-            if cmd is not None and cmd.type == InstructionType.START:
+        for posn, cmd in self.commands.items():
+            if cmd.type == InstructionType.START:
                 self.position = posn
                 self.direction = cmd.direction
                 break

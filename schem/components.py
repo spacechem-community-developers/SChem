@@ -939,8 +939,8 @@ class Reactor(Component):
         self.large_output = 'has-large-output' in component_dict and component_dict['has-large-output']
 
         # Place Waldo starts at default locations
-        self.waldos = [Waldo(idx=i, instr_map={Position(4, 1 + 5*i): (None, Instruction(InstructionType.START,
-                                                                                        direction=LEFT))})
+        self.waldos = [Waldo(idx=i, arrows={}, commands={Position(4, 1 + 5*i): Instruction(InstructionType.START,
+                                                                                           direction=LEFT)})
                        for i in range(self.NUM_WALDOS)]
 
         # Parse any quantum walls from the reactor definition
@@ -998,8 +998,8 @@ class Reactor(Component):
         features = {'bonders': [], 'sensors': [], 'fusers': [], 'splitters': [], 'swappers': []}
 
         # One map for each waldo, of positions to pairs of arrows (directions) and/or non-arrow instructions
-        # TODO: usage might be cleaner if separate arrow_maps and instr_maps... but probably more space
-        waldo_instr_maps = [{} for _ in range(self.NUM_WALDOS)]  # Can't use * or else dict gets multi-referenced
+        waldo_cmd_maps = [{} for _ in range(self.NUM_WALDOS)]  # Can't use * or else dict gets multi-referenced
+        waldo_arrow_maps = [{} for _ in range(self.NUM_WALDOS)]
 
         feature_posns = set()  # for verifying features were not placed illegally
 
@@ -1077,19 +1077,15 @@ class Reactor(Component):
             if member_name in self.disallowed_instrs:
                 raise ValueError(f"Disallowed instruction type: {repr(member_name)}")
 
-            # Since this member is an instr and not a feature, prep a slot in the instr map
-            if position not in waldo_instr_maps[waldo_idx]:
-                waldo_instr_maps[waldo_idx][position] = [None, None]
-
             if member_name == 'instr-arrow':
-                assert waldo_instr_maps[waldo_idx][position][0] is None, f"Overlapping arrows at {position}"
-                waldo_instr_maps[waldo_idx][position][0] = direction
+                assert position not in waldo_arrow_maps[waldo_idx], f"Overlapping arrows at {position}"
+                waldo_arrow_maps[waldo_idx][position] = direction
                 continue
 
-            assert waldo_instr_maps[waldo_idx][position][1] is None, f"Overlapping commands at {position}"
+            assert position not in waldo_cmd_maps[waldo_idx], f"Overlapping commands at {position}"
 
             if member_name == 'instr-start':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.START, direction=direction)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.START, direction=direction)
                 continue
 
             # Note: Some similar instructions have the same name but are sub-typed by the
@@ -1097,55 +1093,55 @@ class Reactor(Component):
             # TODO: Validate sub-type range, e.g. no using third input in SuperLaserReactor
             instr_sub_type = int(fields[2])
             if member_name == 'instr-input':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.INPUT, target_idx=instr_sub_type)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.INPUT, target_idx=instr_sub_type)
             elif member_name == 'instr-output':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.OUTPUT,
-                                                                       target_idx=instr_sub_type)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.OUTPUT, target_idx=instr_sub_type)
             elif member_name == 'instr-grab':
                 if instr_sub_type == 0:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB_DROP)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.GRAB_DROP)
                 elif instr_sub_type == 1:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.GRAB)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.GRAB)
                 else:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.DROP)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.DROP)
             elif member_name == 'instr-rotate':
                 if instr_sub_type == 0:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
-                                                                           direction=Direction.CLOCKWISE)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.ROTATE,
+                                                                      direction=Direction.CLOCKWISE)
                 else:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.ROTATE,
-                                                                           direction=Direction.COUNTER_CLOCKWISE)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.ROTATE,
+                                                                      direction=Direction.COUNTER_CLOCKWISE)
             elif member_name == 'instr-sync':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SYNC)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.SYNC)
             elif member_name == 'instr-bond':
                 if instr_sub_type == 0:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_PLUS)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.BOND_PLUS)
                 else:
-                    waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.BOND_MINUS)
+                    waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.BOND_MINUS)
             elif member_name == 'instr-sensor':
                 # The last CSV field is used by the sensor for the target atomic number
                 atomic_num = int(fields[7])
                 if atomic_num not in elements_dict:
                     raise Exception(f"Invalid atomic number {atomic_num} on sensor command.")
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SENSE,
-                                                                       direction=direction,
-                                                                       target_idx=atomic_num)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.SENSE,
+                                                                  direction=direction,
+                                                                  target_idx=atomic_num)
             elif member_name == 'instr-fuse':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FUSE)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.FUSE)
             elif member_name == 'instr-split':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SPLIT)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.SPLIT)
             elif member_name == 'instr-swap':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.SWAP)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.SWAP)
             elif member_name == 'instr-toggle':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.FLIP_FLOP, direction=direction)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.FLIP_FLOP, direction=direction)
             elif member_name == 'instr-debug':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.PAUSE)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.PAUSE)
             elif member_name == 'instr-control':
-                waldo_instr_maps[waldo_idx][position][1] = Instruction(InstructionType.CONTROL, direction=direction)
+                waldo_cmd_maps[waldo_idx][position] = Instruction(InstructionType.CONTROL, direction=direction)
             else:
                 raise Exception(f"Unrecognized member type {member_name}")
 
-        self.waldos = [Waldo(idx=i, instr_map=waldo_instr_maps[i]) for i in range(self.NUM_WALDOS)]
+        self.waldos = [Waldo(idx=i, arrows=waldo_arrow_maps[i], commands=waldo_cmd_maps[i])
+                       for i in range(self.NUM_WALDOS)]
 
         # Since bonders of different types get stored together to share a priority idx, check their individual counts
         # match the existing counts
@@ -1265,9 +1261,8 @@ class Reactor(Component):
         # Add waldo instructions (priority over waldo paths)
         if show_instructions:
             for i, (waldo, color) in enumerate(zip(self.waldos, ('red', 'blue'))):
-                for (c, r), (_, cmd) in waldo.instr_map.items():
-                    if cmd is not None:
-                        cells[r][c][i] = f'[{color}]{cmd}[/]'
+                for (c, r), cmd in waldo.commands.items():
+                    cells[r][c][i] = f'[{color}]{cmd}[/]'
 
         # Add waldo reticles
         for i, (waldo, color) in enumerate(zip(self.waldos, ('bold red', 'bold blue'))):
@@ -1298,13 +1293,10 @@ class Reactor(Component):
         # Flash the appropriate feature background cells on waldo input, output, bond +/-, etc.
         if flash_features:
             for i, (waldo, waldo_color) in enumerate(zip(self.waldos, ('red', 'blue'))):
-                if waldo.position not in waldo.instr_map:
+                if waldo.position not in waldo.commands:
                     continue
 
-                cmd = waldo.instr_map[waldo.position][1]
-                if cmd is None:
-                    continue
-
+                cmd = waldo.commands[waldo.position]
                 if cmd.type == InstructionType.INPUT:
                     input_colors[cmd.target_idx] = waldo_color if cmd.target_idx not in input_colors else 'purple'
                 elif cmd.type == InstructionType.OUTPUT:
@@ -1381,7 +1373,11 @@ class Reactor(Component):
 
     def do_instant_actions(self, cycle):
         for waldo in self.waldos:
-            self.exec_instrs(waldo, cycle)
+            if waldo.position in waldo.arrows:
+                waldo.direction = waldo.arrows[waldo.position]
+
+            if waldo.position in waldo.commands:
+                self.exec_waldo_cmd(waldo, cycle)
 
     def move_contents(self, cycle):
         """Move all waldos in this reactor and any molecules they are holding."""
@@ -1701,20 +1697,10 @@ class Reactor(Component):
         if self.quantum_walls_y or self.quantum_walls_x:
             self.check_quantum_wall_collisions_lazy(molecule, direction=direction)
 
-    def exec_instrs(self, waldo, cycle):
-        if waldo.position not in waldo.instr_map:
-            return
+    def exec_waldo_cmd(self, waldo, cycle):
+        cmd = waldo.commands[waldo.position]
 
-        arrow_direction, cmd = waldo.instr_map[waldo.position]
-
-        # Update the waldo's direction based on any arrow in this cell
-        if arrow_direction is not None:
-            waldo.direction = arrow_direction
-
-        # Execute the non-arrow instruction
-        if cmd is None:
-            return
-        elif cmd.type == InstructionType.INPUT:
+        if cmd.type == InstructionType.INPUT:
             self.input(waldo, cmd.target_idx, cycle)
         elif cmd.type == InstructionType.OUTPUT:
             self.output(waldo, cmd.target_idx, cycle)
