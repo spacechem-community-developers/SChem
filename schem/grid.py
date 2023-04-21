@@ -29,16 +29,15 @@ class Direction(IntEnum):
         return Direction((self.value - other.value) % 4)
 
     def opposite(self):
-        if self.value < 4:
-            return Direction((self.value + 2) % 4)
-        else:
-            # rotational directions, this is a bit hacky since I stuffed them in what should really be separate enums...
-            return Direction(4 + ((self.value + 2) % 4))
+        # As an optimization since we never use opposite() on rotational directions, assume cardinal
+        # TODO: Split cardinal and rotational directions into separate enums
+        return CARDINAL_DIRECTIONS[(self.value + 2) % 4]  # >2x faster than calling constructor
+        # Rotates will need:
+        #return ROTATIONAL_DIRECTIONS[(self.value % 3) - 1]  # Dirty hack for 5 -> 1 and 7 -> 0
 
 
 # Convenience
 CARDINAL_DIRECTIONS = UP, RIGHT, DOWN, LEFT = (Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT)
-
 
 class Position(namedtuple("Position", ('col', 'row'))):
     """Grid position, with (col, row) 0-indexed from the top left of the reactor or overworld."""
