@@ -1850,7 +1850,7 @@ class Reactor(Component):
             # If the bond being increased is already at the max bond size of 3, don't do
             # anything. However, due to weirdness of Spacechem's bonding algorithm, we still
             # mark the molecule as modified below
-            if direction not in atom_A.bonds or atom_A.bonds[direction] != 3:
+            if direction not in atom_A.bonds or atom_A.bonds[direction] < 3:
                 atom_B = molecule_B[neighbor_posn]
 
                 # Do nothing if either atom is at (or above) its bond limit (spacechem does not mark any molecules as
@@ -1862,32 +1862,24 @@ class Reactor(Component):
                 direction_B = direction.opposite()
 
                 if direction not in atom_A.bonds:
-                    atom_A.bonds[direction] = 0
-                atom_A.bonds[direction] += 1
-                if direction_B not in atom_B.bonds:
-                    atom_B.bonds[direction_B] = 0
-                atom_B.bonds[direction_B] += 1
+                    atom_A.bonds[direction] = atom_B.bonds[direction_B] = 1  # B should be symmetrical
+                else:
+                    atom_A.bonds[direction] += 1
+                    atom_B.bonds[direction_B] += 1
 
-            if molecule_A is molecule_B:
-                # Mark molecule as modified by popping it to the back of the reactor's queue
-                del self.molecules[molecule_A]
-                self.molecules[molecule_A] = None  # dummy value
-            else:
-                # Add the smaller molecule to the larger one (faster), then delete the smaller
-                # and mark the larger as modified
-                molecules = [molecule_A, molecule_B]
-                molecules.sort(key=len)
-                molecules[1] += molecules[0]
+            if molecule_A is not molecule_B:
+                molecule_A += molecule_B  # Combine the molecules
+                del self.molecules[molecule_B]
 
-                # Also make sure that any waldos holding the to-be-deleted molecule are updated
+                # Make sure that any waldos holding the to-be-deleted molecule are updated
                 # to point at the combined molecule
                 for waldo in self.waldos:
-                    if waldo.molecule is molecules[0]:
-                        waldo.molecule = molecules[1]
+                    if waldo.molecule is molecule_B:
+                        waldo.molecule = molecule_A
 
-                del self.molecules[molecules[0]]
-                del self.molecules[molecules[1]]
-                self.molecules[molecules[1]] = None  # dummy value
+            # Mark the molecule as modified by popping it to the back of the reactor's queue
+            del self.molecules[molecule_A]
+            self.molecules[molecule_A] = None  # dummy value
 
     def bond_minus(self):
         for position, _, direction in self.bond_minus_pairs:
