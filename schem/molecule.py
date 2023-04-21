@@ -241,10 +241,10 @@ class Molecule:
         atom_A.bonds[direction] -= 1
         if atom_A.bonds[direction] == 0:
             del atom_A.bonds[direction]
-
-        atom_B.bonds[direction_B] -= 1
-        if atom_B.bonds[direction_B] == 0:
-            del atom_B.bonds[direction_B]
+            del atom_B.bonds[direction_B]  # B's bond should be symmetrical
+        else:
+            atom_B.bonds[direction_B] -= 1
+            return None  # If the bond didn't break, we didn't disconnect the molecule
 
         # Search from atom B to determine if we disconnected the molecule. If not, remove all atoms we discovered
         # connected via B from this molecule and add them to a new molecule
