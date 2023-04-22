@@ -1773,9 +1773,9 @@ class Reactor(Component):
         elif input_idx == 1 and sample_posn.row < 4:
             new_molecule.move(DOWN, 4)
 
-        self.molecules[new_molecule] = None  # Dummy value
-
         self.check_molecule_collisions_lazy(new_molecule)
+
+        self.molecules[new_molecule] = None  # Dummy value
 
     def output(self, waldo, output_idx, cycle):
         # If the there is no such output pipe (e.g. assembly reactor, large output research), do nothing
