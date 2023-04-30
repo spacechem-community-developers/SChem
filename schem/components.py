@@ -1607,11 +1607,17 @@ class Reactor(Component):
                    for p in molecule.atom_map):
                 raise ReactionError("A molecule has collided with a quantum wall")
 
-    @staticmethod
-    def rotate_span(molecule, pivot, direction):
+    _rotate_span_memo = {}
+    @classmethod
+    def rotate_span(cls, molecule, pivot, direction):
         """Given a waldo about to rotate a molecule, return a superset of every cell that is at least partially covered
         by the rotation. Runs in O(len(molecule)) time.
         """
+        # Memoize
+        memo_key = (pivot, direction, frozenset(molecule.atom_map.keys()))
+        if memo_key in cls._rotate_span_memo:
+            return cls._rotate_span_memo[memo_key]
+
         # Calculate a bounding box (in terms of cell coordinates, ignoring atom widths) for the molecule
         t1 = min(posn.row for posn in molecule.atom_map)  # Top
         b1 = max(posn.row for posn in molecule.atom_map)  # Bottom
@@ -1676,7 +1682,9 @@ class Reactor(Component):
                     b += math.ceil((math.sqrt(2) - 1) * (b - pivot.row))
                 extended_sw = True
 
-        return set(Position(col=col, row=row) for col in range(l, r + 1) for row in range(t, b + 1))
+        span = set(Position(col=col, row=row) for col in range(l, r + 1) for row in range(t, b + 1))
+        cls._rotate_span_memo[memo_key] = span
+        return span
 
     def check_collisions(self, molecule):
         """Raise an exception if the given molecule is colliding with any other molecules, walls, or quantum walls."""
