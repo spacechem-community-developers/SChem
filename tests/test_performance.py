@@ -81,6 +81,14 @@ class TestPerformace(unittest.TestCase):
                     # test forever. Running tests for the first time will take about an extra half second per new test.
                     loops = max(max(timer.autorange()[0] for _ in range(2)) // 2, 5)
                 else:
+                    # To avoid clogging our performance tests with tiny test cases which are all highly volatile anyway,
+                    # if the last measured min_time was < 0.005s, skip it other than the above sanity check.
+                    # Note that the original data will still be kept in the pickle (so we remember to skip it).
+                    # Deleting the pickle file will prompt all tests to be re-measured once before being skipped for
+                    # future runs.
+                    if LAST_TEST_RESULTS[test_id]['min_time'] < 0.005:
+                        continue
+
                     loops = LAST_TEST_RESULTS[test_id]['loops']
 
                 # repeat = # of timeit calls, number = # of code executions per timeit call
