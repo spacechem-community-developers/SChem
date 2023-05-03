@@ -1457,34 +1457,31 @@ class Reactor(Component):
                 step_distance = 1 / self.NUM_MOVE_CHECKS
                 for _ in range(self.NUM_MOVE_CHECKS):
                     # Move all molecules currently being held by a waldo forward a step
-                    for waldo in self.waldos:
-                        if waldo.molecule is not None and not waldo.is_stalled:
-                            waldo.molecule.move(waldo.direction, distance=step_distance)
-                        elif waldo.is_rotating:
-                            waldo.molecule.rotate_fine(pivot_pos=waldo.position,
-                                                       direction=waldo.cur_cmd().direction,
-                                                       radians=step_radians)
+                    for waldo in sliding_waldos:
+                        waldo.molecule.move(waldo.direction, distance=step_distance)
+                    for waldo in rotating_waldos:
+                        waldo.molecule.rotate_fine(pivot_pos=waldo.position,
+                                                   direction=waldo.cur_cmd().direction,
+                                                   radians=step_radians)
 
                     # After moving all molecules, check each rotated molecule for collisions with walls or other molecules
                     # Though all molecules had to move, only the rotating one(s) needs to do checks at each step, since we
                     # know the other waldo will only have static molecules left to check against, and translation movements
                     # can't clip through a static atom without ending on top of it
                     # Note: This only holds true for <= 2 waldos and since we checked that at least one waldo is rotating
-                    for waldo in self.waldos:
-                        if waldo.is_rotating:
-                            self.check_collisions(waldo.molecule)
+                    for waldo in rotating_waldos:
+                        self.check_collisions(waldo.molecule)
 
                 # After completing all steps of the movement, convert moved molecules back to integer co-ordinates and do
                 # any final checks/updates
-                for waldo in self.waldos:
-                    if waldo.molecule is not None and not waldo.is_stalled:
-                        waldo.molecule.round_posns()
-                        # Do the final check we skipped for non-rotating molecules
-                        self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
-                    elif waldo.is_rotating:
-                        waldo.molecule.round_posns()
-                        # Rotate atom bonds
-                        waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
+                for waldo in sliding_waldos:
+                    waldo.molecule.round_posns()
+                    # Do the final check we skipped for non-rotating molecules
+                    self.check_collisions_lazy(waldo.molecule, direction=waldo.direction)
+                for waldo in rotating_waldos:
+                    waldo.molecule.round_posns()
+                    # Rotate atom bonds
+                    waldo.molecule.rotate_bonds(waldo.cur_cmd().direction)
         elif sliding_waldos:
             # If we are not doing any rotates, we can skip the full collision checks
             # Non-rotating molecules can cause collisions/errors if:
