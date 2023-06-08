@@ -104,6 +104,9 @@ class Level:
         assert isinstance(s, str), "Level type must be a string"
         self.dict['type'] = s
 
+    def to_code(self):
+        return base64.b64encode(zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15))
+
     # TODO: More properties and update Solution to use them
 
 
