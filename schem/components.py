@@ -2285,6 +2285,8 @@ class Weapon(Component):
             return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
             return object.__new__(CrashCanister)
+        elif _type == 'drag-weapon-oxygentank':
+            return object.__new__(OxygenTank)
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
@@ -2477,5 +2479,32 @@ class CrashCanister(Weapon, Output):
         self.canister_drop_cycle = None
 
         return self
+
+class OxygenTank(Weapon, Output):
+    """Danopth, used during 'A Most Unfortunate Malfunction'. Similar to the StorageTank class,
+    but explodes after reaching max capacity. Once exploded it takes input indefinitely."""
+    __slots__ = 'capacity', 'exploded'
+    DEFAULT_SHAPE = (3, 3)
+    MAX_CAPACITY = 35
+
+    def __init__(self, component_dict, *args, **kwargs):
+        super().__init__(component_dict, *args, **kwargs)
+        self.capacity = 0
+
+    def do_instant_actions(self, cycle):
+        if self.in_pipe is None:
+            return
+
+        if self.in_pipe.get(-1, cycle) is not None:
+            capacity += 1
+            if capacity >= self.MAX_CAPACITY and not self.exploded:
+                self.exploded = True
+                self.explode() # uhhhhhh yes, how do I do this?
+    
+    def reset(self):
+        super().reset()
+        self.capacity = 0
+        return self
+
 
 # TODO: Implement ControlCenter/'drag-defense-plant' so its remaining HP can be shown in debug view
