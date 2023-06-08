@@ -2111,6 +2111,8 @@ class Boss:
 
     def __new__(cls, _type):
         """Convert to the specific boss subclass."""
+        if _type == 'Isambard MMD':
+            return super().__new__(IsambardMMD)
         if _type == 'Gorgathar':
             return super().__new__(Gorgathar)
         elif _type == 'Yarugolek':
@@ -2140,10 +2142,72 @@ class Boss:
         return self
 
 
+class IsambardMMD(Boss):
+    """Danopth. Moves in a line, but is slowed down by taking damage."""
+    __slots__ = 'wheel_broken_on_cycle',
+    LOSS_CYCLE = math.inf # Handled manually
+    DEATH_ANIMATION_CYCLES = 0
+    
+    def __init__(self, _type):
+        super().__init__(_type)
+        self.wheel_broken_on_cycle = [] # Contains a list of which cycle each wheel was damaged on.
+    
+    # All these numbers are from manual timing. "Clean room", yadda yadda.
+    def get_boss_position(self, cycle):
+        # At speed 3, the boss moves 1 pixel on frame 10, 20, 30, etc. Death is on 2600, so figure 260 pixels.
+        # Damage on frame 858 results in next motion on 865, 880. So there is presumably a counter that just counts up to next movement.
+        speeds = [None, 20, 15, 10] # Cycles per pixel of movement with 0, 1, 2, or 3 wheels
+        
+        x_position = 260 # Initial position
+
+        # First, compute the distance traveled with 3 wheels
+        if len(self.wheel_broken_on_cycle) > 0:
+            cycles_with_3_wheels = (self.wheel_broken_on_cycle[0] // 10) * 10
+            x_position -= 10 * cycles_with_3_wheels
+            
+        # Then, distance on two wheels:
+        if len(self.wheel_broken_on_cycle) > 1:
+            cycles_with_2_wheels = ((cycles_with_3_wheels - self.wheel_broken_on_cycle[1]) // 15) * 15
+            x_position -= 15 * cycles_with_2_wheels
+
+        # Finally, on one wheel:
+        if len(self.wheel_broken_on_cycle) > 2:
+            cycles_with_1_wheel = ((cycles_with_2_wheels - self.wheel_broken_on_cycle[2]) // 20) * 20
+            x_position -= 20 * cycles_with_1_wheel
+              
+        return x_position
+
+    def do_instant_actions(self, cycle):
+        """Raise a DeathError if LOSS_CYCLE has been reached."""
+        if self.get_boss_position(cycle) == 0:
+            raise DeathError("The planet has been destroyed.")
+
+    # All of these numbers are from manual timing. "Clean room", yadda yadda.
+    def take_damage(self, dmg, cycle, tank_id):
+        x_pos = self.get_boss_position(cycle)
+    
+        if tank_id == 3 and 24 <= x_pos <= 103: # Less than 36 isn't actually possible, so I'm just assuming this matches tanks 1 and 2.
+            self.wheel_broken_on_cycle.apend(cycle)
+        if tank_id == 2 and 88 <= x_pos <= 167:
+            self.wheel_broken_on_cycle.apend(cycle)
+        if tank_id == 1 and 152 <= x_pos <= 231:
+            self.wheel_broken_on_cycle.apend(cycle)
+
+        return len(self.wheel_broken_on_cycle) == 3
+
+    def reset(self):
+        super().reset()
+        self.wheel_broken_on_cycle = []
+        return self
+
+
+class Quororque(Boss):
+    """Alkonost. Only takes damage while the eye is open, but no other complex timings."""
+
 class Gorgathar(Boss):
     """Sikutar. No special properties."""
     __slots__ = ()
-    LOSS_CYCLE = 6979
+    LOSS_CYCLE = 6979 # Damage on cycles 731 + 781x, death on x=8.
     DEATH_ANIMATION_CYCLES = 1452
 
 
