@@ -206,7 +206,6 @@ COMPONENT:'custom-research-reactor',2,0,''"""
         for test_id, level_code, solution_code in iter_test_data(test_data.death_solutions):
             with self.subTest(msg=test_id):
                 solution = schem.Solution(solution_code, level=level_code)
-                # with self.assertRaises(schem.exceptions.DeathError):
                 with self.assertRaises(schem.exceptions.DeathError):
                     solution.run(max_cycles = 10_000)
                 self.assertEqual(solution.expected_score.cycles, solution.cycle, 'Death was not on the correct cycle')
