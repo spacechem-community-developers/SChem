@@ -196,6 +196,8 @@ COMPONENT:'custom-research-reactor',2,0,''"""
 
     def test_validate_valid_solutions(self):
         """Tests for solutions that should run to completion and match the expected score."""
+        ## Currently failing:
+        # ReactionError: [A Most Unfortunate Malfunction] 2751-2-55 by Ephedra: Cycle 1393: Reactor 0: Collision between molecules.
         for test_id, level_code, solution_code in iter_test_data(test_data.valid_solutions):
             with self.subTest(msg=test_id):
                 schem.Solution(solution_code, level=level_code).validate()
@@ -207,7 +209,7 @@ COMPONENT:'custom-research-reactor',2,0,''"""
             with self.subTest(msg=test_id):
                 solution = schem.Solution(solution_code, level=level_code)
                 with self.assertRaises(schem.exceptions.DeathError):
-                    solution.run(max_cycles = 10_000)
+                    solution.validate()
                 self.assertEqual(solution.expected_score.cycles, solution.cycle, 'Death was not on the correct cycle')
                 print(f"✅  {test_id}")
 
