@@ -2514,13 +2514,13 @@ class OxygenTank(Weapon):
         if self.in_pipe is None:
             return
 
-        if self.in_pipe.pop(cycle) is not None:
+        if self.in_pipe.pop(cycle) is not None: # Consumes input even if exploded
             self.capacity += 1
 
             if self.capacity >= self.MAX_CAPACITY and not self.exploded:
                 self.exploded = True
                 if self.boss.on_oxygen_tank_explode(cycle, self.posn):
-                    return True
+                    return True # Boss ded, we killed it
     
     def reset(self):
         super().reset()
