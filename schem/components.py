@@ -2162,12 +2162,12 @@ class IsambardMMD(Boss):
             cycles_on_2_wheels = 0
             cycles_on_1_wheel  = 0
         elif len(self.wheel_broken_on_cycle) == 1:
-            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // SPEEDS[3] * SPEEDS[3]
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // self.SPEEDS[3] * self.SPEEDS[3]
             cycles_on_2_wheels = (cycle - cycles_on_3_wheels)
             cycles_on_1_wheel  = 0
         elif len(self.wheel_broken_on_cycle) == 2:
-            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // SPEEDS[3] * SPEEDS[3]
-            cycles_on_2_wheels = (self.wheel_broken_on_cycle[1] - cycles_on_3_wheels) // SPEEDS[2] * SPEEDS[2]
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // self.SPEEDS[3] * self.SPEEDS[3]
+            cycles_on_2_wheels = (self.wheel_broken_on_cycle[1] - cycles_on_3_wheels) // self.SPEEDS[2] * self.SPEEDS[2]
             cycles_on_1_wheel  = (cycle - cycles_on_2_wheels)
 
         x_position = 260 # Initial position
@@ -2180,19 +2180,19 @@ class IsambardMMD(Boss):
         """Raise a DeathError if the boss has reached our base."""
         if self.get_boss_position(cycle) <= 0:
             raise DeathError("The planet has been destroyed.")
+        if len(self.wheel_broken_on_cycle) == 3:
+            print(cycle)
+            return True # Boss has died.
 
     # All of these numbers are from manual timing. "Clean room", yadda yadda.
-    def take_damage(self, dmg, cycle, tank_id):
-        x_pos = self.get_boss_position(cycle)
-    
-        if tank_id == 3 and 24 <= x_pos <= 103: # Less than 36 isn't actually possible, so I'm just assuming this matches tanks 1 and 2.
-            self.wheel_broken_on_cycle.apend(cycle)
-        if tank_id == 2 and 88 <= x_pos <= 167:
-            self.wheel_broken_on_cycle.apend(cycle)
-        if tank_id == 1 and 152 <= x_pos <= 231:
-            self.wheel_broken_on_cycle.apend(cycle)
-
-        return len(self.wheel_broken_on_cycle) == 3
+    def on_oxygen_tank_explode(self, cycle, tank_posn):
+        if tank_posn.col == 12 and 1520 <= cycle <= 2310: # 1st tank
+            self.wheel_broken_on_cycle.append(cycle)
+        if tank_posn.col == 18 and 880 <= cycle <= 1670: # 2nd tank
+            self.wheel_broken_on_cycle.append(cycle)
+        # Exploding a tank earlier than 365 cycles isn't actually possible, so I'm just assuming this matches tanks 1 and 2 for range.
+        if tank_posn.col == 24 and 240 <= cycle <= 1030: # 3rd tank
+            self.wheel_broken_on_cycle.append(cycle)
 
     def reset(self):
         super().reset()
@@ -2498,8 +2498,8 @@ class OxygenTank(Weapon):
     def __init__(self, component_dict, _type=None, posn=None):
         super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
         self.capacity = 0
+        self.exploded = False
 
-    # ???
     @property
     def in_pipe(self):
         return self.in_pipes[0]
@@ -2508,16 +2508,17 @@ class OxygenTank(Weapon):
         if self.in_pipe is None:
             return
 
-        if self.in_pipe.get(-1, cycle) is not None:
-            capacity += 1
-            if capacity >= self.MAX_CAPACITY and not self.exploded:
+        if self.in_pipe.pop(cycle) is not None:
+            self.capacity += 1
+
+            if self.capacity >= self.MAX_CAPACITY and not self.exploded:
                 self.exploded = True
-                # We apparently have a self.boss attribute here, maybe that works? self.boss.damage() and then our position?
-                self.explode() # uhhhhhh yes, how do I do this?
+                self.boss.on_oxygen_tank_explode(cycle, self.posn)
     
     def reset(self):
         super().reset()
         self.capacity = 0
+        self.exploded = False
         return self
 
 
