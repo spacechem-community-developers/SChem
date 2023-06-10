@@ -2147,39 +2147,38 @@ class IsambardMMD(Boss):
     __slots__ = 'wheel_broken_on_cycle',
     LOSS_CYCLE = math.inf # Handled manually
     DEATH_ANIMATION_CYCLES = 0
+    # At speed 3, the boss moves 1 pixel on frame 10, 20, 30, etc. Death is on 2600, so figure 260 pixels.
+    # Damage on frame 858 results in next motion on 865, 880. So there is presumably a counter that just counts up to next movement.
+    SPEEDS = [None, 20, 15, 10] # Cycles per pixel of movement with 0, 1, 2, or 3 wheels
     
     def __init__(self, _type):
         super().__init__(_type)
-        self.wheel_broken_on_cycle = [] # Contains a list of which cycle each wheel was damaged on.
+        self.wheel_broken_on_cycle = [] # Contains a list of cycles on which the wheels were damaged.
     
     # All these numbers are from manual timing. "Clean room", yadda yadda.
     def get_boss_position(self, cycle):
-        # At speed 3, the boss moves 1 pixel on frame 10, 20, 30, etc. Death is on 2600, so figure 260 pixels.
-        # Damage on frame 858 results in next motion on 865, 880. So there is presumably a counter that just counts up to next movement.
-        speeds = [None, 20, 15, 10] # Cycles per pixel of movement with 0, 1, 2, or 3 wheels
-        
+        if len(self.wheel_broken_on_cycle) == 0:
+            cycles_on_3_wheels = cycle
+            cycles_on_2_wheels = 0
+            cycles_on_1_wheel  = 0
+        elif len(self.wheel_broken_on_cycle) == 1:
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // SPEEDS[3] * SPEEDS[3]
+            cycles_on_2_wheels = (cycle - cycles_on_3_wheels)
+            cycles_on_1_wheel  = 0
+        elif len(self.wheel_broken_on_cycle) == 2:
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // SPEEDS[3] * SPEEDS[3]
+            cycles_on_2_wheels = (self.wheel_broken_on_cycle[1] - cycles_on_3_wheels) // SPEEDS[2] * SPEEDS[2]
+            cycles_on_1_wheel  = (cycle - cycles_on_2_wheels)
+
         x_position = 260 # Initial position
-
-        # First, compute the distance traveled with 3 wheels
-        if len(self.wheel_broken_on_cycle) > 0:
-            cycles_with_3_wheels = (self.wheel_broken_on_cycle[0] // 10) * 10
-            x_position -= 10 * cycles_with_3_wheels
-            
-        # Then, distance on two wheels:
-        if len(self.wheel_broken_on_cycle) > 1:
-            cycles_with_2_wheels = ((cycles_with_3_wheels - self.wheel_broken_on_cycle[1]) // 15) * 15
-            x_position -= 15 * cycles_with_2_wheels
-
-        # Finally, on one wheel:
-        if len(self.wheel_broken_on_cycle) > 2:
-            cycles_with_1_wheel = ((cycles_with_2_wheels - self.wheel_broken_on_cycle[2]) // 20) * 20
-            x_position -= 20 * cycles_with_1_wheel
-              
+        x_position -= cycles_on_3_wheels // self.SPEEDS[3]
+        x_position -= cycles_on_2_wheels // self.SPEEDS[2]
+        x_position -= cycles_on_1_wheel  // self.SPEEDS[1]
         return x_position
 
     def do_instant_actions(self, cycle):
-        """Raise a DeathError if LOSS_CYCLE has been reached."""
-        if self.get_boss_position(cycle) == 0:
+        """Raise a DeathError if the boss has reached our base."""
+        if self.get_boss_position(cycle) <= 0:
             raise DeathError("The planet has been destroyed.")
 
     # All of these numbers are from manual timing. "Clean room", yadda yadda.
@@ -2480,16 +2479,28 @@ class CrashCanister(Weapon, Output):
 
         return self
 
-class OxygenTank(Weapon, Output):
+
+class ParticleAccelerator(Weapon, Output):
+    """Alkonost. This is a beam weapon that must be continuously charged up, and then fed shots to fire."""
+    __slots__ = ()
+    DEFAULT_SHAPE = (3, 3)
+
+
+class OxygenTank(Weapon):
     """Danopth, used during 'A Most Unfortunate Malfunction'. Similar to the StorageTank class,
     but explodes after reaching max capacity. Once exploded it takes input indefinitely."""
     __slots__ = 'capacity', 'exploded'
     DEFAULT_SHAPE = (3, 3)
     MAX_CAPACITY = 35
 
-    def __init__(self, component_dict, *args, **kwargs):
-        super().__init__(component_dict, *args, **kwargs)
+    def __init__(self, component_dict, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
         self.capacity = 0
+
+    # ???
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
 
     def do_instant_actions(self, cycle):
         if self.in_pipe is None:
@@ -2499,6 +2510,7 @@ class OxygenTank(Weapon, Output):
             capacity += 1
             if capacity >= self.MAX_CAPACITY and not self.exploded:
                 self.exploded = True
+                # We apparently have a self.boss attribute here, maybe that works? self.boss.damage() and then our position?
                 self.explode() # uhhhhhh yes, how do I do this?
     
     def reset(self):

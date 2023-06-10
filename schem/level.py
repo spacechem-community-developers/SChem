@@ -78,13 +78,13 @@ class Level:
     def __str__(self):
         return json.dumps(self.dict)
 
+    def __delitem__(self, item):
+        return self.dict.__delitem__(item)
+
     @property
     def code(self):
-        """Export to mission code string; gzip then b64 the level json."""
-        out = io.BytesIO()
-        with gzip.GzipFile(fileobj=out, mode="w") as f:
-            f.write(json.dumps(self.dict).encode('utf-8'))
-        code = base64.b64encode(out.getvalue()).decode()
+        """Export to mission code string; zip then b64 the level json."""
+        code = base64.b64encode(zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15))
         # Line-wrap the export code for readability
         return '\n'.join(code[i:i+self.export_line_len] for i in range(0, len(code), self.export_line_len))
 
@@ -103,9 +103,6 @@ class Level:
     def type(self, s):
         assert isinstance(s, str), "Level type must be a string"
         self.dict['type'] = s
-
-    def to_code(self):
-        return base64.b64encode(zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15))
 
     # TODO: More properties and update Solution to use them
 
@@ -196,7 +193,7 @@ class DefenseLevel(Level):
             self['random-input-zones'] = {}
             self['fixed-input-zones'] = {}
             self['weapons'] = {}
-            self['terrain'] = 0
+            del self['terrain']
             self['max-reactors'] = 0
             self['has-starter'] = False
             self['has-assembly'] = False
