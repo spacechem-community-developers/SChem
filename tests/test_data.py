@@ -9173,14 +9173,14 @@ PIPE:1,14,-4
 
 
 death_solutions = [
-r'''SOLUTION:Exploding Head Syndrome,darkid,1000-0-0,Death
+r'''SOLUTION:Exploding Head Syndrome,darkid,6979-0-0,Death
 COMPONENT:'drag-oceanic-input',5,18,''
 PIPE:0,2,0
 PIPE:0,3,0
 PIPE:0,4,0
 ''',
 
-r'''SOLUTION:A Most Unfortunate Malfunction,darkid,3720-0-0,Unnamed Solution (copy)
+r'''SOLUTION:A Most Unfortunate Malfunction,darkid,3720-0-0,Death
 COMPONENT:'drag-oceanic-input',1,16,''
 PIPE:0,2,0
 PIPE:0,3,0

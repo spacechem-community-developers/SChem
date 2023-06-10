@@ -209,6 +209,7 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                 # with self.assertRaises(schem.exceptions.DeathError):
                 with self.assertRaises(schem.exceptions.DeathError):
                     solution.run(max_cycles = 10_000)
+                self.assertEqual(solution.expected_score.cycles, solution.cycle, 'Death was not on the correct cycle')
                 print(f"✅  {test_id}")
 
     def test_evaluate_duplicate_levels_success(self):
