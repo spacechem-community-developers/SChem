@@ -2181,7 +2181,6 @@ class IsambardMMD(Boss):
         if self.get_boss_position(cycle) <= 0:
             raise DeathError("The planet has been destroyed.")
         if len(self.wheel_broken_on_cycle) == 3:
-            print(cycle)
             return True # Boss has died.
 
     # All of these numbers are from manual timing. "Clean room", yadda yadda.
