@@ -206,8 +206,9 @@ COMPONENT:'custom-research-reactor',2,0,''"""
         for test_id, level_code, solution_code in iter_test_data(test_data.death_solutions):
             with self.subTest(msg=test_id):
                 solution = schem.Solution(solution_code, level=level_code)
+                # with self.assertRaises(schem.exceptions.DeathError):
                 with self.assertRaises(schem.exceptions.DeathError):
-                    solution.run()
+                    solution.run(max_cycles = 10_000)
                 print(f"✅  {test_id}")
 
     def test_evaluate_duplicate_levels_success(self):

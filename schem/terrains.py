@@ -278,6 +278,16 @@ terrains = {
                               ('drag-oceanic-input', (1, 16))),
         'output-zones': (('output', (23, 12)),
                          ('output', (23, 18),))},
+    "A Most Unfortunate Malfunction": {
+        'obstructed': {
+            # Boss path
+            *product(range(-3, 30), range(-5, -16)),
+            # Bottom center rock
+            *product(range(10, 17), (4, 5)),
+            *product(range(11, 15), (6,)),
+            *product(range(12, 14), (7,)),
+        },
+        'fixed-input-zones': (('drag-oceanic-input', (1, 16)),)},
     "No Ordinary Headache": {
         'obstructed': {
             # Middle trees

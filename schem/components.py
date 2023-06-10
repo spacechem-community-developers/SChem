@@ -2284,6 +2284,8 @@ class Weapon(Component):
             return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
             return object.__new__(CrashCanister)
+        elif _type == 'drag-weapon-particleaccelerator':
+            return object.__new__(ParticleAccelerator)
         elif _type == 'drag-weapon-oxygentank':
             return object.__new__(OxygenTank)
         else:
