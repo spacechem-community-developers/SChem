@@ -2206,9 +2206,6 @@ class IsambardMMD(Boss):
         return self
 
 
-class Quororque(Boss):
-    """Alkonost. Only takes damage while the eye is open, but no other complex timings."""
-
 class Gorgathar(Boss):
     """Sikutar. No special properties."""
     __slots__ = ()
@@ -2290,8 +2287,6 @@ class Weapon(Component):
             return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
             return object.__new__(CrashCanister)
-        elif _type == 'drag-weapon-particleaccelerator':
-            return object.__new__(ParticleAccelerator)
         elif _type == 'drag-weapon-oxygentank':
             return object.__new__(OxygenTank)
         else:
@@ -2486,12 +2481,6 @@ class CrashCanister(Weapon, Output):
         self.canister_drop_cycle = None
 
         return self
-
-
-class ParticleAccelerator(Weapon, Output):
-    """Alkonost. This is a beam weapon that must be continuously charged up, and then fed shots to fire."""
-    __slots__ = ()
-    DEFAULT_SHAPE = (3, 3)
 
 
 class OxygenTank(Weapon):

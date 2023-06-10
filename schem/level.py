@@ -84,7 +84,8 @@ class Level:
     @property
     def code(self):
         """Export to mission code string; zip then b64 the level json."""
-        code = base64.b64encode(zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15)).decode()
+        out = zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15)
+        code = base64.b64encode(out).decode()
         # Line-wrap the export code for readability
         return '\n'.join(code[i:i+self.export_line_len] for i in range(0, len(code), self.export_line_len))
 

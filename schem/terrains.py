@@ -281,11 +281,14 @@ terrains = {
     "A Most Unfortunate Malfunction": {
         'obstructed': {
             # Boss path
-            *product(range(-3, 30), range(-5, -16)),
+            *product(range(0, 30), range(0, 12)),
+            # Bottom left input zone
+            *product(range(0, 6), range(17, 22)),
+            *product((7,), range(18,22)),
             # Bottom center rock
-            *product(range(10, 17), (4, 5)),
-            *product(range(11, 15), (6,)),
-            *product(range(12, 14), (7,)),
+            *product(range(8, 20), range(20, 22)),
+            *product(range(12, 16), (18,)),
+            *product(range(11, 17), (19,)),
         },
         'fixed-input-zones': (('drag-oceanic-input', (1, 16)),)},
     "No Ordinary Headache": {
