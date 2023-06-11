@@ -2147,7 +2147,7 @@ class Quororque(Boss):
     __slots__ = ()
     LOSS_CYCLE = 5105 # -150 + 1051x, death at x=5
     MAX_HP = 100
-    DEATH_ANIMATION_CYCLES = 1
+    DEATH_ANIMATION_CYCLES = 701
 
     def take_damage(self, dmg, cycle):
         # Boss is only vulnerable for certain windows where the eye is open. Measured empirically.
@@ -2461,13 +2461,14 @@ class ParticleAccelerator(Weapon):
 
         # Fire laser by sending U (25 cycle cooldown)
         if len(self.in_pipes) > 1 and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
-            self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
-            if self.in_pipes[1].pop(cycle):
+            molecule = self.in_pipes[1].pop(cycle)
+            if molecule:
+                self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
+                print('<2478> pipe 1 got molecule', molecule, 'on cycle', cycle)
                 # This regression is also accurate to 11 decimals, and also naturally prevents values less than 10.0.
                 self.voltage = 0.8 * self.voltage + 2
 
-                if self.boss.take_damage(damage, cycle):
-                    return True
+                return self.boss.take_damage(damage, cycle)
 
     def reset(self):
         super().reset()
