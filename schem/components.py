@@ -2146,7 +2146,7 @@ class Quororque(Boss):
     """Alkonost. Opens eye, shoots, then closes again. Only vulnerable while the eye is >50% open."""
     __slots__ = ()
     LOSS_CYCLE = 5105 # -150 + 1051x, death at x=5
-    MAX_HP = 5
+    MAX_HP = 100
     DEATH_ANIMATION_CYCLES = 1
 
     def take_damage(self, dmg, cycle):
@@ -2438,13 +2438,17 @@ class ParticleAccelerator(Weapon):
     COOLDOWN_CYCLES = 25
 
     def __init__(self, component_dict, _type=None, posn=None):
-        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=2)
         self.voltage = 10.0 # The current power of the system. Max 100
         self.pipe1_cooling_until = 0 # The earliest cycle the next discharge can be performed on
 
     # Raw values determined from cheat engine. Linear regressions computed using excel and freshmen statistics knowledge.
     def do_instant_actions(self, cycle):
-        orig_voltage = self.voltage
+        # This is my best guess as to the damage computation -- it seems to be int damage only
+        # (despite all values involved being floats), and given that 60.0 voltage deals 4 damage,
+        # I think the value is computed before any decay is applied.
+        damage = int(self.voltage / 15.0)
+
         # Voltage decays on every frame according to something like this formula.
         # This regression is within 11 decimal places of accuracy --
         # even accounting for float error, I think these are probably accurate.
@@ -2453,18 +2457,17 @@ class ParticleAccelerator(Weapon):
 
         # Add voltage by sending H2O2. Not sure if there's a cooldown here.
         if len(self.in_pipes) > 0 and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
-            self.voltage = math.min(self.voltage + 20.0, 100.0)
+            self.voltage = min(self.voltage + 20.0, 100.0)
 
         # Fire laser by sending U (25 cycle cooldown)
         if len(self.in_pipes) > 1 and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
             self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
             if self.in_pipes[1].pop(cycle):
-                # This is my best guess as to the damage computation -- it seems to be int damage only
-                # (despite all values involved being floats), and given that 60.0 voltage deals 4 damage,
-                # I think the value is computed before any decay is applied.
-                self.boss.take_damage(int(orig_voltage / 15.0))
                 # This regression is also accurate to 11 decimals, and also naturally prevents values less than 10.0.
                 self.voltage = 0.8 * self.voltage + 2
+
+                if self.boss.take_damage(damage, cycle):
+                    return True
 
     def reset(self):
         super().reset()
