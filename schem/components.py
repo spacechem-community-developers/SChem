@@ -2460,15 +2460,13 @@ class ParticleAccelerator(Weapon):
             self.voltage = min(self.voltage + 20.0, 100.0)
 
         # Fire laser by sending U (25 cycle cooldown)
-        if len(self.in_pipes) > 1 and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
-            molecule = self.in_pipes[1].pop(cycle)
-            if molecule:
-                self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
-                print('<2478> pipe 1 got molecule', molecule, 'on cycle', cycle)
-                # This regression is also accurate to 11 decimals, and also naturally prevents values less than 10.0.
-                self.voltage = 0.8 * self.voltage + 2
+        if len(self.in_pipes) > 1 and self.in_pipes[1]:
+          if cycle >= self.pipe1_cooling_until and self.in_pipes[1].pop(cycle)
+              self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
+              # This formula is also accurate to 11 decimals, and it also naturally prevents values less than 10.0.
+              self.voltage = 0.8 * self.voltage + 2
 
-                return self.boss.take_damage(damage, cycle)
+              return self.boss.take_damage(damage, cycle)
 
     def reset(self):
         super().reset()
