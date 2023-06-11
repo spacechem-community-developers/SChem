@@ -2461,7 +2461,7 @@ class ParticleAccelerator(Weapon):
 
         # Fire laser by sending U (25 cycle cooldown)
         if len(self.in_pipes) > 1 and self.in_pipes[1]:
-          if cycle >= self.pipe1_cooling_until and self.in_pipes[1].pop(cycle)
+          if cycle >= self.pipe1_cooling_until and self.in_pipes[1].pop(cycle):
               self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
               # This formula is also accurate to 11 decimals, and it also naturally prevents values less than 10.0.
               self.voltage = 0.8 * self.voltage + 2
