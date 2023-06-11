@@ -291,7 +291,7 @@ class Component:
 
     def update_from_export_str(self, export_str, update_pipes=True):
         """Given a matching export string, update this component. Optionally ignore pipe updates (namely necessary
-        for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.
+        for Ω-Pseudoethyne which disallows mutating a 1-long pipe where custom levels do not.)
         """
         component_line, *pipe_lines = (s for s in export_str.split('\n') if s)  # Remove empty lines and get first line
 
@@ -2111,7 +2111,9 @@ class Boss:
 
     def __new__(cls, _type):
         """Convert to the specific boss subclass."""
-        if _type == 'Gorgathar':
+        if _type == 'Quororque':
+            return super().__new__(Quororque)
+        elif _type == 'Gorgathar':
             return super().__new__(Gorgathar)
         elif _type == 'Yarugolek':
             return super().__new__(Yarugolek)
@@ -2139,6 +2141,18 @@ class Boss:
         self.hp = self.MAX_HP
         return self
 
+
+class Quororque(Boss):
+    """Alkonost. Opens eye, shoots, then closes again. Only vulnerable while the eye is >50% open."""
+    __slots__ = ()
+    LOSS_CYCLE = 5105 # -150 + 1051x, death at x=5
+    MAX_HP = 5
+    DEATH_ANIMATION_CYCLES = 1
+
+    def take_damage(self, dmg, cycle):
+        # Boss is only vulnerable for certain windows where the eye is open. Measured empirically.
+        if 634 <= (cycle % 1051) < 984:
+            return super().take_damage(dmg, cycle)
 
 class Gorgathar(Boss):
     """Sikutar. No special properties."""
@@ -2221,6 +2235,8 @@ class Weapon(Component):
             return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
             return object.__new__(CrashCanister)
+        elif _type == 'drag-weapon-particleaccelerator':
+            return object.__new__(ParticleAccelerator)
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
@@ -2413,5 +2429,48 @@ class CrashCanister(Weapon, Output):
         self.canister_drop_cycle = None
 
         return self
+
+
+class ParticleAccelerator(Weapon):
+    """Alkonost. Deals damage but must be powered up, and continuously loses power. Damage scales with power."""
+    __slots__ = 'voltage', 'pipe1_cooling_until'
+    DEFAULT_SHAPE = (3, 3)
+    COOLDOWN_CYCLES = 25
+
+    def __init__(self, component_dict, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+        self.voltage = 10.0 # The current power of the system. Max 100
+        self.pipe1_cooling_until = 0 # The earliest cycle the next discharge can be performed on
+
+    # Raw values determined from cheat engine. Linear regressions computed using excel and freshmen statistics knowledge.
+    def do_instant_actions(self, cycle):
+        orig_voltage = self.voltage
+        # Voltage decays on every frame according to something like this formula.
+        # This regression is within 11 decimal places of accuracy --
+        # even accounting for float error, I think these are probably accurate.
+        # Interestingly, this formula prevents the voltage going below 10.0 naturally (which is the default value).
+        self.voltage = 0.998 * self.voltage + 0.02
+
+        # Add voltage by sending H2O2. Not sure if there's a cooldown here.
+        if len(self.in_pipes > 0) and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
+            self.voltage = math.min(self.voltage + 20.0, 100.0)
+
+        # Fire laser by sending U (25 cycle cooldown)
+        if sen(self.in_pipes > 1) and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
+            self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
+            if self.in_pipes[1].pop(cycle):
+                # This is my best guess as to the damage computation -- it seems to be int damage only
+                # (despite all values involved being floats), and given that 60.0 voltage deals 4 damage,
+                # I think the value is computed before any decay is applied.
+                self.boss.take_damage(int(orig_voltage / 15.0))
+                # This regression is also accurate to 11 decimals, and also naturally prevents values less than 10.0.
+                self.voltage = 0.8 * self.voltage + 2
+
+    def reset(self):
+        super().reset()
+        self.voltage = 10.0
+        self.pipe1_cooling_until = 0
+        return self
+
 
 # TODO: Implement ControlCenter/'drag-defense-plant' so its remaining HP can be shown in debug view

@@ -306,6 +306,31 @@ terrains = {
         'random-input-zones': (('drag-powerplant-input', (-7, 4)),),
         'output-zones': (('output', (23, 2)),
                          ('output', (23, 18)))},
+    "No Need for Introductions": {
+        'obstructed': {
+            # Top left trees
+            *product(range(0, 3), range(0, 5)),
+            *product(range(0, 2), range(5, 8)),
+            # Top trees
+            *product((0,), range(9, 17)),
+            *product((1,), range(10, 17)),
+            # Mid-left trees
+            *product(range(3, 6), (8,)),
+            *product(range(2, 8), range(9, 13)),
+            *product((1,), range(10, 13)),
+            *product(range(2, 7), (13,)),
+            # Bottom-Left side trees
+            *product((0,), range(14, 19)),
+            # Home base
+            *product(range(2, 5), range(16, 19)),
+            # Bottom cliff edge
+            *product(range(5, 9), (20,)),
+            *product(range(17, 20), (20,)),
+            *product(range(0, 20), (21,)),
+            # Right-side boss
+            *product(range(20, 42), range(0, 22)),
+        },
+        'random-input-zones': (('drag-oceanic-input', (8, 18)),)},
     "Falling": {
         'obstructed': {
             # Top-left water

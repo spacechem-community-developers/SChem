@@ -193,7 +193,6 @@ class DefenseLevel(Level):
             self['random-input-zones'] = {}
             self['fixed-input-zones'] = {}
             self['weapons'] = {}
-            self['terrain'] = 0
             self['max-reactors'] = 0
             self['has-starter'] = False
             self['has-assembly'] = False
