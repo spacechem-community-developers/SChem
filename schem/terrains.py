@@ -283,12 +283,16 @@ terrains = {
             # Boss path
             *product(range(0, 30), range(0, 12)),
             # Bottom left input zone
-            *product(range(0, 6), range(17, 22)),
-            *product((7,), range(18,22)),
+            *product(range(3, 6), range(17, 22)),
+            *product((6,), range(18, 22)),
             # Bottom center rock
-            *product(range(8, 20), range(20, 22)),
             *product(range(12, 16), (18,)),
             *product(range(11, 17), (19,)),
+            *product(range(8, 20), range(20, 22)),
+            *product(range(20, 23), (21,)),
+            # Right side rocks
+            *product((29,), range(17, 22)),
+            (28, 19), (28, 20), (28, 21), (27, 21),
         },
         'fixed-input-zones': (('drag-oceanic-input', (1, 16)),)},
     "No Ordinary Headache": {
