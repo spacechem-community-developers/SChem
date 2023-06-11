@@ -2452,11 +2452,11 @@ class ParticleAccelerator(Weapon):
         self.voltage = 0.998 * self.voltage + 0.02
 
         # Add voltage by sending H2O2. Not sure if there's a cooldown here.
-        if len(self.in_pipes > 0) and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
+        if len(self.in_pipes) > 0 and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
             self.voltage = math.min(self.voltage + 20.0, 100.0)
 
         # Fire laser by sending U (25 cycle cooldown)
-        if sen(self.in_pipes > 1) and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
+        if len(self.in_pipes) > 1 and self.in_pipes[1] and cycle >= self.pipe1_cooling_until:
             self.pipe1_cooling_until = cycle + self.COOLDOWN_CYCLES
             if self.in_pipes[1].pop(cycle):
                 # This is my best guess as to the damage computation -- it seems to be int damage only
