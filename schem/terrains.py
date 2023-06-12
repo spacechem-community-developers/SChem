@@ -312,8 +312,8 @@ terrains = {
             *product(range(0, 3), range(0, 5)),
             *product(range(0, 2), range(5, 8)),
             # Top trees
-            *product((0,), range(9, 17)),
-            *product((1,), range(10, 17)),
+            *product(range(9, 17), (0,)),
+            *product(range(10, 17), (1,)),
             # Mid-left trees
             *product(range(3, 6), (8,)),
             *product(range(2, 8), range(9, 13)),
