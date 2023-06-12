@@ -328,7 +328,10 @@ terrains = {
             *product(range(17, 20), (20,)),
             *product(range(0, 20), (21,)),
             # Right-side boss
-            *product(range(20, 42), range(0, 22)),
+            *product((20,), range(3, 22)),
+            *product((21,), range(2, 22)),
+            *product((22,), range(1, 22)),
+            *product((23,), range(0, 22)),
         },
         'random-input-zones': (('drag-oceanic-input', (8, 18)),)},
     "Falling": {

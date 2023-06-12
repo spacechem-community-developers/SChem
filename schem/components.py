@@ -2444,9 +2444,13 @@ class ParticleAccelerator(Weapon):
 
     # Raw values determined from cheat engine. Linear regressions computed using excel and freshmen statistics knowledge.
     def do_instant_actions(self, cycle):
+        # Add voltage by sending H2O2. Not sure if there's a cooldown here.
+        if len(self.in_pipes) > 0 and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
+            self.voltage = min(self.voltage + 20.0, 100.0)
+
         # This is my best guess as to the damage computation -- it seems to be int damage only
         # (despite all values involved being floats), and given that 60.0 voltage deals 4 damage,
-        # I think the value is computed before any decay is applied.
+        # I think the value is computed before any decay is applied, but after voltage increases.
         damage = int(self.voltage / 15.0)
 
         # Voltage decays on every frame according to something like this formula.
@@ -2454,10 +2458,6 @@ class ParticleAccelerator(Weapon):
         # even accounting for float error, I think these are probably accurate.
         # Interestingly, this formula prevents the voltage going below 10.0 naturally (which is the default value).
         self.voltage = 0.998 * self.voltage + 0.02
-
-        # Add voltage by sending H2O2. Not sure if there's a cooldown here.
-        if len(self.in_pipes) > 0 and self.in_pipes[0] and self.in_pipes[0].pop(cycle):
-            self.voltage = min(self.voltage + 20.0, 100.0)
 
         # Fire laser by sending U (25 cycle cooldown)
         if len(self.in_pipes) > 1 and self.in_pipes[1]:
