@@ -2150,11 +2150,11 @@ class IsambardMMD(Boss):
     # At speed 3, the boss moves 1 pixel on frame 10, 20, 30, etc. Death is on 2600, so figure 260 pixels.
     # Damage on frame 858 results in next motion on 865, 880. So there is presumably a counter that just counts up to next movement.
     SPEEDS = [None, 20, 15, 10] # Cycles per pixel of movement with 0, 1, 2, or 3 wheels
-    
+
     def __init__(self, _type):
         super().__init__(_type)
         self.wheel_broken_on_cycle = [] # Contains a list of cycles on which the wheels were damaged.
-    
+
     # All these numbers are from manual timing. "Clean room", yadda yadda.
     def get_boss_position(self, cycle):
         if len(self.wheel_broken_on_cycle) == 0:
@@ -2188,7 +2188,7 @@ class IsambardMMD(Boss):
     # All of these numbers are from manual timing. "Clean room", yadda yadda.
     def on_oxygen_tank_explode(self, cycle, tank_posn):
         pixels_moved = 260 - self.get_boss_position(cycle)
-        
+
         if tank_posn.col == 12 and 152 <= pixels_moved <= 231: # 1st tank
             self.wheel_broken_on_cycle.append(cycle)
         if tank_posn.col == 18 and 88 <= pixels_moved <= 167: # 2nd tank
@@ -2196,7 +2196,7 @@ class IsambardMMD(Boss):
         # Exploding a tank earlier than 365 cycles isn't actually possible, so I'm just assuming this matches tanks 1 and 2 for range.
         if tank_posn.col == 24 and 24 <= pixels_moved <= 103: # 3rd tank
             self.wheel_broken_on_cycle.append(cycle)
-            
+
         if len(self.wheel_broken_on_cycle) == 3:
             return True
 
@@ -2510,7 +2510,7 @@ class OxygenTank(Weapon):
                 self.exploded = True
                 if self.boss.on_oxygen_tank_explode(cycle, self.posn):
                     return True # Boss ded, we killed it
-    
+
     def reset(self):
         super().reset()
         self.capacity = 0
