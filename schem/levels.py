@@ -95,6 +95,12 @@ Si6E4OTbCSEFp0NuwUmp6GYbDdkY7vesbLIau6gxIZ+myRoFsiVkLXmVkdU+gzMyw4jV2WgCTQ
 i+XePcgo5Ln9MXzQJG9SiPTZsYIpXYUZX6r8o/UkJNcC4dQhesSyFrkkbwpQ/gAjpSgot4FcF7
 nL70cqv2yt8/hGXOuWZn+9gFZU3abWDKajOC1mgGPBTPpnzV0GHxdoI5eRJOa3vK/+QJl6dTtg
 +WhTLYYaDWn2SGGEabUrJ36Ea2/QIEsrTk4gEAAA==''',
+    "A Most Unfortunate Malfunction": '''H4sIAAAAAAACCs1QwU7DMAz9lSpnIjVlmhA9ITjAoUcuIA5e6q4VrV0ljtYxjW/HGZMmjpxAka
+LnF/u95xwMJOk5mNvCvIDvzVVhNhxjrp8iTBsIbdE0D5n3TBJ4tHE3iO8xWhhH3mGrvRISakc3
+LNjageYk9oMJs8zBlFmsQemBsL5//CxXdemcK2tX6qkrhYqr0+3WzpmjSvUQbRQIguGi/01ygC
+1eyAkWGxC88tnvWimCKTeYu6LhKMUzdRwkEQgWDYxdIi8DU96JpcdgPU+zxiXJAq8HM/GIPo14
+Lj0nkiy9znbnt18v9abDsp9Pg62uYHcI6mp52W/VGug9B1r02VUK9iegX/H3cW7+VZxqdYnzYw
+o7pIjm+AU8yx4W1AIAAA==''',
     # Alkonost
     "An Introduction to Sensing": '''H4sIAMTllmEC/42QP2sDMQzFv4rRHIOPdijNlLFLlm4pGVxb3BkuUrDllva4717ZSYf+oXQx+O
 n33hNaING5in1nwgL3ZgHX36424WmBE88Y6oz6gz0ybfe4HYbBOQcbA4EriY5u1o35yu7yqPAu
@@ -2116,7 +2122,7 @@ PsIf7XW4LXhQszLg/ynOUzl28q6PCrWz2YqVY6FvA1T7tBYhYPXirPNZlREHl2eQhvHHJw0AGf
 f6cNDp8zAv5adfwYEjbusBAAA=''',
 }
 
-unsupported_defense_names = {"A Most Unfortunate Malfunction", "No Need for Introductions",
+unsupported_defense_names = {"No Need for Introductions",
                              "Don't Fear the Reaper", "End of the Line"}
 
 # Dict of Resnet puzzle title: (volume, issue, puzzle) id - with shared-title levels storing lists of ids in the same

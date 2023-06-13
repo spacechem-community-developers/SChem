@@ -1,0 +1,2 @@
+-r schem/minimal-requirements.txt
+-r tests/requirements.txt
