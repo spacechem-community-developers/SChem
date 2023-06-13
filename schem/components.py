@@ -2111,6 +2111,8 @@ class Boss:
 
     def __new__(cls, _type):
         """Convert to the specific boss subclass."""
+        if _type == 'Isambard MMD':
+            return super().__new__(IsambardMMD)
         if _type == 'Gorgathar':
             return super().__new__(Gorgathar)
         elif _type == 'Yarugolek':
@@ -2140,10 +2142,74 @@ class Boss:
         return self
 
 
+class IsambardMMD(Boss):
+    """Danopth. Moves in a line, but is slowed down by taking damage."""
+    __slots__ = 'wheel_broken_on_cycle',
+    LOSS_CYCLE = math.inf # Handled manually
+    DEATH_ANIMATION_CYCLES = 701 # SUS. But it matches other puzzles...
+    # At speed 3, the boss moves 1 pixel on frame 10, 20, 30, etc. Death is on 2600, so figure 260 pixels.
+    # Damage on frame 858 results in next motion on 865, 880. So there is presumably a counter that just counts up to next movement.
+    SPEEDS = [None, 20, 15, 10] # Cycles per pixel of movement with 0, 1, 2, or 3 wheels
+
+    def __init__(self, _type):
+        super().__init__(_type)
+        self.wheel_broken_on_cycle = [] # Contains a list of cycles on which the wheels were damaged.
+
+    # All these numbers are from manual timing. "Clean room", yadda yadda.
+    def get_boss_position(self, cycle):
+        if len(self.wheel_broken_on_cycle) == 0:
+            cycles_on_3_wheels = cycle
+            cycles_on_2_wheels = 0
+            cycles_on_1_wheel  = 0
+        elif len(self.wheel_broken_on_cycle) == 1:
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // self.SPEEDS[3] * self.SPEEDS[3]
+            cycles_on_2_wheels = (cycle - cycles_on_3_wheels)
+            cycles_on_1_wheel  = 0
+        elif len(self.wheel_broken_on_cycle) == 2:
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // self.SPEEDS[3] * self.SPEEDS[3]
+            cycles_on_2_wheels = (self.wheel_broken_on_cycle[1] - cycles_on_3_wheels) // self.SPEEDS[2] * self.SPEEDS[2]
+            cycles_on_1_wheel  = (cycle - cycles_on_2_wheels - cycles_on_3_wheels)
+        else:
+            cycles_on_3_wheels = self.wheel_broken_on_cycle[0] // self.SPEEDS[3] * self.SPEEDS[3]
+            cycles_on_2_wheels = (self.wheel_broken_on_cycle[1] - cycles_on_3_wheels) // self.SPEEDS[2] * self.SPEEDS[2]
+            cycles_on_1_wheel  = (self.wheel_broken_on_cycle[2] - cycles_on_3_wheels - cycles_on_2_wheels) // self.SPEEDS[1] * self.SPEEDS[1]
+
+        x_position = 260 # Initial position
+        x_position -= cycles_on_3_wheels // self.SPEEDS[3]
+        x_position -= cycles_on_2_wheels // self.SPEEDS[2]
+        x_position -= cycles_on_1_wheel  // self.SPEEDS[1]
+        return x_position
+
+    def do_instant_actions(self, cycle):
+        """Raise a DeathError if the boss has reached our base."""
+        if self.get_boss_position(cycle) <= 0:
+            raise DeathError("The planet has been destroyed.")
+
+    # All of these numbers are from manual timing. "Clean room", yadda yadda.
+    def on_oxygen_tank_explode(self, cycle, tank_posn):
+        pixels_moved = 260 - self.get_boss_position(cycle)
+
+        if tank_posn.col == 12 and 152 <= pixels_moved <= 231: # 1st tank
+            self.wheel_broken_on_cycle.append(cycle)
+        if tank_posn.col == 18 and 88 <= pixels_moved <= 167: # 2nd tank
+            self.wheel_broken_on_cycle.append(cycle)
+        # Exploding a tank earlier than 365 cycles isn't actually possible, so I'm just assuming this matches tanks 1 and 2 for range.
+        if tank_posn.col == 24 and 24 <= pixels_moved <= 103: # 3rd tank
+            self.wheel_broken_on_cycle.append(cycle)
+
+        if len(self.wheel_broken_on_cycle) == 3:
+            return True
+
+    def reset(self):
+        super().reset()
+        self.wheel_broken_on_cycle = []
+        return self
+
+
 class Gorgathar(Boss):
     """Sikutar. No special properties."""
     __slots__ = ()
-    LOSS_CYCLE = 6979
+    LOSS_CYCLE = 6979 # Damage on cycles 731 + 781x, death on x=8.
     DEATH_ANIMATION_CYCLES = 1452
 
 
@@ -2221,6 +2287,8 @@ class Weapon(Component):
             return object.__new__(InternalStorageTank)
         elif _type == 'drag-weapon-canister':
             return object.__new__(CrashCanister)
+        elif _type == 'drag-weapon-oxygentank':
+            return object.__new__(OxygenTank)
         else:
             raise ValueError(f"Invalid weapon type `{component_dict['type']}`")
 
@@ -2413,5 +2481,41 @@ class CrashCanister(Weapon, Output):
         self.canister_drop_cycle = None
 
         return self
+
+
+class OxygenTank(Weapon):
+    """Danopth, used during 'A Most Unfortunate Malfunction'. Similar to the StorageTank class,
+    but explodes after reaching max capacity. Once exploded it takes input indefinitely."""
+    __slots__ = 'capacity', 'exploded'
+    DEFAULT_SHAPE = (3, 3)
+    MAX_CAPACITY = 35
+
+    def __init__(self, component_dict, _type=None, posn=None):
+        super().__init__(component_dict, _type=_type, posn=posn, num_in_pipes=1)
+        self.capacity = 0
+        self.exploded = False
+
+    @property
+    def in_pipe(self):
+        return self.in_pipes[0]
+
+    def do_instant_actions(self, cycle):
+        if self.in_pipe is None:
+            return
+
+        if self.in_pipe.pop(cycle) is not None: # Consumes input even if exploded
+            self.capacity += 1
+
+            if self.capacity >= self.MAX_CAPACITY and not self.exploded:
+                self.exploded = True
+                if self.boss.on_oxygen_tank_explode(cycle, self.posn):
+                    return True # Boss ded, we killed it
+
+    def reset(self):
+        super().reset()
+        self.capacity = 0
+        self.exploded = False
+        return self
+
 
 # TODO: Implement ControlCenter/'drag-defense-plant' so its remaining HP can be shown in debug view

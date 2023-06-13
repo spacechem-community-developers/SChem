@@ -201,6 +201,16 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                 schem.Solution(solution_code, level=level_code).validate()
                 print(f"✅  {test_id}")
 
+    def test_death_solutions(self):
+        """Tests for solutions which result in a loss on boss puzzles."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.death_solutions):
+            with self.subTest(msg=test_id):
+                solution = schem.Solution(solution_code, level=level_code)
+                with self.assertRaises(schem.exceptions.DeathError):
+                    solution.validate()
+                self.assertEqual(solution.expected_score.cycles, solution.cycle, 'Death was not on the correct cycle')
+                print(f"✅  {test_id}")
+
     def test_evaluate_duplicate_levels_success(self):
         """Test evaluate() with a solution which runs successfully in one of two same-name levels."""
         expected_json = {'level_name': "Sulfuric Acid",

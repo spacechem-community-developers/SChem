@@ -78,13 +78,14 @@ class Level:
     def __str__(self):
         return json.dumps(self.dict)
 
+    def __delitem__(self, item):
+        return self.dict.__delitem__(item)
+
     @property
     def code(self):
-        """Export to mission code string; gzip then b64 the level json."""
-        out = io.BytesIO()
-        with gzip.GzipFile(fileobj=out, mode="w") as f:
-            f.write(json.dumps(self.dict).encode('utf-8'))
-        code = base64.b64encode(out.getvalue()).decode()
+        """Export to mission code string; zip then b64 the level json."""
+        out = zlib.compress(json.dumps(self.dict).encode('utf-8'), level=9, wbits=16+15)
+        code = base64.b64encode(out).decode()
         # Line-wrap the export code for readability
         return '\n'.join(code[i:i+self.export_line_len] for i in range(0, len(code), self.export_line_len))
 
@@ -193,7 +194,6 @@ class DefenseLevel(Level):
             self['random-input-zones'] = {}
             self['fixed-input-zones'] = {}
             self['weapons'] = {}
-            self['terrain'] = 0
             self['max-reactors'] = 0
             self['has-starter'] = False
             self['has-assembly'] = False
