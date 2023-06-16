@@ -281,22 +281,23 @@ terrains = {
     "A Most Unfortunate Malfunction": {
         'obstructed': {
             # Boss path
-            *product(range(0, 30), range(0, 12)),
+            *product(range(0, 32), range(0, 12)),
             # Bottom left input zone
-            *product(range(0, 2), range(12, 15)),
-            *product(range(3, 5), (17,)),
-            *product(range(3, 6), (18,)),
-            *product(range(3, 6), (19,)),
-            *product(range(3, 7), (20,)),
-            *product(range(3, 8), (21,)),
+            *product(range(0, 2), range(12, 15)), (0, 15),
+            *product(range(3, 6), (17,)),
+            *product(range(0, 7), range(18, 20)),
+            *product(range(0, 8), (20,)),
+            *product(range(0, 9), (21,)),
             # Bottom center rock
             *product(range(13, 16), (18,)),
             *product(range(12, 17), (19,)),
             *product(range(11, 19), (20,)),
             *product(range(10, 22), (21,)),
             # Right side rocks
-            *product((29,), range(12, 22)),
-            (28, 19), (28, 20), (28, 21), (27, 21),
+            *product((30,), range(12, 22)),
+            *product((29,), range(12, 17)),
+            *product((28, 29), range(19, 22)),
+            (29, 18), (27, 21),
         },
         'fixed-input-zones': (('drag-oceanic-input', (1, 16)),)},
     "No Ordinary Headache": {
@@ -342,17 +343,17 @@ terrains = {
             *product(range(2, 7), (13,)),
             # Bottom-Left side trees
             *product((0,), range(14, 19)),
-            # Home base
+            # Control Center
             *product(range(2, 5), range(16, 19)),
             # Bottom cliff edge
-            *product(range(5, 9), (20,)),
+            *product(range(4, 8), (20,)),
             *product(range(17, 20), (20,)),
             *product(range(0, 20), (21,)),
             # Right-side boss
             *product((20,), range(3, 22)),
             *product((21,), range(2, 22)),
             *product((22,), range(1, 22)),
-            *product((23,), range(0, 22)),
+            *product(range(23, 32), range(0, 22)),
         },
         'random-input-zones': (('drag-oceanic-input', (8, 18)),)},
     "Falling": {
