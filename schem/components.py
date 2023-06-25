@@ -82,8 +82,12 @@ class Pipe:
         #       the hash to work well across pipe lengths so removing the empty values makes sense), but it's incredibly
         #       hard to get concrete info on this and/or if the extra inclusion of indices would reduce entropy more
         #       than it was increased by frozenset's de-ordering.
-        return tuple((None if molecule is None else molecule.hashable_repr())
-                     for molecule in self.to_list(cycle))
+        return tuple(self.to_list(cycle))
+        # TODO: This is deliberately incorrect, walking back a fix for production level hashing because deeper issues
+        #       with it were discovered. The correct code is as follows; the current code basically ensures
+        #       production levels are never fast-forwarded while I fix the deeper issues:
+        # return tuple((None if molecule is None else molecule.hashable_repr())
+        #              for molecule in self.to_list(cycle))
 
     def get(self, idx: int, cycle: int) -> Optional[Molecule]:
         """Return the molecule at the given index, else None."""
