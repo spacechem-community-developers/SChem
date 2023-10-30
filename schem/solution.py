@@ -700,6 +700,9 @@ class Solution:
 
     def __str__(self):
         """Return a string representing the overworld of this solution including all components/pipes, and the cycle."""
+        if self.level.type == 'research':
+            return str(next(self.reactors))
+
         # 1 character per tile
         grid = [[' ' for _ in range(OVERWORLD_COLS)] for _ in range(OVERWORLD_ROWS)]
 

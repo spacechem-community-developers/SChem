@@ -164,7 +164,7 @@ class Waldo:
 
     def export_str(self):
         """Represent this waldo's instructions in solution export string format."""
-        start_line = None
+        start_line = ''
         lines = []
         # Merge arrows and commands and sort them all by position (col then row), but separating the start command
         for posn, instr in sorted(list(self.arrows.items()) + list(self.commands.items()),  # Arrows before commands
@@ -201,10 +201,12 @@ class Waldo:
         while unexplored_branches_stack:
             cur_posn, incoming_dirn = unexplored_branches_stack.pop()
 
-            # Trace the path coming into this cell
+            # Trace the path coming into this cell, with the exception of the first cycle since Start commands
+            # only have an 'outgoing' trace and no 'incoming' trace.
             if cur_posn not in traced_posn_dirns:
                 traced_posn_dirns[cur_posn] = set()
-            traced_posn_dirns[cur_posn].add(incoming_dirn.opposite())
+            if visited_posn_dirns:  # Skipped if we have no visited cells i.e. we're initializing Start
+                traced_posn_dirns[cur_posn].add(incoming_dirn.opposite())
 
             # Arrows update the direction of the current branch but don't create a new one
             outgoing_dirn = self.arrows[cur_posn] if cur_posn in self.arrows else incoming_dirn
