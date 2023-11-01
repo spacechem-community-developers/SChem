@@ -787,7 +787,7 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
-    def hash_and_check_state(self, debug=False):
+    def does_it_halt(self, debug=False):
         """Hash the current solution state and check if it matches a past state, fast-forwarding cycles when possible.
         Return True if the solution has been fast-forwarded to successful completion.
         """
@@ -1161,7 +1161,7 @@ class Solution:
                 self.cycle_movement()
 
                 # Attempt to fast-forward if we're within our hash memory limit
-                if len(self._prior_states) < hash_states and self.hash_and_check_state(debug=bool(debug)):
+                if len(self._prior_states) < hash_states and self.does_it_halt(debug=bool(debug)):
                     return Score(self.cycle - 1, len(reactors), self.symbols)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
