@@ -870,11 +870,11 @@ class Reactor(Component):
 
     def __new__(cls, component_dict=None, _type=None, **kwargs):
         """Convert to SuperLaserReactor as needed."""
-        _type = component_dict['type'] if _type is None else _type
+        _type = component_dict['type'] if component_dict and _type is None else _type
         if _type == 'drag-superlaser-reactor':
             return object.__new__(SuperLaserReactor)
         else:
-            return object.__new__(Reactor)
+            return object.__new__(cls)
 
     def __init__(self, component_dict=None, _type=None, posn=None,
                  _num_in_pipes=2, _num_out_pipes=2):  # Hidden args so these can be overridden by SuperLaserReactor

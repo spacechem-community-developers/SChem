@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import copy
 from pathlib import Path
 import unittest
 import sys
@@ -93,6 +93,11 @@ class TestSolution(unittest.TestCase):
             soln_str = """SOLUTION:Sulfuric Acid,Zig,0-0-0,Unnamed Solution
 COMPONENT:'custom-research-reactor',2,0,''"""
             schem.Solution(soln_str)
+
+    def test_deepcopy(self):
+        """Cursory test that deep copying a Solution works. Handy since we override __new__ a lot."""
+        _, level_code, solution_code = next(iter_test_data(test_data.valid_solutions))
+        copy.deepcopy(schem.Solution(solution_code, level=level_code))  # Just make sure this doesn't error
 
     def test_run_missing_score(self):
         """Test that run() does not require an expected score."""

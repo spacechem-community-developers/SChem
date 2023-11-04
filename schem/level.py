@@ -13,7 +13,7 @@ OVERWORLD_ROWS = 22
 OVERWORLD_COLS = 32
 
 
-# TODO: TO reduce the complexity of Solution.__init__, provide something like a Level.default_components() method
+# TODO: To reduce the complexity of Solution.__init__, provide something like a Level.default_components() method
 class Level:
     """Parent class for Research and Production levels. Level(code) will return an instance of whichever subclass
     is appropriate.
@@ -28,10 +28,10 @@ class Level:
         except Exception as e:
             raise ValueError("String is not a valid-format SpaceChem level code") from e
 
-    def __new__(cls, code):
+    def __new__(cls, code=None):
         """Return an instance of ResearchLevel or ProductionLevel as appropriate based on the given level code."""
         # If this is being called from a child class, behave like a normal __new__ implementation (to avoid recursion)
-        if cls != Level:
+        if cls != Level or code is None:
             return object.__new__(cls)
 
         d = cls.code_to_json(code)
