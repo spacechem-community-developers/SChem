@@ -65,7 +65,7 @@ PrecogResult = namedtuple('PrecogResult', ['result', 'explanation', 'success_rat
 #       import or needing to merge the modules:
 #       https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
 def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_states=1000, just_run_cycle_count=None,
-                    include_explanations=False) -> Union[bool, tuple]:
+                    include_explanations=False) -> Union[bool, PrecogResult]:
     """Run this solution enough times to check if fits the community definition of a precognitive solution.
 
     If time constraints do not allow enough runs for even 90% certainty either way, raise a TimeoutError.
@@ -626,18 +626,16 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
             # Skip non-precog exit conditions if we aren't confident in the success rate yet
             skip_non_precog_checks=not success_check_passed,
             false_pos_rate=PREFERRED_FALSE_POS_RATE)
-
+        # Note that this can only have been False (non-precog) if we passed success rate check, per the above skip arg.
         if mol_assumption_check_result is not None:
             if not include_explanations:
                 return mol_assumption_check_result
 
-            # If we are early returning due to an assumed molecule being detected, don't return a success rate since
-            # it is insufficiently measured.
-            if not success_check_passed:
-                return PrecogResult(mol_assumption_check_result, expl, None)
-
-            # Otherwise, we know the success check is still underway (if it had failed we'd have returned above)
-            return PrecogResult(mol_assumption_check_result, expl, best_success_rate())
+            # Note that if success rate has been confirmed to fail we'd have already returned above, so it's either
+            # passed or undetermined.
+            return PrecogResult(mol_assumption_check_result,
+                                expl,
+                                best_success_rate() if success_check_passed else None)
 
     # If we escaped the run loop without returning, we've been time-constrained in our number of runs.
     # Attempt to redo the precog check with our fallback relaxed confidence levels, and if even then we aren't
