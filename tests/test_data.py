@@ -7126,7 +7126,26 @@ PIPE:0,4,0
 PIPE:0,4,-1
 PIPE:0,4,-2
 PIPE:0,4,-3""",
-]
+    # Solution that exercises does_it_halt when a random input is unused
+    r"""SOLUTION:Fenton Industries 001,Counterpoint,399-1-11
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',-90,0,128,7,1,0,0
+MEMBER:'instr-start',180,0,32,2,5,0,0
+MEMBER:'feature-sensor',-1,0,1,1,1,0,0
+MEMBER:'instr-arrow',90,0,64,7,0,0,0
+MEMBER:'instr-input',-1,1,128,7,0,0,0
+MEMBER:'instr-grab',-1,2,128,7,2,0,0
+MEMBER:'instr-arrow',-90,0,64,7,5,0,0
+MEMBER:'instr-grab',-1,1,128,7,5,0,0
+MEMBER:'instr-arrow',0,0,16,1,5,0,0
+MEMBER:'instr-grab',-1,1,32,1,5,0,0
+MEMBER:'instr-output',-1,0,32,3,5,0,0
+MEMBER:'instr-output',-1,1,32,5,5,0,0
+MEMBER:'instr-arrow',180,0,16,6,5,0,0
+MEMBER:'instr-grab',-1,2,32,6,5,0,0
+PIPE:0,4,1
+PIPE:1,4,2"""
+]  # End of valid_solutions
 
 missing_score = [
     r'''SOLUTION:Of Pancakes and Spaceships,Zig,0-0-0,Valid but missing score

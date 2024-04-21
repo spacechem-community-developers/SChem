@@ -974,6 +974,9 @@ class Solution:
                 # shuffling later molecules into their existing positions
                 def remove_inputs(random_input: RandomInput, indices: set):
                     """Remove a set of input sequence indices from the given random input component and its pipe."""
+                    if not indices:
+                        return
+
                     max_idx = max(indices)
                     num_pipe_mols = len(random_input.out_pipe._molecules)
 
