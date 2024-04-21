@@ -65,8 +65,8 @@ def main(args=None):
                              "be anywhere from sub-second up to ~15 seconds).\n"
                              "\nIf a solution is precog, prints a report of why, with similar reports for non-precog\n"
                              "solutions being omitted unless --verbose is used.\n"
-                             "If --json is used, instead adds 'precog' (boolean) and 'precog_explanation' fields to\n"
-                             "the JSON output, with the latter populated regardless of result.\n")
+                             "If --json is used, instead adds 'precog' (boolean), 'precog_explanation', and\n"
+                             "'success_rate' fields to the JSON.")
     parser.add_argument('--max-precog-check-cycles', type=int, default=None,
                         help="The maximum total cycle count that may be used by all precognition-check runs;\n"
                              "if this value is exceeded before sufficient confidence in an answer is obtained, an\n"
@@ -102,9 +102,9 @@ def main(args=None):
                                   "Suppresses default validation STDOUT messages.\n"
                                   "Fields: level_name, resnet_id (if ResNet level), author, cycles, reactors,\n"
                                   "        symbols, solution_name, precog (if --check-precog), precog_explanation\n"
-                                  "        (ditto), export (if --export), and error (if the solution couldn't be\n"
-                                  "        imported, crashed, didn't match expected score, or the precog check timed\n"
-                                  "        out).")
+                                  "        (ditto), success_rate (ditto), export (if --export), and error (if the\n"
+                                  "        solution couldn't be imported, crashed, didn't match expected score, or\n"
+                                  "        precog check timed out).")
     stdout_args.add_argument('--verbose', action='store_true',
                              help="In addition to default STDOUT messages/warnings, report the time schem takes to run,\n"
                                   "and if running with --check-precog, report extra info when a solution is non-precog,\n"

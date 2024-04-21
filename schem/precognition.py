@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from collections import Counter
+from collections import Counter, namedtuple
 import math
 import random
 import sys
@@ -59,12 +59,13 @@ DEFAULT_MAX_PRECOG_CHECK_CYCLES = 2_000_000  # Large enough to ensure it doesn't
 # How many multiples of the base seed's cycle count we allow off-seed runs to take before we assume an infinite loop
 MAX_OFF_SEED_CYCLE_FACTOR = 2
 
+PrecogResult = namedtuple('PrecogResult', ['result', 'explanation', 'success_rate'])
 
 # TODO: Might want type hinting here, this post suggests a way to type hint Solution without introducing a circular
 #       import or needing to merge the modules:
 #       https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
 def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_states=1000, just_run_cycle_count=None,
-                    include_explanation=False) -> Union[bool, tuple]:
+                    include_explanations=False) -> Union[bool, tuple]:
     """Run this solution enough times to check if fits the community definition of a precognitive solution.
 
     If time constraints do not allow enough runs for even 90% certainty either way, raise a TimeoutError.
@@ -110,15 +111,19 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
         just_run_cycle_count: In order to save on excess runs, if the solution has just been successfully run on the
             loaded level (and not been modified or reset() since), pass its cycle count here to skip the first run (but
             still pull the first run's data from the Solution object).
-        include_explanation: If True, instead of the boolean result, return a tuple of (result, explanation), where
-            the latter is a string describing why the solution was or was not determined to be precognitive.
+        include_explanations: If True, instead of the boolean result, return a named tuple of
+            (result, explanation, success_rate), where explanation is a string describing why the solution was or was
+            not determined to be precognitive, and success_rate is None if the check failed due to a single molecule
+            being assumed (since in this case the success rate might not be sufficiently measured), else a number from
+            0 to 1 representing the percent of random input sequences that the solution succeeds on, using the allowed
+            first input assumption if that gives a higher success rate.
     """
     # Hang onto references to each random input in the solution
     random_inputs = [input_component for input_component in solution.inputs
                      if isinstance(input_component, RandomInput)]
 
     if not random_inputs:  # duh
-        return (False, "Solution is not precognitive; level is non-random") if include_explanation else False
+        return PrecogResult(False, "Solution is not precognitive; level is non-random", 1) if include_explanations else False
 
     if max_total_cycles is None:
         # TODO: Might also want to limit this by reactor count
@@ -139,7 +144,7 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
 
     # If the solution didn't use any of the random inputs, it never will
     if all(M == 0 for M in Ms):
-        return (False, "Solution is not precognitive; does not use random inputs.") if include_explanation else False
+        return PrecogResult(False, "Solution is not precognitive; does not use random inputs.", 1) if include_explanations else False
 
     # Collect a bunch of information about each random input which we'll use for calculating how many runs are needed
     num_variants = [len(random_input.molecules) for random_input in random_inputs]
@@ -201,6 +206,10 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
 
         return global_success_check_succeeded or first_match_success_rate_okay(false_neg_rate)
 
+    def best_success_rate():
+        return max(num_passing_runs_unbiased / num_runs_unbiased,
+                   num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased)
+
     def global_success_rate_too_low(false_pos_rate):
         """Check if, with sufficient confidence, the success rate is too low for all seeds."""
         # Using the binomial cumulative distribution function of the success count (= P(successes <= X)), and assuming
@@ -226,7 +235,7 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
         # Since assuming the first input is allowed, the rate is only considered too low if it's too low both including
         # and not including seeds that match the base seed's first molecule(s)
         if global_success_check_failed and first_match_success_rate_too_low(false_pos_rate):
-            if include_explanation:
+            if include_explanations:
                 nonlocal expl
                 # Since it's a pretty common case, we'll simplify the message if everything failed
                 if num_passing_runs_unbiased == num_passing_runs_first_match_unbiased == 0:
@@ -285,16 +294,16 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
                         and first_input_variants[i] not in success_run_variants[i][m])
                     for i, M in enumerate(Ms)
                     for m in range(1, M))):  # Ignore first molecule
-            if include_explanation:
+            if include_explanations:
                 # We won't try to explain all the data bias-handling going on to the user; just report whichever
                 # unbiased success rate passed the check, as well as the actual number of runs used in case they're
                 # wondering why it's slow
+                success_rate = num_passing_runs_unbiased / num_runs_unbiased
+                success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
                 if global_success_check_succeeded:
-                    success_rate = num_passing_runs_unbiased / num_runs_unbiased
                     expl += ("Solution is not precognitive; successful variants found for all input molecules in"
                              f" {num_runs} runs ({round(100 * success_rate)}% success rate).")
                 else:
-                    success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
                     expl += ("Solution is not precognitive; successful variants found for all input molecules in"
                              f" {num_runs} runs ({round(100 * success_rate_first_match)}% success rate for seeds with"
                              f" same first molecule as base seed).")
@@ -367,7 +376,7 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
                     if ((m > len(success_run_variants[i])
                          or v not in success_run_variants[i][m])
                             and fail_run_variants_first_match[i][m][v] >= max_variant_failures):
-                        if include_explanation:
+                        if include_explanations:
                             # Use the human-readable name for the variant if it's present and unique
                             # (for some levels, all input molecules have the same name which isn't very helpful)
                             mol_name = None
@@ -504,8 +513,8 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
 
                 # If the solution didn't use any of the random inputs, it never will (and if it did it always will)
                 if num_runs == 0 and all(M == 0 for M in Ms):
-                    if include_explanation:
-                        return False, "Solution is not precognitive; does not use random inputs."
+                    if include_explanations:
+                        return PrecogResult(False, "Solution is not precognitive; does not use random inputs.", 1)
                     return False
 
             target_variants_data = success_run_variants
@@ -608,7 +617,7 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
         if not success_check_passed:
             # Note that this helper updates global_success_check_failed if/when relevant
             if success_rate_too_low(false_pos_rate=PREFERRED_FALSE_POS_RATE):
-                return (True, expl) if include_explanation else True
+                return PrecogResult(True, expl, best_success_rate()) if include_explanations else True
             elif success_rate_okay(false_neg_rate=PREFERRED_FALSE_NEG_RATE):
                 success_check_passed = True
 
@@ -618,17 +627,26 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
             false_pos_rate=PREFERRED_FALSE_POS_RATE)
 
         if mol_assumption_check_result is not None:
-            return (mol_assumption_check_result, expl) if include_explanation else mol_assumption_check_result
+            if not include_explanations:
+                return mol_assumption_check_result
+
+            # If we are early returning due to an assumed molecule being detected, don't return a success rate since
+            # it is insufficiently measured.
+            if not success_check_passed:
+                return PrecogResult(mol_assumption_check_result, expl, None)
+
+            # Otherwise, we know the success check is still underway (if it had failed we'd have returned above)
+            return PrecogResult(mol_assumption_check_result, expl, best_success_rate())
 
     # If we escaped the run loop without returning, we've been time-constrained in our number of runs.
     # Attempt to redo the precog check with our fallback relaxed confidence levels, and if even then we aren't
     # sufficiently confident in our answer, raise an error
-    if include_explanation:
+    if include_explanations:
         expl += "Warning: Precog check terminated early due to time constraints; check accuracy may be reduced.\n"
 
     if not success_check_passed:
         if success_rate_too_low(false_pos_rate=MAX_FALSE_POS_RATE):
-            return (True, expl) if include_explanation else True
+            return PrecogResult(True, expl, best_success_rate()) if include_explanations else True
 
         if not success_rate_okay(false_neg_rate=MAX_FALSE_NEG_RATE):
             raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
@@ -639,7 +657,7 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
 
     mol_assumption_check_result = check_molecule_assumptions(false_pos_rate=MAX_FALSE_POS_RATE)
     if mol_assumption_check_result is not None:
-        return (mol_assumption_check_result, expl) if include_explanation else mol_assumption_check_result
+        return PrecogResult(mol_assumption_check_result, expl, best_success_rate()) if include_explanations else mol_assumption_check_result
 
     raise TimeoutError("Precog check could not be completed due to time constraints; certain non-succeeding molecule"
                        f" variants not encountered enough times in {num_runs} runs to be confident they always fail.")

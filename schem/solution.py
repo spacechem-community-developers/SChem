@@ -1314,12 +1314,15 @@ class Solution:
                     print(self.description)
 
             if check_precog:
-                result['precog'], result['precog_explanation'] = \
+                result['precog'], result['precog_explanation'], result['success_rate'] = \
                     self.is_precognitive(max_cycles=original_max_cycles,
                                          max_total_cycles=max_precog_check_cycles,
                                          hash_states=hash_states,
                                          just_run_cycle_count=result['cycles'],
-                                         include_explanation=True)
+                                         include_explanations=True)
+                # Truncate the success rate significant digits to something reasonable
+                if result['success_rate'] is not None:
+                    result['success_rate'] = round(result['success_rate'], 3)
 
                 # At the middle verbosity level, print the explanation only if the solution was precognitive
                 if verbosity == 2 or (result['precog'] and verbosity == 1):
