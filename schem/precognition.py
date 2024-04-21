@@ -581,38 +581,39 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
         # about the success rate, assuming all future runs are successes or all are failures.
         # If we have so few runs that we can guarantee even our fallback confidence level won't be met, we can
         # immediately timeout
-        remaining_cycles = max(max_total_cycles - total_cycles, 0)
-        # The number of passing runs we're allowed before timing out is easy to estimate
-        max_remaining_passing_runs = remaining_cycles // min_passing_run_cycles
-        # On the other hand, the number of failing runs we're allowed before timing out is hard to estimate, since in
-        # the case of a solution that assumes the first molecule, the seeds with non-matching first molecule will tend
-        # to fail within just a few cycles, while matching seeds will usually fail at more random times.
-        # However since the success rate check fails only if both the all-seeds and the first-matching seeds success
-        # rates fail, it is sufficient to exit early only when it looks like the first-matching seeds success rate can't
-        # fail, and these will tend not to fail immediately in either solution type (or if they do, the regular checks
-        # will converge quickly enough that the time constraint won't be approached and this check won't matter).
-        # Accordingly, we'll assume the failure runs average half a passing run's cycle count
-        max_remaining_failing_runs = (2 * remaining_cycles) // min_passing_run_cycles
-        if not (success_check_passed
-                # Check if pure failures can confirm a too-low success rate (for first-match seeds)
-                or binom.cdf(num_passing_runs_first_match_unbiased,
-                             num_runs_first_match_unbiased + max_remaining_failing_runs,
-                             NON_PRECOG_MIN_PASS_RATE)
-                   < MAX_FALSE_POS_RATE
-                # Check if pure successes can confirm a sufficiently high success rate (for either seed type)
-                or binom.cdf(num_runs_unbiased - num_passing_runs_unbiased,
-                             num_runs_unbiased + max_remaining_passing_runs,
-                             1 - NON_PRECOG_MIN_PASS_RATE)
-                   < MAX_FALSE_NEG_RATE
-                or binom.cdf(num_runs_first_match_unbiased - num_passing_runs_first_match_unbiased,
-                             num_runs_first_match_unbiased + max_remaining_passing_runs,
-                             1 - NON_PRECOG_MIN_PASS_RATE)
-                   < MAX_FALSE_NEG_RATE):
-            raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
-                               f" too few runs to ascertain {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate"
-                               f" requirement ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs"
-                               f" passed, or {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
-                               " when targeting seeds with same first molecule as the base seed).")
+        if max_total_cycles != math.inf:  # binom.cdf does not play nice with math.inf...
+            remaining_cycles = max(max_total_cycles - total_cycles, 0)
+            # The number of passing runs we're allowed before timing out is easy to estimate
+            max_remaining_passing_runs = remaining_cycles // min_passing_run_cycles
+            # On the other hand, the number of failing runs we're allowed before timing out is hard to estimate, since in
+            # the case of a solution that assumes the first molecule, the seeds with non-matching first molecule will tend
+            # to fail within just a few cycles, while matching seeds will usually fail at more random times.
+            # However since the success rate check fails only if both the all-seeds and the first-matching seeds success
+            # rates fail, it is sufficient to exit early only when it looks like the first-matching seeds success rate can't
+            # fail, and these will tend not to fail immediately in either solution type (or if they do, the regular checks
+            # will converge quickly enough that the time constraint won't be approached and this check won't matter).
+            # Accordingly, we'll assume the failure runs average half a passing run's cycle count
+            max_remaining_failing_runs = (2 * remaining_cycles) // min_passing_run_cycles
+            if not (success_check_passed
+                    # Check if pure failures can confirm a too-low success rate (for first-match seeds)
+                    or binom.cdf(num_passing_runs_first_match_unbiased,
+                                 num_runs_first_match_unbiased + max_remaining_failing_runs,
+                                 NON_PRECOG_MIN_PASS_RATE)
+                       < MAX_FALSE_POS_RATE
+                    # Check if pure successes can confirm a sufficiently high success rate (for either seed type)
+                    or binom.cdf(num_runs_unbiased - num_passing_runs_unbiased,
+                                 num_runs_unbiased + max_remaining_passing_runs,
+                                 1 - NON_PRECOG_MIN_PASS_RATE)
+                       < MAX_FALSE_NEG_RATE
+                    or binom.cdf(num_runs_first_match_unbiased - num_passing_runs_first_match_unbiased,
+                                 num_runs_first_match_unbiased + max_remaining_passing_runs,
+                                 1 - NON_PRECOG_MIN_PASS_RATE)
+                       < MAX_FALSE_NEG_RATE):
+                raise TimeoutError("Precog check could not be completed to sufficient confidence due to time constraints;"
+                                   f" too few runs to ascertain {round(100 * NON_PRECOG_MIN_PASS_RATE)}% success rate"
+                                   f" requirement ({num_passing_runs_unbiased} / {num_runs_unbiased} alternate-seed runs"
+                                   f" passed, or {num_passing_runs_first_match_unbiased} / {num_runs_first_match_unbiased}"
+                                   " when targeting seeds with same first molecule as the base seed).")
 
         if not success_check_passed:
             # Note that this helper updates global_success_check_failed if/when relevant
