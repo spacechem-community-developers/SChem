@@ -50,6 +50,23 @@ class TestPrecognition(unittest.TestCase):
                 self.assertFalse(solution.is_precognitive())
                 print(f"✅ {time.time() - start:.3f}s - {test_id}")
 
+    def test_is_precognitive_positive_with_explanation(self):
+        """Test solutions that are precognitive."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.precog_solutions):
+            with self.subTest(msg=test_id):
+                solution = Solution(solution_code, level=level_code)
+                start = time.time()
+                self.assertTrue(solution.is_precognitive(include_explanations=True).result)
+                print(f"✅ {time.time() - start:.3f}s - {test_id}")
+
+    def test_is_precognitive_negative_with_explanation(self):
+        """Test solutions that are non-precognitive, including an explanation."""
+        for test_id, level_code, solution_code in iter_test_data(test_data.non_precog_solutions):
+            with self.subTest(msg=test_id):
+                solution = Solution(solution_code, level=level_code)
+                start = time.time()
+                self.assertFalse(solution.is_precognitive(include_explanations=True).result)
+                print(f"✅ {time.time() - start:.3f}s - {test_id}")
 
 if __name__ == '__main__':
     unittest.main(verbosity=0, failfast=True, exit=False)

@@ -208,7 +208,8 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
 
     def best_success_rate():
         return max(num_passing_runs_unbiased / num_runs_unbiased,
-                   num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased)
+                   # Avoid divide by 0 if we exit before even needing any more runs with the same first molecule.
+                   num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased if num_runs_first_match_unbiased > 0 else 0)
 
     def global_success_rate_too_low(false_pos_rate):
         """Check if, with sufficient confidence, the success rate is too low for all seeds."""
@@ -298,12 +299,12 @@ def is_precognitive(solution, max_cycles=None, max_total_cycles=None, hash_state
                 # We won't try to explain all the data bias-handling going on to the user; just report whichever
                 # unbiased success rate passed the check, as well as the actual number of runs used in case they're
                 # wondering why it's slow
-                success_rate = num_passing_runs_unbiased / num_runs_unbiased
-                success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
                 if global_success_check_succeeded:
+                    success_rate = num_passing_runs_unbiased / num_runs_unbiased
                     expl += ("Solution is not precognitive; successful variants found for all input molecules in"
                              f" {num_runs} runs ({round(100 * success_rate)}% success rate).")
                 else:
+                    success_rate_first_match = num_passing_runs_first_match_unbiased / num_runs_first_match_unbiased
                     expl += ("Solution is not precognitive; successful variants found for all input molecules in"
                              f" {num_runs} runs ({round(100 * success_rate_first_match)}% success rate for seeds with"
                              f" same first molecule as base seed).")
