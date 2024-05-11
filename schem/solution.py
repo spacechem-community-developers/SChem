@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import math
 from collections import namedtuple
 import copy
 from dataclasses import dataclass
 from itertools import product
 import platform
 import time
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 import sys
 
 # These modules are only used for debug mode's pretty-printing, so make them optional
@@ -100,6 +101,7 @@ class Solution:
     """Class for constructing and running game entities from a given level object and solution code."""
     __slots__ = ('level', 'expected_score', 'author', 'name',
                  'components', 'boss', 'cycle',
+                 'custom_data',  # Scratchpad for use by any user-provided custom cycle_handler.
                  # Hashing-related attributes
                  '_prior_states', '_state_tree_segments', '_state_tree_nodes',
                  '_cur_state_tree_segment_idx', '_cycles_to_new_state',
@@ -787,9 +789,14 @@ class Solution:
                             raise type(e)(f"Reactor {i}: {e}") from e
                 raise e
 
-    def does_it_halt(self, debug=False):
+    def does_it_halt(self, fast_forward=True, debug=False):
         """Hash the current solution state and check if it matches a past state, fast-forwarding cycles when possible.
-        Return True if the solution has been fast-forwarded to successful completion.
+        Return True if the solution has been fast-forwarded to successful completion. Raise an InfiniteLoopError
+        if a loop (that doesn't win) was detected. Does fancy magic to also work in random-input levels.
+        Args:
+            fast_forward: Set to False to avoid fast-forwarding past loops (e.g. when a custom cycle_handler was given).
+                          If so we still detect infinite loop errors but never skip cycles. Default True.
+            debug: Print messages indicating what loops we're detecting and skipping.
         """
         # If we previously did a lookahead to the next unexplored branch, we can remember how many cycles
         # we are from an unknown state and skip calculating the hash while we're advancing the solution to that state.
@@ -804,13 +811,13 @@ class Solution:
         # new branch
         # Conveniently, our current pipe implementation already has to track the last pop cycle
         if any(rand_input.out_pipe._last_pop_cycle == self.cycle for rand_input in self._random_inputs):
-            last_segment = self._state_tree_segments[self._cur_state_tree_segment_idx]
+            prev_segment = self._state_tree_segments[self._cur_state_tree_segment_idx]  # Current is now 'previous'
 
-            if last_segment.next_node is None:  # next_node should only be present if we previously fast-forwarded
+            if prev_segment.next_node is None:  # next_node should only be present if we previously fast-forwarded
                 self._state_tree_nodes.append({})
-                last_segment.next_node = len(self._state_tree_nodes) - 1
+                prev_segment.next_node = len(self._state_tree_nodes) - 1
 
-            cur_node = self._state_tree_nodes[last_segment.next_node]
+            cur_node = self._state_tree_nodes[prev_segment.next_node]
 
             # Add a new segment, link to it from the node, and set it as the current segment
             self._state_tree_segments.append(StateTreeSegment(num_outputs=len(list(self.outputs))))
@@ -819,10 +826,10 @@ class Solution:
             # Create a key representing which random branch we entered, accounting for multiple random inputs
             # potentially having been produced in the same cycle
             # Could construct this for this block's `if`, but we want the check's main case to be as fast as possible
-            input_branch_key = tuple(rand_input_copy.get_next_molecule_idx()  # Note that this advances the input copy
+            input_branch_key = tuple(rand_input_copy.get_next_molecule_idx()  # Also advances the input copy to match the original.
                                      if rand_input.out_pipe._last_pop_cycle == self.cycle else None
                                      for rand_input, rand_input_copy in zip(self._random_inputs, self._random_input_copies))
-            assert input_branch_key not in cur_node  # Should be guaranteed by our cycles_to_new_state fast-forwarding
+            assert input_branch_key not in cur_node or not fast_forward  # Should be guaranteed by our cycles_to_new_state fast-forwarding
             cur_node[input_branch_key] = self._cur_state_tree_segment_idx
 
         # Update the current segment's cycle and output counts
@@ -887,11 +894,25 @@ class Solution:
                     cycles_remainder = loop_outputs[outputs_remainder - 1] - skipped_cycles + 1
                 remaining_cycles = max(remaining_cycles,
                                        full_loops * (cur_segment.cycles - skipped_cycles) + cycles_remainder)
-            self.cycle += remaining_cycles
 
+            # If we see the end but fast-forwarding is disabled, turn off does_it_halt for the rest of the run.
+            if not fast_forward:
+                self._cycles_to_new_state = math.inf
+                return
+
+            self.cycle += remaining_cycles
             return True
 
-        # At this point we know the loop wasn't internal to our current segment
+        # None of the below random-input-handling code is currently capable of detecting cross-segment infinite loops.
+        # If fast-forwarding is turned off, give up and permanently turn off does_it_halt for random levels, as trying
+        # to keep our segment tracking correct while not fast-forwarding may get complicated.
+        # At least we'll still catch infinite loops from empty solutions...
+        # TODO: Detect cross-segment infinite loops and make this work.
+        if not fast_forward:
+            self._cycles_to_new_state = math.inf
+            return False
+
+        # At this point we know the loop wasn't internal to our current segment (AKA there's a random input)
         other_segment = self._state_tree_segments[other_segment_idx]
 
         # 'Extend' the current segment based on the other segment's remaining cycles
@@ -944,6 +965,7 @@ class Solution:
                     assert output_diff >= 0  # Sanity check that we actually won
                     if output_diff < len(segment.output_cycles[output_idx]):
                         winning_cycle = max(winning_cycle, segment.output_cycles[output_idx][-output_diff - 1])
+
                 self.cycle += incoming_cycles - (segment.cycles - winning_cycle)
 
                 return True
@@ -1058,7 +1080,7 @@ class Solution:
                     incoming_outputs[output_idx] += len(output_cycles)
             else:
                 # While we'll be skipping all hash checks until the unexplored branch and thus don't need to restore
-                # most of the reference input' molecules that were extracted from the PRNG, we do need to restore
+                # most of the reference inputs' molecules that were extracted from the PRNG, we do need to restore
                 # the one(s) that triggers the unexplored branch, as that will be used to add the new branch to the node
                 # on the first cycle after renewing hash checking
                 for input_idx, input_mol_idx in enumerate(new_input_key):
@@ -1079,6 +1101,7 @@ class Solution:
 
     def run(self, max_cycles: Optional[float] = None,  # Sucky way to make sure math.inf doesn't get yelled at
             hash_states: int = 1000,
+            cycle_handler: Optional[Callable] = None,
             debug: Optional[DebugOptions] = False) -> Score:
         """Run this solution, returning a Score or raising an exception if it crashes or exceeds max_cycles.
 
@@ -1089,6 +1112,12 @@ class Solution:
                          Pass 0 to disable hashing. Can theoretically result in invalid results due to hash collisions,
                          but in practice this is not a problem.
                      Default True.
+            cycle_handler: If provided, run the given handler function at the start of each cycle, passing the solution
+                           object as an argument. Default None. If provided, hash_states fast-forwarding is disabled.
+                           The handler is called before executing instant instructions or moving waldos, but after
+                           incrementing the cycle count (so Solution.cycle will be 1 on its first call).
+                           Note that Solution.custom_data is unused and can serve as a scratchpad for this handler.
+                           Useful for e.g. collecting custom runtime statistics.
             debug: Print an updating view of the solution while running. See DebugOptions.
         """
         # Set the maximum runtime if unspecified to ensure a broken solution can't infinite loop forever
@@ -1139,6 +1168,9 @@ class Solution:
                     self.debug_print(duration=0.5 / debug.speed, reactor_idx=debug.reactor,
                                      show_instructions=debug.show_instructions)
 
+                if cycle_handler is not None:
+                    cycle_handler(self)
+
                 if self.boss is not None:
                     self.boss.do_instant_actions(self.cycle)
 
@@ -1163,8 +1195,9 @@ class Solution:
 
                 self.cycle_movement()
 
-                # Attempt to fast-forward if we're within our hash memory limit
-                if len(self._prior_states) < hash_states and self.does_it_halt(debug=bool(debug)):
+                # Attempt to fast-forward if we're within our hash memory limit and not using a custom handler
+                if len(self._prior_states) < hash_states and self.does_it_halt(fast_forward=(cycle_handler is None),
+                                                                               debug=bool(debug)):
                     return Score(self.cycle - 1, len(reactors), self.symbols)
 
             raise TimeoutError(f"Solution exceeded {max_cycles} cycles, probably infinite looping?")
@@ -1217,6 +1250,7 @@ class Solution:
 
     def validate(self, max_cycles: Optional[float] = None,
                  hash_states: int = 1000,
+                 cycle_handler: Optional[Callable] = None,
                  debug: Optional[DebugOptions] = False) -> Solution:
         """Same behaviour as Solution.run, but additionally raises an exception if the score does not match
         the expected score in solution metadata (expected_score). The run is skipped entirely if reactor/symbol counts
@@ -1227,7 +1261,7 @@ class Solution:
         max_cycles = self._validate_setup(max_cycles)
 
         # Run the solution to completion
-        cycles, _, _ = self.run(max_cycles=max_cycles, hash_states=hash_states, debug=debug)
+        cycles, _, _ = self.run(max_cycles=max_cycles, hash_states=hash_states, cycle_handler=cycle_handler, debug=debug)
 
         # Validate the cycle count
         if cycles != self.expected_score.cycles:

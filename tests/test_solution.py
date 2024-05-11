@@ -151,6 +151,17 @@ COMPONENT:'custom-research-reactor',2,0,''"""
                     solution.run()
                 print(f"✅  {test_id}")
 
+        # Ensure that this also work when a custom cycle handler is passed
+        def handler(soln):
+            soln.custom_data = 'whatever'
+
+        for test_id, level_code, solution_code in iter_test_data(test_data.infinite_loops):
+            with self.subTest(msg=test_id):
+                solution = schem.Solution(solution_code, level=level_code)
+                with self.assertRaises(schem.InfiniteLoopError):
+                    solution.run(cycle_handler=handler)
+                print(f"✅  {test_id}")
+
     def test_run_pause(self):
         """Tests for solutions that should raise a PauseException and then succeed if the run is continued."""
         for test_id, level_code, solution_code in iter_test_data(test_data.pause_then_complete):
@@ -205,6 +216,17 @@ COMPONENT:'custom-research-reactor',2,0,''"""
             with self.subTest(msg=test_id):
                 schem.Solution(solution_code, level=level_code).validate()
                 print(f"✅  {test_id}")
+
+    def test_validate_custom_func(self):
+        test_id, level_code, solution_code = next(iter_test_data(test_data.valid_solutions))
+        solution = schem.Solution(solution_code, level=level_code)
+        solution.custom_data = 0
+
+        def custom_handler(soln):
+            soln.custom_data += 1
+
+        solution.validate(cycle_handler=custom_handler)
+        self.assertEqual(solution.cycle, solution.custom_data, "Handler function not called")
 
     def test_death_solutions(self):
         """Tests for solutions which result in a loss on boss puzzles."""

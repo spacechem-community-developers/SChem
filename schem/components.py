@@ -1376,6 +1376,7 @@ class Reactor(Component):
         return result
 
     def do_instant_actions(self, cycle):
+        """Execute all waldos' instant commands and shift their directions based on arrows."""
         for waldo in self.waldos:
             if waldo.position in waldo.arrows:
                 waldo.direction = waldo.arrows[waldo.position]
