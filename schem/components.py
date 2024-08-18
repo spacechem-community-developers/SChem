@@ -501,7 +501,6 @@ class ProgrammedInput(Input):
     def __init__(self, input_dict, _type=None, posn=None, is_research=False):
         super(Input, self).__init__(input_dict, _type=_type, posn=posn, num_out_pipes=1)  # Skip Input init
 
-        assert len(input_dict['repeating-molecules']) != 0, "No repeating molecules in input dict"
         self.starting_molecules = [Molecule.from_json_string(s) for s in input_dict['starting-molecules']]
         self.starting_idx = 0
         self.repeating_molecules = [Molecule.from_json_string(s) for s in input_dict['repeating-molecules']]
@@ -525,14 +524,14 @@ class ProgrammedInput(Input):
         # -1 necessary since starting cycle is 1 not 0, while mod == 1 would break on rate = 1
         # Note that we tell the output pipe it's the next cycle, to 'move' its contents before outputting
         if (cycle - 1) % self.input_rate == 0 and self.out_pipe.get(0, cycle + 1) is None:
-            if self.starting_idx == len(self.starting_molecules):
-                self.out_pipe.push(self.repeating_molecules[self.repeating_idx].copy(), cycle + 1)
-                self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
-            else:
+            if self.starting_idx < len(self.starting_molecules):
                 self.out_pipe.push(self.starting_molecules[self.starting_idx].copy(), cycle + 1)
                 self.starting_idx += 1
-
-            self.num_inputs += 1
+                self.num_inputs += 1
+            elif self.repeating_molecules:  # Note that programmed inputs can have no repeating molecules
+                self.out_pipe.push(self.repeating_molecules[self.repeating_idx].copy(), cycle + 1)
+                self.repeating_idx = (self.repeating_idx + 1) % len(self.repeating_molecules)
+                self.num_inputs += 1
 
     def reset(self):
         super().reset()
