@@ -87,6 +87,7 @@ nj98xTOjXwE0MtVCDzNbomq9Y1mREXUdOaoTWZBT/+ArNFU+VPXfRTXFxRjlJYvkbn+pudLZzx
 MLL3krSONeo8lhUPIPlrqCtvD61K6pHZgrY4jN54O0KzdSWdG5kcVFCjGRtzaXslpbZELbZeJ+
 SzF9p5xbf0iOV0LtpX1b65ac1hII7rmF51/BQdb646foqOt1cdT9Fxt6wHVxNtY+W1dA2HXAYL
 SdWrjZr+l3n0dvKNCEwewIY7THhXoiH/d1mwwG+zkXRBuXiJ/wEgoJnQFg0AAA==""",
+    "Input outside zone": """H4sIABHe62gA/3WPwQ6CMAyGX8X0zJLBRQJP4Im7hsMyGlgCK9m6KBJ8djfUi8ZLk/Zvv29bwdg5sLiTRQ/VCjKVfRbbywoTjajDiFBBc1t6tHXzkEV9zMtC1mVeSgkZaAqWocqLrd22DCjwL/MPKN9BxRdIJgwvc9p26FE5PcTYqilNTul5h2jxpsND0sSsM16NI12xE8Z6dkGzIZs+AXsvmPo+6tsMVOCBXASdTR8vHSrNFBdePpxmXsTHKt4pbE/UODPpKwEAAA==""",
 }
 
 valid_solutions = [
@@ -7144,7 +7145,15 @@ MEMBER:'instr-output',-1,1,32,5,5,0,0
 MEMBER:'instr-arrow',180,0,16,6,5,0,0
 MEMBER:'instr-grab',-1,2,32,6,5,0,0
 PIPE:0,4,1
-PIPE:1,4,2"""
+PIPE:1,4,2""",
+    # Solution to a level with inputs outside the zone
+    r"""SOLUTION:Input outside zone,Zig,10-1-2
+COMPONENT:'custom-research-reactor',2,0,''
+MEMBER:'instr-start',180,0,128,1,0,0,0
+MEMBER:'instr-start',180,0,32,1,0,0,0
+MEMBER:'instr-input',-1,0,128,0,0,0,0
+MEMBER:'instr-output',-1,0,32,0,0,0,0
+""",
 ]  # End of valid_solutions
 
 missing_score = [

@@ -1770,16 +1770,7 @@ class Reactor(Component):
             waldo.is_stalled = True
             return
 
-        sample_posn = next(iter(new_molecule.atom_map))
-        # If the molecule came from a previous reactor, shift its columns from output to input co-ordinates
-        # We don't do this immediately on output to save a little work when the molecule is going to an output component
-        # anyway (since output checks are agnostic of absolute co-ordinates)
-        if sample_posn.col >= 6:
-            new_molecule.move(LEFT, 6)
-        # Update the molecule's co-ordinates to those of the correct zone if it came from an opposite output zone
-        if input_idx == 0 and sample_posn.row >= 4:
-            new_molecule.move(UP, 4)
-        elif input_idx == 1 and sample_posn.row < 4:
+        if input_idx == 1:
             new_molecule.move(DOWN, 4)
 
         self.check_molecule_collisions_lazy(new_molecule)
@@ -1818,6 +1809,14 @@ class Reactor(Component):
             # actions come before movement in a cycle).
             # TODO: Should figure out if there's a way to make this less awkward.
             if self.out_pipes[output_idx].get(0, cycle) is None:
+                # Shift the molecule back into 'input' coordinates for the next reactor. We don't defer this work
+                # because crazy custom levels sometimes input molecules outside the input zone.
+                molecule.move(LEFT, 6)
+                # Also normalize to top input for same reason. Though note that while custom levels can down-shift
+                # alpha inputs, they can't up-shift beta inputs due to limitations on negative numbers in exports.
+                if output_idx == 1:
+                    molecule.move(UP, 4)
+
                 # Put the molecule in the pipe and remove it from the reactor
                 self.out_pipes[output_idx].push(molecule, cycle)
 
@@ -2405,16 +2404,8 @@ class SuperLaserReactor(Reactor, Weapon):
         # Grab the molecule from the appropriate pipe or stall if no such molecule (or no pipe)
         new_molecule = self.in_pipes[input_idx].pop(cycle)
 
-        sample_posn = next(iter(new_molecule.atom_map))
-        # Normalize the molecule's column positions if necessary, depending on the input type and source columns
-        if input_idx == 0 and sample_posn.col >= 6:  # Ensure alpha input is on the left
-            new_molecule.move(LEFT, 6)
-        elif input_idx == 1 and sample_posn.col < 6:  # Ensure beta input is on the right
+        if input_idx == 1:  # Move the beta input right instead of down.
             new_molecule.move(RIGHT, 6)
-
-        # Normalize the molecule's row positions if necessary, depending on the source rows
-        if sample_posn.row >= 4:  # Both inputs in this reactor want to be in the top half
-            new_molecule.move(UP, 4)
 
         self.molecules[new_molecule] = None  # Dummy value
 
